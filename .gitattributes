@@ -1,0 +1,5 @@
+# 文本归一化为 LF；二进制由 Git 自动识别，不做行尾转换
+* text=auto eol=lf
+
+# Windows 批处理在 cmd 下需要 CRLF
+*.bat text eol=crlf

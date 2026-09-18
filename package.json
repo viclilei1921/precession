@@ -1,0 +1,37 @@
+{
+  "name": "precession",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "tauri": "tauri",
+    "app": "tauri dev",
+    "build:win": "tauri build --bundles nsis",
+    "build:mac": "tauri build --bundles dmg",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "fmt": "cd src-tauri && cargo fmt --check",
+    "fmt:fix": "cd src-tauri && cargo fmt",
+    "format": "pnpm lint:fix && pnpm fmt:fix",
+    "up:c": "pnpm outdated --long",
+    "up:i": "pnpm up --latest"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.11.1",
+    "@tauri-apps/plugin-log": "~2.9.1",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.14",
+    "@tauri-apps/cli": "^2.11.4",
+    "@types/node": "^26.6.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "typescript": "~7.0.2",
+    "vite": "^8.3.0"
+  }
+}
