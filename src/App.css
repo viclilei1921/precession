@@ -1,0 +1,119 @@
+:root {
+  font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 400;
+
+  color: #0f0f0f;
+  background-color: #f6f6f6;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+}
+
+.gate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 2rem 1.5rem;
+  margin: 0;
+  text-align: center;
+}
+
+.gate-muted {
+  max-width: 22rem;
+  margin: 0 0 1.5rem;
+  color: #5c5c5c;
+}
+
+.gate-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: stretch;
+  width: min(22rem, 100%);
+  text-align: left;
+}
+
+.gate-error {
+  margin: 0.25rem 0;
+  color: #c62828;
+}
+
+label {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+input,
+button {
+  padding: 0.6em 1.2em;
+  font-family: inherit;
+  font-size: 1em;
+  font-weight: 500;
+  color: #0f0f0f;
+  background-color: #ffffff;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.2);
+  transition: border-color 0.25s;
+}
+
+button {
+  margin-top: 0.75rem;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  border-color: #396cd8;
+}
+
+button:active:not(:disabled) {
+  background-color: #e8e8e8;
+  border-color: #396cd8;
+}
+
+button:disabled,
+input:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+input,
+button {
+  outline: none;
+}
+
+h1 {
+  text-align: center;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color: #f6f6f6;
+    background-color: #2f2f2f;
+  }
+
+  .gate-muted {
+    color: #b0b0b0;
+  }
+
+  .gate-error {
+    color: #ef9a9a;
+  }
+
+  input,
+  button {
+    color: #ffffff;
+    background-color: #0f0f0f98;
+  }
+
+  button:active:not(:disabled) {
+    background-color: #0f0f0f69;
+  }
+}

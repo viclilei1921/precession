@@ -1,0 +1,18 @@
+# --- 稳定版可用配置 ---
+max_width = 120
+use_small_heuristics = "Max"
+newline_style = "Unix"
+
+# 缩进与空格
+hard_tabs = false
+tab_spaces = 2
+
+# 函数与参数
+fn_call_width = 80
+# fn_params_layout 在稳定版中不可用，默认会根据宽度自动处理
+
+# Import 排序 (Stable 仅支持简单的重新排序)
+reorder_imports = true
+
+# 合并 Derive
+merge_derives = true

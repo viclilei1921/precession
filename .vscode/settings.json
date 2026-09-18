@@ -1,0 +1,71 @@
+{
+  "files.eol": "\n",
+  "editor.defaultFormatter": "biomejs.biome",
+  "editor.formatOnSave": false,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.biome": "explicit",
+    "source.organizeImports.biome": "explicit",
+    "source.fixAll.eslint": "never"
+  },
+  "eslint.enable": false,
+  "eslint.probe": [],
+  "eslint.validate": [],
+  "prettier.enable": false,
+  "[json]": {
+    "editor.defaultFormatter": "biomejs.biome",
+    "editor.formatOnSave": true
+  },
+  "[jsonc]": {
+    "editor.defaultFormatter": "biomejs.biome",
+    "editor.formatOnSave": true
+  },
+  "[typescript]": {
+    "editor.defaultFormatter": "biomejs.biome",
+    "editor.formatOnSave": true
+  },
+  "[javascript]": {
+    "editor.defaultFormatter": "biomejs.biome",
+    "editor.formatOnSave": true
+  },
+  "[css]": {
+    "editor.defaultFormatter": "biomejs.biome",
+    "editor.formatOnSave": true
+  },
+  "[html]": {
+    "editor.defaultFormatter": "biomejs.biome",
+    "editor.formatOnSave": true
+  },
+  "json.format.enable": false,
+  "js/ts.format.enabled": false,
+  "rust-analyzer.linkedProjects": [
+    "src-tauri/Cargo.toml"
+  ],
+  "css.lint.unknownAtRules": "ignore",
+	"[rust]": {
+		"editor.defaultFormatter": "rust-lang.rust-analyzer"
+	},
+  "cSpell.words": [
+    "cdylib",
+    "chacha",
+    "ciphertext",
+    "codegen",
+    "njsproj",
+    "nsis",
+    "ntvs",
+    "rlib",
+    "rngs",
+    "rusqlite",
+    "Rustlang",
+    "Rustup",
+    "serde",
+    "sqlcipher",
+    "staticlib",
+    "Tauri",
+    "thiserror",
+    "viclilei",
+    "winget",
+    "xchacha",
+    "zeroize",
+    "Zeroizing"
+  ]
+}

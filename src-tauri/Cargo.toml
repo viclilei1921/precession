@@ -1,0 +1,42 @@
+[package]
+name = "precession"
+version = "0.1.0"
+description = "Precession App"
+authors = ["viclilei1921"]
+edition = "2024"
+
+[lib]
+# `_lib` 后缀是为避免与可执行程序同名导致冲突（在 Windows 上尤为重要）
+name = "precession_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2.11", features = ["tray-icon"] }
+tauri-plugin-log = "2.9.1"
+
+# --- 序列化 / JSON ---
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# --- 档案加密库 ---
+rusqlite = { version = "0.37", features = ["bundled-sqlcipher-vendored-openssl"] }
+argon2 = "0.5"
+chacha20poly1305 = "0.10"
+rand = "0.8"
+zeroize = "1"
+hex = "0.4"
+base64 = "0.22"
+thiserror = "2"
+
+[dev-dependencies]
+tempfile = "3"
+
+[profile.release]
+codegen-units = 1                 # 使 LLVM 能做更激进的整体优化，代价是编译更慢
+lto = true                        # 开启链接时优化（跨 crate）
+opt-level = "s"                   # 以减小二进制体积为主；若更关心性能可用 3
+panic = "abort"                   # panic 时直接中止进程，减小体积并略提性能
+strip = true                      # 移除调试符号，进一步减小可执行文件大小
