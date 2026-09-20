@@ -1,6 +1,7 @@
 mod constants;
 mod crypto;
 mod db;
+#[cfg(desktop)]
 mod menu;
 mod plugin;
 mod utils;
@@ -27,7 +28,7 @@ pub fn run() {
     app.manage(db::state::DbState::new(app_data_dir));
 
     // 注册托盘菜单；进程级数据库会话在 setup 里挂上（此时才有 AppHandle）。
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    #[cfg(desktop)]
     if let Err(e) = menu::tray::register_tray_menu(app) {
       tauri_plugin_log::log::error!("tray menu registration failed: {e}");
     }
@@ -43,10 +44,9 @@ pub fn run() {
     db::commands::db_lock,
   ]);
 
-  // 窗口事件
+  // 桌面：关闭窗口时隐藏到托盘；移动端不注册，交给系统默认关闭行为
+  #[cfg(desktop)]
   let builder = builder.on_window_event(|window, event| {
-    // 桌面：关闭窗口时隐藏到托盘；移动：交给系统默认关闭行为
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
     if let tauri::WindowEvent::CloseRequested { api, .. } = event {
       api.prevent_close();
       let _ = window.hide();

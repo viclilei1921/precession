@@ -73,6 +73,7 @@
     "staticlib",
     "Tauri",
     "thiserror",
+    "unminimize",
     "usbipd",
     "viclilei",
     "winget",
