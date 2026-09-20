@@ -83,3 +83,10 @@ cargo upgrade --breaking
 Tauri 使用 Microsoft C++ 生成工具进行开发以及 Microsoft Edge WebView2。这两者都是在 Windows 上进行开发所必需的。
 
 [下载Microsoft C++](https://visualstudio.microsoft.com/zh-hans/visual-cpp-build-tools/)，安装过程中，选中“使用 C++ 的桌面开发”选项，细节查看[Tauri2文档](https://v2.tauri.app/zh-cn/start/prerequisites/#microsoft-c-%E7%94%9F%E6%88%90%E5%B7%A5%E5%85%B7)。
+
+
+### android
+
+android开发前置[参考文档](https://v2.tauri.app/zh-cn/start/prerequisites/#android)。
+
+Windows 本机交叉编译 SQLCipher（OpenSSL）会失败。Android 请在 WSL 里做，包清单和原因见 [docs/wsl-android.md](./docs/wsl-android.md)。
