@@ -87,6 +87,90 @@ Tauri 使用 Microsoft C++ 生成工具进行开发以及 Microsoft Edge WebView
 
 ### android
 
-android开发前置[参考文档](https://v2.tauri.app/zh-cn/start/prerequisites/#android)。
+官方前置：[Tauri Android 前置条件](https://v2.tauri.app/zh-cn/start/prerequisites/#android)。
 
-Windows 本机交叉编译 SQLCipher（OpenSSL）会失败。Android 请在 WSL 里做，包清单和原因见 [docs/wsl-android.md](./docs/wsl-android.md)。
+档案库用了 `bundled-sqlcipher-vendored-openssl`，交叉编译会从源码编 OpenSSL，对 JDK / NDK 工具链更敏感。
+
+| 平台 | 怎么做 |
+| --- | --- |
+| macOS | 本机即可，按下面「macOS」配置 |
+| Windows | 本机交叉编译 OpenSSL 会失败，请在 WSL 里做，见 [docs/wsl-android.md](./docs/wsl-android.md) |
+
+#### macOS
+
+1. 安装 [Android Studio](https://developer.android.com/studio)（或只用 command-line tools），在 SDK Manager 里装好：
+   - Android SDK Platform（与 `gen/android` 里 `compileSdk` 对齐，当前为 36）
+   - Android SDK Build-Tools
+   - NDK（侧边栏 SDK Tools → NDK；记下精确版本号，例如 `30.0.14904198`）
+   - Android SDK Platform-Tools（`adb`）
+
+2. 安装 **JDK 21**（不要用 Android Studio 自带的 JBR，若已是 Java 25）。  
+   本仓库 Gradle 为 **8.14.x**，不支持 class file major version **69**（Java 25），会出现：
+   `Unsupported class file major version 69`。
+
+```bash
+brew install openjdk@21
+# 按 brew 提示做系统可见的 symlink（可选），并记住下面 JAVA_HOME 路径
+```
+
+3. 安装 Rust Android 目标（首次）：
+
+```bash
+rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
+```
+
+4. 写入 `~/.zshrc`（按本机路径改 NDK 版本号；Apple Silicon 上 NDK 预编译目录仍叫 `darwin-x86_64`）：
+
+```bash
+# --- Precession Android (macOS) ---
+export JAVA_HOME="$(brew --prefix openjdk@21)/libexec/openjdk.jdk/Contents/Home"
+export ANDROID_HOME="$HOME/Library/Android/sdk"
+export ANDROID_SDK_ROOT="$ANDROID_HOME"
+# 改成你 SDK Manager 里实际的 NDK 目录名
+export NDK_HOME="$ANDROID_HOME/ndk/30.0.14904198"
+export PATH="$JAVA_HOME/bin:$ANDROID_HOME/platform-tools:$PATH"
+
+# NDK 23+ 没有 aarch64-linux-android-ranlib，必须显式指向 llvm-ranlib
+# 否则 openssl-src 的 make install_dev 会以 exit 2 失败
+NDK_BIN="$NDK_HOME/toolchains/llvm/prebuilt/darwin-x86_64/bin"
+export AR_aarch64_linux_android="$NDK_BIN/llvm-ar"
+export RANLIB_aarch64_linux_android="$NDK_BIN/llvm-ranlib"
+export CC_aarch64_linux_android="$NDK_BIN/aarch64-linux-android24-clang"
+export AR_armv7_linux_androideabi="$NDK_BIN/llvm-ar"
+export RANLIB_armv7_linux_androideabi="$NDK_BIN/llvm-ranlib"
+export CC_armv7_linux_androideabi="$NDK_BIN/armv7a-linux-androideabi24-clang"
+export AR_x86_64_linux_android="$NDK_BIN/llvm-ar"
+export RANLIB_x86_64_linux_android="$NDK_BIN/llvm-ranlib"
+export CC_x86_64_linux_android="$NDK_BIN/x86_64-linux-android24-clang"
+export AR_i686_linux_android="$NDK_BIN/llvm-ar"
+export RANLIB_i686_linux_android="$NDK_BIN/llvm-ranlib"
+export CC_i686_linux_android="$NDK_BIN/i686-linux-android24-clang"
+```
+
+`source ~/.zshrc` 后自检：
+
+```bash
+java -version          # 应为 21.x，不是 25.x
+echo "$JAVA_HOME"
+echo "$ANDROID_HOME"
+echo "$NDK_HOME"
+echo "$RANLIB_aarch64_linux_android"
+ls "$RANLIB_aarch64_linux_android"
+adb version
+```
+
+5. 跑 Android：
+
+```bash
+pnpm app:android
+# 正式包
+pnpm build:android
+```
+
+常见问题：
+
+| 现象 | 原因 |
+| --- | --- |
+| `make install_dev` / OpenSSL exit 2 | 未设 `AR_*` / `RANLIB_*` / `CC_*` |
+| `Unsupported class file major version 69` | `JAVA_HOME` 仍指向 Java 25（常见为 Android Studio JBR） |
+| `java.lang.System::load` 的 WARNING | 用错新 JDK 时的附带警告；先把 JDK 换成 21 即可，不必单独处理 |
