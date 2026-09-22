@@ -3,8 +3,8 @@ use base64::Engine;
 use base64::engine::general_purpose::STANDARD as BASE64;
 use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use chacha20poly1305::{Key, XChaCha20Poly1305, XNonce};
-use rand::RngCore;
-use rand::rngs::OsRng;
+use rand::TryRng;
+use rand::rngs::SysRng;
 use zeroize::{Zeroize, Zeroizing};
 
 use super::constants::{AAD, DEK_LEN, KEK_LEN, MAX_M_KIB, MIN_M_KIB, NONCE_LEN, SALT_LEN};
@@ -116,19 +116,19 @@ fn wrap_dek(kek: &[u8; KEK_LEN], dek: &[u8; DEK_LEN]) -> Result<([u8; NONCE_LEN]
   // ChaCha20 负责把 DEK 打乱成密文
   // Poly1305 负责贴一张「防伪标签」，改一个字节都能发现
   // 前面的 X 表示 nonce 更长（24 字节），随机生成时撞车概率极低
-  let cipher = XChaCha20Poly1305::new(Key::from_slice(kek));
+  let cipher = XChaCha20Poly1305::new(&Key::from(*kek));
 
   // 随机生成一个 nonce
   // nonce 可以理解成「这次上锁用的批次号」
-  // 同一把 KEK、同一段 DEK，如果每次加密都用相同 nonce，密文会暴露规律，这在这类流密码里是严重问题。所以每次包装都从操作系统随机源 OsRng 抽 24 字节新 nonce。
+  // 同一把 KEK、同一段 DEK，如果每次加密都用相同 nonce，密文会暴露规律，这在这类流密码里是严重问题。所以每次包装都从操作系统随机源 SysRng 抽 24 字节新 nonce。
   let mut nonce_bytes = [0u8; NONCE_LEN];
-  OsRng.fill_bytes(&mut nonce_bytes);
-  let nonce = XNonce::from_slice(&nonce_bytes);
+  SysRng.try_fill_bytes(&mut nonce_bytes).map_err(|_| CryptoError::Internal)?;
+  let nonce = XNonce::from(nonce_bytes);
 
   // 加密 DEK，并绑上身份标签 AAD
   // payload msg: DEK(32字节明文) 真正被加密的内容
   // payload aad: "precession.db.dek.v1" 不加密，但会算进防伪标签
-  let ct = cipher.encrypt(nonce, Payload { msg: dek, aad: AAD }).map_err(|_| CryptoError::Internal)?;
+  let ct = cipher.encrypt(&nonce, Payload { msg: dek, aad: AAD }).map_err(|_| CryptoError::Internal)?;
 
   // 返回 nonce 和密文。
   // 密文里面不只是打乱后的 DEK，还附带 Poly1305 校验码，所以会比 32 字节更长
@@ -139,14 +139,14 @@ fn wrap_dek(kek: &[u8; KEK_LEN], dek: &[u8; DEK_LEN]) -> Result<([u8; NONCE_LEN]
 /// 用 KEK、当时的 nonce 和密文，把 DEK 从保险箱里拿出来。
 fn unwrap_dek(kek: &[u8; KEK_LEN], nonce: &[u8], ct: &[u8]) -> Result<Zeroizing<[u8; DEK_LEN]>, CryptoError> {
   // 用 KEK 装好锁
-  let cipher = XChaCha20Poly1305::new(Key::from_slice(kek));
+  let cipher = XChaCha20Poly1305::new(&Key::from(*kek));
 
   // nonce 这次不是新生成的，而是读回当时那 24 字节
-  let nonce = XNonce::from_slice(nonce);
+  let nonce = XNonce::try_from(nonce).map_err(|_| CryptoError::Corrupt)?;
 
   // 解密 DEK，并检查防伪标签
   // decrypt 得到的 plain 是一份临时缓冲区，内容和 DEK 相同
-  let plain = cipher.decrypt(nonce, Payload { msg: ct, aad: AAD }).map_err(|_| CryptoError::WrongPassword)?;
+  let plain = cipher.decrypt(&nonce, Payload { msg: ct, aad: AAD }).map_err(|_| CryptoError::WrongPassword)?;
 
   // 确认解开的正好是 32 字节 DEK
   let dek: [u8; DEK_LEN] = plain.as_slice().try_into().map_err(|_| CryptoError::Corrupt)?;
@@ -162,11 +162,45 @@ fn unwrap_dek(kek: &[u8; KEK_LEN], nonce: &[u8], ct: &[u8]) -> Result<Zeroizing<
 /// 随机生成字节数组
 fn random_bytes<const N: usize>() -> Result<Zeroizing<[u8; N]>, CryptoError> {
   let mut bytes = Zeroizing::new([0u8; N]);
-  OsRng.fill_bytes(bytes.as_mut());
+  SysRng.try_fill_bytes(bytes.as_mut()).map_err(|_| CryptoError::Internal)?;
   Ok(bytes)
 }
 
 /// 解码 Base64 字符串
 fn decode_b64(value: &str) -> Result<Vec<u8>, CryptoError> {
   BASE64.decode(value.trim()).map_err(|_| CryptoError::Corrupt)
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  fn test_kdf() -> KdfParams {
+    KdfParams { m_kib: MIN_M_KIB, t: 1, p: 1 }
+  }
+
+  #[test]
+  fn seal_then_open_roundtrip() {
+    let dek = random_dek().unwrap();
+    let header = seal_dek("correct horse", &dek, test_kdf()).unwrap();
+    let opened = open_dek("correct horse", &header).unwrap();
+    assert_eq!(dek.as_ref(), opened.as_ref());
+  }
+
+  #[test]
+  fn open_rejects_wrong_password() {
+    let dek = random_dek().unwrap();
+    let header = seal_dek("correct horse", &dek, test_kdf()).unwrap();
+    let err = open_dek("wrong password", &header).unwrap_err();
+    assert!(matches!(err, CryptoError::WrongPassword));
+  }
+
+  #[test]
+  fn unwrap_rejects_wrong_nonce_len() {
+    let kek = [7u8; KEK_LEN];
+    let dek = [9u8; DEK_LEN];
+    let (nonce, ct) = wrap_dek(&kek, &dek).unwrap();
+    let err = unwrap_dek(&kek, &nonce[..NONCE_LEN - 1], &ct).unwrap_err();
+    assert!(matches!(err, CryptoError::Corrupt));
+  }
 }

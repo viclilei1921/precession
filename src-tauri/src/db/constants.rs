@@ -10,7 +10,6 @@ pub const DB_HEADER: &str = "key.header.json";
 /// 写头文件时的临时文件
 pub const DB_HEADER_TMP: &str = "key.header.json.tmp";
 
-
 /// 探针键
 pub const PROBE_KEY: &str = "ok";
 

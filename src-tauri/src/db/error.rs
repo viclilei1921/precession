@@ -23,7 +23,6 @@ pub enum DbError {
   #[error("数据库损坏")]
   Corrupt,
   /// 数据库未解锁
-  #[allow(dead_code)]
   #[error("数据库未解锁")]
   Locked,
   /// 无法访问数据目录

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import type { DbStatus } from './bridge/db';
 import { dbCreate, dbLock, dbStatus, dbUnlock } from './bridge/db';
+import type { DemoItem } from './bridge/demo';
+import { demoCreate, demoDelete, demoList, demoUpdate } from './bridge/demo';
 import './App.css';
 
 function errorMessage(error: unknown): string {
@@ -185,29 +187,176 @@ function UnlockView({ onDone }: { onDone: () => Promise<unknown> }) {
 }
 
 function UnlockedView({ onLocked }: { onLocked: () => Promise<unknown> }) {
+  const [items, setItems] = useState<DemoItem[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [title, setTitle] = useState('');
+  const [body, setBody] = useState('');
   const [busy, setBusy] = useState(false);
+  const [locking, setLocking] = useState(false);
   const [error, setError] = useState('');
+  const [loadError, setLoadError] = useState('');
+
+  async function refreshList() {
+    const next = await demoList();
+    setItems(next);
+    return next;
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+    demoList()
+      .then((next) => {
+        if (!cancelled) {
+          setItems(next);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setLoadError(errorMessage(err));
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  function resetForm() {
+    setSelectedId(null);
+    setTitle('');
+    setBody('');
+  }
+
+  function selectItem(item: DemoItem) {
+    setSelectedId(item.id);
+    setTitle(item.title);
+    setBody(item.body);
+    setError('');
+  }
+
+  async function save() {
+    setBusy(true);
+    setError('');
+    try {
+      if (selectedId) {
+        await demoUpdate(selectedId, title, body);
+      } else {
+        await demoCreate(title, body);
+      }
+      await refreshList();
+      resetForm();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove(id: string) {
+    setBusy(true);
+    setError('');
+    try {
+      await demoDelete(id);
+      if (selectedId === id) {
+        resetForm();
+      }
+      await refreshList();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function lock() {
-    setBusy(true);
+    setLocking(true);
     setError('');
     try {
       await dbLock();
       await onLocked();
     } catch (err) {
       setError(errorMessage(err));
-      setBusy(false);
+      setLocking(false);
     }
   }
 
   return (
-    <main className="gate">
-      <h1>库已解锁</h1>
-      <p className="gate-muted">关窗进托盘不会要求重新输入密码。锁定或退出后需要再输入。</p>
-      {error ? <p className="gate-error">{error}</p> : null}
-      <button type="button" disabled={busy} onClick={lock}>
-        {busy ? '正在锁定…' : '锁定'}
-      </button>
+    <main className="playground">
+      <header className="playground-header">
+        <div>
+          <h1>示例表 CRUD</h1>
+          <p className="gate-muted">验证加密库可读写。锁定或退出后需要再输入密码。</p>
+        </div>
+        <button type="button" disabled={busy || locking} onClick={lock}>
+          {locking ? '正在锁定…' : '锁定'}
+        </button>
+      </header>
+
+      {loadError ? <p className="gate-error">{loadError}</p> : null}
+
+      <form
+        className="gate-form playground-form"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!busy && !locking) {
+            save();
+          }
+        }}
+      >
+        <label htmlFor="demo-title">标题</label>
+        <input
+          id="demo-title"
+          value={title}
+          disabled={busy || locking}
+          onChange={(e) => setTitle(e.currentTarget.value)}
+        />
+        <label htmlFor="demo-body">正文</label>
+        <textarea
+          id="demo-body"
+          rows={4}
+          value={body}
+          disabled={busy || locking}
+          onChange={(e) => setBody(e.currentTarget.value)}
+        />
+        {error ? <p className="gate-error">{error}</p> : null}
+        <div className="playground-actions">
+          <button type="submit" disabled={busy || locking}>
+            {selectedId ? '保存修改' : '新建'}
+          </button>
+          {selectedId ? (
+            <button type="button" disabled={busy || locking} onClick={resetForm}>
+              取消编辑
+            </button>
+          ) : null}
+        </div>
+      </form>
+
+      {items.length === 0 ? (
+        <p className="gate-muted">还没有记录。</p>
+      ) : (
+        <ul className="demo-list">
+          {items.map((item) => (
+            <li key={item.id} className={item.id === selectedId ? 'demo-item demo-item-active' : 'demo-item'}>
+              <button
+                type="button"
+                className="demo-item-pick"
+                disabled={busy || locking}
+                onClick={() => selectItem(item)}
+              >
+                <strong>{item.title}</strong>
+                {item.body ? <span>{item.body}</span> : null}
+              </button>
+              <button
+                type="button"
+                className="demo-item-delete"
+                disabled={busy || locking}
+                onClick={() => remove(item.id)}
+              >
+                删除
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </main>
   );
 }

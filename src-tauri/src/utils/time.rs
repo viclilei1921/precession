@@ -1,5 +1,10 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
+/// 当前 Unix 毫秒时间戳，给业务表的 created_at / updated_at 用。
+pub fn now_unix_ms() -> i64 {
+  SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as i64).unwrap_or(0)
+}
+
 pub fn now_utc8() -> (i32, u8, u8, u8, u8, u8) {
   const OFFSET_SECS: i64 = 8 * 3600;
   let unix = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0) + OFFSET_SECS;

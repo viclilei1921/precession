@@ -1,12 +1,14 @@
 # Windows WSL：Tauri 2 + Android + SQLCipher 环境
 
-Windows 桌面端可以正常开发。Android 不能在 Windows 本机编过，是因为档案库用了：
+Windows 桌面端可以正常开发。Android **不能**在 Windows 本机编过，是因为档案库用了：
 
 ```toml
-rusqlite = { version = "0.37", features = ["bundled-sqlcipher-vendored-openssl"] }
+rusqlite = { version = "0.40", features = ["bundled-sqlcipher-vendored-openssl"] }
 ```
 
 这会在交叉编译时从源码编 **OpenSSL**。Windows 上 Perl 路径和 NDK 的 `clang.cmd` 互相打架（`openssl-sys` Configure 失败）。WSL 里是 Unix Perl + Linux NDK 的真正 `clang`，这条链才能走通。
+
+macOS 本机可直接交叉编译 Android，见 [mac-android.md](./mac-android.md)。桌面端 SQLCipher 共性说明见仓库根目录 [README.md](../README.md)。
 
 WSL 没有图形界面没关系。SDK 用命令行即可。App 界面跑在手机或 Windows 上的模拟器里，不跑在 Ubuntu 窗口里。
 

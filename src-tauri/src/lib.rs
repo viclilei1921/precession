@@ -1,6 +1,7 @@
 mod constants;
 mod crypto;
 mod db;
+mod db_demo;
 #[cfg(desktop)]
 mod menu;
 mod plugin;
@@ -25,7 +26,7 @@ pub fn run() {
     })?;
 
     // 初始化数据库状态
-    app.manage(db::state::DbState::new(app_data_dir));
+    app.manage(db::state::DbState::new(app_data_dir).with_migrators(vec![db_demo::migrate]));
 
     // 注册托盘菜单；进程级数据库会话在 setup 里挂上（此时才有 AppHandle）。
     #[cfg(desktop)]
@@ -42,6 +43,11 @@ pub fn run() {
     db::commands::db_create,
     db::commands::db_unlock,
     db::commands::db_lock,
+    db_demo::commands::demo_list,
+    db_demo::commands::demo_get,
+    db_demo::commands::demo_create,
+    db_demo::commands::demo_update,
+    db_demo::commands::demo_delete,
   ]);
 
   // 桌面：关闭窗口时隐藏到托盘；移动端不注册，交给系统默认关闭行为

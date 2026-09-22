@@ -96,7 +96,7 @@ pub fn open_db(path: &std::path::Path, dek: &[u8; 32]) -> Result<Connection, DbE
 
   // 立刻读回探针，确认「密钥生效 + 表结构正常」
   verify_probe(&conn)?;
-  
+
   Ok(conn)
 }
 
@@ -129,6 +129,10 @@ fn apply_raw_key(conn: &Connection, dek: &[u8; 32]) -> Result<(), DbError> {
 
   // 所以这里用的是方式 B
   let sql = Zeroizing::new(format!("PRAGMA key = \"x'{}'\";", hex_key.as_str()));
+
+  // 使用日志输出 DEK 进行调试
+  // 可以使用DB Browser for SQLite 查看数据库文件内容
+  // tauri_plugin_log::log::warn!("DEBUG sqlcipher key: x'{}'", hex_key.as_str());
 
   conn.execute_batch(sql.as_str()).map_err(|_| DbError::Internal)
 }

@@ -1,176 +1,245 @@
 # Precession
 
-基于 Tauri2 + Vite + React的跨平台应用。
-定位：记录生活。通过计划、手记、成长、书库来进行记录。
+基于 **Tauri 2** + **Vite** + **React** 的跨平台应用。
 
-## 参考文档
+定位：记录生活——通过计划、手记、成长、书库进行记录。
 
-- [Tauri 2 中文](https://v2.tauri.app/zh-cn/start/create-project/)
-- [React](https://react.dev/)
+## 环境
 
-## 环境与运行
+通用前置条件见 [Tauri 2 前置要求](https://v2.tauri.app/zh-cn/start/prerequisites/)。下文只列本仓库额外约定。
 
-### node
+本项目因使用 SQLCipher（见「数据库 SQLCipher」），编译期还需 **C 工具链 + Perl**；Android 交叉编译另有独立文档。
 
-node环境以及版本管理，使用[fnm](https://www.lilei1921.cn/notes/node-version-tool-fnm)。
+### Node 版本管理（fnm）
 
-包管理使用 [pnpm](https://pnpm.io/)（可用 `corepack enable` 启用，或 `npm i -g pnpm` 安装）
+官方前置要求已包含 Node。推荐使用版本管理工具 [fnm](https://github.com/schniz/fnm)，安装说明见 [fnm 安装文档](https://www.lilei1921.cn/notes/node-version-tool-fnm)。
+
+### pnpm
+
+包管理使用 [pnpm](https://pnpm.io/)。推荐通过 Corepack 启用：
 
 ```bash
-# 安装依赖
-pnpm i
-# 检测包更新和更新包
-# pnpm-workspace.yaml 中配置 minimumReleaseAge来确定最新为多少时间前的包。0值为最新
-pnpm up:c
-pnpm up:i
-# 运行项目(桌面开发模式)
+corepack enable
+corepack prepare pnpm@latest --activate
+```
+
+## 常用命令
+
+```bash
+# 开发
 pnpm app
-#打包win和mac
+pnpm app:android
+
+# 打包
 pnpm build:win
 pnpm build:mac
-```
-更新图标
-```bash
-# icon更换
-pnpm run tauri icon ./app-icon.png
-```
+pnpm build:android
 
-格式化工具[biome](https://biomejs.dev/zh-cn/)，配置文件：[biome.json](./biome.json)
+# 前后端格式化并修复
+pnpm format
 
-```bash
-pnpm add --save-dev --save-exact @biomejs/biome
-# 配置文件地址
-# biome.json
-# 使用vscode编辑器，注意配置setting.json
-# 检测格式以及修复
-pnpm lint
-pnpm lint:fix
+# 根据 app-icon.png 生成各平台图标
+pnpm tauri icon ./app-icon.png
 ```
 
-rust格式化，使用cargo fmt。
+
+
+## 前端
+
+
+
+### 格式化（Biome）
+
+未使用 ESLint。配置与用法见 [Biome 文档](https://biomejs.dev/zh-cn/)，仓库配置文件为 [biome.json](./biome.json)。
 
 ```bash
+# 使用 VS Code / Cursor 时，请配置工作区 settings.json（本仓库已有 .vscode/settings.json）
+pnpm lint       # 检查
+pnpm lint:fix  # 检查并写入修复
+```
+
+
+
+### 依赖
+
+```bash
+pnpm i          # 安装依赖
+pnpm up:c       # 查看可更新包（outdated）
+pnpm up:i       # 按 latest 升级依赖
+
+# pnpm-workspace.yaml 中的 minimumReleaseAge 控制「多久之前发布的包才视为可用」；0 表示不限制
+```
+
+
+
+### React
+
+使用 React 开发，参考 [React 文档](https://zh-hans.react.dev/)。
+
+### 样式
+
+使用原生 CSS Modules。样式文件中可用 kebab-case 类名，在 React 中以小驼峰引用；Vite 中已做相应配置。
+
+## 后端
+
+
+
+### 格式化（rustfmt）
+
+为缩小与前端代码风格的差异，对 rustfmt 做了少量调整，见 [src-tauri/.rustfmt.toml](./src-tauri/.rustfmt.toml)。
+
+```bash
+cargo fmt --check
+cargo fmt
+
+# 仓库脚本（在项目根目录）
 pnpm fmt
 pnpm fmt:fix
 ```
 
-格式化并修复前后端
+
+
+### 依赖（Cargo）
+
+除原生 `cargo` 外，推荐安装 [cargo-edit](https://github.com/killercup/cargo-edit) 以便升级 `Cargo.toml` 中的版本号：
 
 ```bash
-pnpm format
-```
-
-### rust
-
-```shell
-# windows安装
-winget install --id Rustlang.Rustup
-
-# 安装 cargo-edit 工具（仅首次需要）
+# 仅首次需要
 cargo install cargo-edit
-# 显示所有可升级依赖及其版本对比
-cargo upgrade --dry-run
-# 升级所有依赖并直接重写 Cargo.toml
-cargo upgrade
-# 升级到最新的兼容版本（不跨主版本，类似 cargo update，但会修改 Cargo.toml）
-cargo upgrade --compatible
-# 强制升级到最新的主版本（默认行为）
-cargo upgrade --breaking
+
+# 仅刷新 Cargo.lock（不改 Cargo.toml 版本约束）
+cargo update
+
+# 在兼容版本范围内升级（推荐流程）
+cargo upgrade -n    # 预览
+cargo upgrade       # 写入 Cargo.toml
+cargo update
+cargo check
+
+# 跨大版本：务必逐个 crate，不要一次全部 --incompatible
+cargo upgrade -n --incompatible
+cargo upgrade -n --incompatible -p some_crate
+cargo upgrade --incompatible -p some_crate
+cargo update -p some_crate
+cargo check
 ```
 
-### windows
-
-Tauri 使用 Microsoft C++ 生成工具进行开发以及 Microsoft Edge WebView2。这两者都是在 Windows 上进行开发所必需的。
-
-[下载Microsoft C++](https://visualstudio.microsoft.com/zh-hans/visual-cpp-build-tools/)，安装过程中，选中“使用 C++ 的桌面开发”选项，细节查看[Tauri2文档](https://v2.tauri.app/zh-cn/start/prerequisites/#microsoft-c-%E7%94%9F%E6%88%90%E5%B7%A5%E5%85%B7)。
 
 
-### android
+### 编译缓存
 
-官方前置：[Tauri Android 前置条件](https://v2.tauri.app/zh-cn/start/prerequisites/#android)。
-
-档案库用了 `bundled-sqlcipher-vendored-openssl`，交叉编译会从源码编 OpenSSL，对 JDK / NDK 工具链更敏感。
-
-| 平台 | 怎么做 |
-| --- | --- |
-| macOS | 本机即可，按下面「macOS」配置 |
-| Windows | 本机交叉编译 OpenSSL 会失败，请在 WSL 里做，见 [docs/wsl-android.md](./docs/wsl-android.md) |
-
-#### macOS
-
-1. 安装 [Android Studio](https://developer.android.com/studio)（或只用 command-line tools），在 SDK Manager 里装好：
-   - Android SDK Platform（与 `gen/android` 里 `compileSdk` 对齐，当前为 36）
-   - Android SDK Build-Tools
-   - NDK（侧边栏 SDK Tools → NDK；记下精确版本号，例如 `30.0.14904198`）
-   - Android SDK Platform-Tools（`adb`）
-
-2. 安装 **JDK 21**（不要用 Android Studio 自带的 JBR，若已是 Java 25）。  
-   本仓库 Gradle 为 **8.14.x**，不支持 class file major version **69**（Java 25），会出现：
-   `Unsupported class file major version 69`。
+Rust 编译缓存体积较大，可按需清理：
 
 ```bash
-brew install openjdk@21
-# 按 brew 提示做系统可见的 symlink（可选），并记住下面 JAVA_HOME 路径
+# 清理本项目编译产物，保留 ~/.cargo 依赖缓存（常用）
+cargo clean
+cargo clean --profile debug
+cargo clean --profile release
+
+# 查看 / 清理全局 ~/.cargo 缓存（需安装 cargo-cache）
+cargo cache
+cargo cache --autoclean
 ```
 
-3. 安装 Rust Android 目标（首次）：
+
+
+## 数据库 SQLCipher
+
+应用会存储敏感数据，因此本地库使用 SQLite 的加密分支 [SQLCipher](https://github.com/sqlcipher/sqlcipher)，而不是明文 SQLite。
+
+### 编译依赖
+
+`[src-tauri/Cargo.toml](./src-tauri/Cargo.toml)` 中：
+
+```toml
+rusqlite = { version = "0.40", features = ["bundled-sqlcipher-vendored-openssl"] }
+```
+
+该 feature 会在 **编译期从源码构建 OpenSSL**，再编进 SQLCipher。因此真正需要的是：
+
+- **C 工具链**（Windows：MSVC / Build Tools；macOS：Xcode CLT；Linux：`build-essential`）
+- **Perl**（OpenSSL 的 `./Configure` 是 Perl 脚本）
+- **make** 等基础构建工具（通常随上述工具链一起提供）
+
+一般 **不必** 先单独安装一套「系统 OpenSSL 库」再链接；缺的是能跑通 `openssl-src` 的构建环境。各平台细节见下文。
+
+### 运行时模型（简要）
+
+应用数据目录下大致为：
+
+
+| 文件                | 作用                              |
+| ----------------- | ------------------------------- |
+| `data.sqlite`     | SQLCipher 加密库；没有正确 DEK 时内容不可读   |
+| `key.header.json` | 密钥头：盐、Argon2id 参数、被 KEK 包装的 DEK |
+
+
+流程概要：
+
+1. 用户密码经 **Argon2id** 派生 **KEK**，用 **XChaCha20-Poly1305** 包装随机 **DEK**（32 字节），写入 `key.header.json`。
+2. 开库时解开 DEK，执行 `PRAGMA key = "x'<64 hex>'"`（原始密钥，不再让 SQLCipher 做口令派生）。
+3. 业务表通过 `DbState::with_conn` 访问；如何新增业务模块见 [docs/db-feature.md](./docs/db-feature.md)。
+
+
+
+### 平台一览
+
+
+| 场景                | 做法                                                                            |
+| ----------------- | ----------------------------------------------------------------------------- |
+| Windows 桌面        | 下文「Windows 桌面」                                                                |
+| macOS 桌面          | 下文「macOS 桌面」                                                                  |
+| Linux / WSL 桌面    | 下文「Linux / WSL」；apt 明细可参考 [docs/wsl-android.md](./docs/wsl-android.md) 第 4 节  |
+| Windows → Android | **不能**在 Windows 本机交叉编译；必须在 WSL，见 [docs/wsl-android.md](./docs/wsl-android.md) |
+| macOS → Android   | 见 [docs/mac-android.md](./docs/mac-android.md)                                |
+
+
+
+
+### Windows 桌面
+
+1. 安装 [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/)（勾选「使用 C++ 的桌面开发」），满足 Tauri / 原生 crate 的 MSVC 要求。
+2. 安装 [Strawberry Perl](https://strawberryperl.com/)（Unix 路径风格的 Perl；OpenSSL Configure 依赖它）。安装后确认 `perl` 在 PATH 中。
+3. 自检后编译桌面端：
+
+```powershell
+perl -v
+cl      # 或在「x64 Native Tools」终端中确认 MSVC 可用
+pnpm app
+```
+
+若 `openssl-src` 报找不到 Perl / 无法 Configure，优先检查 PATH 是否指向 Strawberry 的 `perl.exe`，以及是否在正确的 MSVC 开发者环境中执行 `cargo` / `pnpm app`。
+
+### macOS 桌面
 
 ```bash
-rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
+xcode-select --install          # 若尚未安装 Command Line Tools
+brew install perl pkg-config    # 建议；系统 Perl 通常也可用
+
+which perl make clang
+pnpm app
 ```
 
-4. 写入 `~/.zshrc`（按本机路径改 NDK 版本号；Apple Silicon 上 NDK 预编译目录仍叫 `darwin-x86_64`）：
+Android 交叉编译另需 JDK 21、Android SDK/NDK 及 `AR_*` / `RANLIB_*` / `CC_*`，见 [docs/mac-android.md](./docs/mac-android.md)。
+
+### Linux / WSL
+
+桌面端至少需要：
 
 ```bash
-# --- Precession Android (macOS) ---
-export JAVA_HOME="$(brew --prefix openjdk@21)/libexec/openjdk.jdk/Contents/Home"
-export ANDROID_HOME="$HOME/Library/Android/sdk"
-export ANDROID_SDK_ROOT="$ANDROID_HOME"
-# 改成你 SDK Manager 里实际的 NDK 目录名
-export NDK_HOME="$ANDROID_HOME/ndk/30.0.14904198"
-export PATH="$JAVA_HOME/bin:$ANDROID_HOME/platform-tools:$PATH"
-
-# NDK 23+ 没有 aarch64-linux-android-ranlib，必须显式指向 llvm-ranlib
-# 否则 openssl-src 的 make install_dev 会以 exit 2 失败
-NDK_BIN="$NDK_HOME/toolchains/llvm/prebuilt/darwin-x86_64/bin"
-export AR_aarch64_linux_android="$NDK_BIN/llvm-ar"
-export RANLIB_aarch64_linux_android="$NDK_BIN/llvm-ranlib"
-export CC_aarch64_linux_android="$NDK_BIN/aarch64-linux-android24-clang"
-export AR_armv7_linux_androideabi="$NDK_BIN/llvm-ar"
-export RANLIB_armv7_linux_androideabi="$NDK_BIN/llvm-ranlib"
-export CC_armv7_linux_androideabi="$NDK_BIN/armv7a-linux-androideabi24-clang"
-export AR_x86_64_linux_android="$NDK_BIN/llvm-ar"
-export RANLIB_x86_64_linux_android="$NDK_BIN/llvm-ranlib"
-export CC_x86_64_linux_android="$NDK_BIN/x86_64-linux-android24-clang"
-export AR_i686_linux_android="$NDK_BIN/llvm-ar"
-export RANLIB_i686_linux_android="$NDK_BIN/llvm-ranlib"
-export CC_i686_linux_android="$NDK_BIN/i686-linux-android24-clang"
+sudo apt update
+sudo apt install -y build-essential pkg-config perl
 ```
 
-`source ~/.zshrc` 后自检：
+在 WSL 中编 Android、装完整 SDK/NDK 时，请直接按 [docs/wsl-android.md](./docs/wsl-android.md) 操作（含 `openjdk-21-jdk`、cmdline-tools、环境变量等）。
 
-```bash
-java -version          # 应为 21.x，不是 25.x
-echo "$JAVA_HOME"
-echo "$ANDROID_HOME"
-echo "$NDK_HOME"
-echo "$RANLIB_aarch64_linux_android"
-ls "$RANLIB_aarch64_linux_android"
-adb version
-```
+### Android 交叉编译
 
-5. 跑 Android：
+- **Windows**：本机交叉编译 OpenSSL 会失败（Perl / NDK `clang.cmd` 路径冲突）。请在 WSL 中完成，见 [docs/wsl-android.md](./docs/wsl-android.md)。
+- **macOS**：本机即可，见 [docs/mac-android.md](./docs/mac-android.md)。
 
 ```bash
 pnpm app:android
-# 正式包
 pnpm build:android
 ```
 
-常见问题：
-
-| 现象 | 原因 |
-| --- | --- |
-| `make install_dev` / OpenSSL exit 2 | 未设 `AR_*` / `RANLIB_*` / `CC_*` |
-| `Unsupported class file major version 69` | `JAVA_HOME` 仍指向 Java 25（常见为 Android Studio JBR） |
-| `java.lang.System::load` 的 WARNING | 用错新 JDK 时的附带警告；先把 JDK 换成 21 即可，不必单独处理 |

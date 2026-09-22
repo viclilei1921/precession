@@ -51,6 +51,7 @@ label {
 }
 
 input,
+textarea,
 button {
   padding: 0.6em 1.2em;
   font-family: inherit;
@@ -62,6 +63,11 @@ button {
   border-radius: 8px;
   box-shadow: 0 2px 2px rgba(0, 0, 0, 0.2);
   transition: border-color 0.25s;
+}
+
+textarea {
+  min-height: 6rem;
+  resize: vertical;
 }
 
 button {
@@ -79,18 +85,107 @@ button:active:not(:disabled) {
 }
 
 button:disabled,
-input:disabled {
+input:disabled,
+textarea:disabled {
   cursor: default;
   opacity: 0.7;
 }
 
 input,
+textarea,
 button {
   outline: none;
 }
 
 h1 {
   text-align: center;
+}
+
+.playground {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  align-items: stretch;
+  max-width: 40rem;
+  min-height: 100vh;
+  padding: 2rem 1.5rem;
+  margin: 0 auto;
+}
+
+.playground-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.playground-header h1 {
+  margin: 0 0 0.5rem;
+  text-align: left;
+}
+
+.playground-header .gate-muted {
+  margin: 0;
+  text-align: left;
+}
+
+.playground-header button {
+  margin-top: 0;
+}
+
+.playground-form {
+  width: 100%;
+}
+
+.playground-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.playground-actions button {
+  margin-top: 0.25rem;
+}
+
+.demo-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.demo-item {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+.demo-item-pick {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.25rem;
+  align-items: flex-start;
+  margin-top: 0;
+  text-align: left;
+}
+
+.demo-item-pick span {
+  font-weight: 400;
+  color: #5c5c5c;
+  white-space: pre-wrap;
+}
+
+.demo-item-delete {
+  flex-shrink: 0;
+  margin-top: 0;
+}
+
+.demo-item-active .demo-item-pick {
+  border-color: #396cd8;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -108,9 +203,14 @@ h1 {
   }
 
   input,
+  textarea,
   button {
     color: #ffffff;
     background-color: #0f0f0f98;
+  }
+
+  .demo-item-pick span {
+    color: #b0b0b0;
   }
 
   button:active:not(:disabled) {
