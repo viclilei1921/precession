@@ -32,6 +32,26 @@ pub async fn db_unlock(state: State<'_, DbState>, password: String) -> Result<()
 /// 锁定数据库
 #[tauri::command]
 pub fn db_lock(state: State<'_, DbState>) -> Result<(), DbError> {
-  state.lock();
-  Ok(())
+  state.lock()
+}
+
+/// 用当前密码把已解开的库登记到这台设备的系统密钥库。
+#[tauri::command]
+pub async fn db_enable_device_unlock(state: State<'_, DbState>, password: String) -> Result<(), DbError> {
+  if password.is_empty() {
+    return Err(DbError::PasswordEmpty);
+  }
+  state.enable_device(password.as_str())
+}
+
+/// 用设备槽解锁，不接收档案密码。
+#[tauri::command]
+pub async fn db_unlock_device(state: State<'_, DbState>) -> Result<(), DbError> {
+  state.unlock_device()
+}
+
+/// 关闭这台设备上的免密解锁。
+#[tauri::command]
+pub fn db_disable_device_unlock(state: State<'_, DbState>) -> Result<(), DbError> {
+  state.disable_device()
 }

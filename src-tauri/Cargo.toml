@@ -31,6 +31,23 @@ hex = "0.4"
 base64 = "0.23"
 thiserror = "2"
 
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { version = "0.61", features = [
+  "Win32_Foundation",
+  "Win32_Security_Cryptography",
+  "Win32_System_WinRT",
+  "Win32_UI_WindowsAndMessaging",
+  "Security_Credentials_UI",
+] }
+windows-future = "0.2.1"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+security-framework = { version = "3", features = ["OSX_10_15"] }
+objc2-local-authentication = "0.3.2"
+
+[target.'cfg(target_os = "android")'.dependencies]
+precession-device-slot = { path = "device-slot" }
+
 # 只在跑测试、写 example、跑 benchmark 时编译进来
 [dev-dependencies]
 # 它的作用是在系统临时目录里创建临时文件/临时目录，测试结束（变量 drop）后自动删掉

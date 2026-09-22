@@ -8,6 +8,10 @@ export type DbStatus = {
   exists: boolean;
   /** 数据库是否已解锁 */
   unlocked: boolean;
+  /** 是否已启用设备槽。为真时打开应用可以走系统验证。 */
+  deviceUnlock: boolean;
+  /** 用户主动锁定。重启后仍然为真，解锁需要系统验证。 */
+  userLocked: boolean;
 };
 
 /**
@@ -39,4 +43,26 @@ export function dbUnlock(password: string) {
  */
 export function dbLock() {
   return invokeCommand<void>('db_lock');
+}
+
+/**
+ * 用档案密码启用这台设备上的系统验证解锁
+ * @param password - 档案密码
+ */
+export function dbEnableDeviceUnlock(password: string) {
+  return invokeCommand<void>('db_enable_device_unlock', { password });
+}
+
+/**
+ * 用设备槽解锁
+ */
+export function dbUnlockDevice() {
+  return invokeCommand<void>('db_unlock_device');
+}
+
+/**
+ * 关闭这台设备上的免密解锁
+ */
+export function dbDisableDeviceUnlock() {
+  return invokeCommand<void>('db_disable_device_unlock');
 }
