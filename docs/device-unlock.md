@@ -77,10 +77,10 @@
 ### macOS
 
 - 钥匙串通用密码，服务名 `precession`，账户 `device-kek-v2`
-- 保护级别 `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`。钥匙串读取本身不要求 Touch ID
+- 优先写入数据保护钥匙串，保护级别 `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`。钥匙串读取本身不要求 Touch ID
 - 有 `user.lock` 时，读取前用 LocalAuthentication 要求 Touch ID。没有 Touch ID 时这次解锁失败，可以改输入档案密码
-- 写入数据保护钥匙串，并标记为不同步 iCloud
-- 未签名的开发包可能被系统拒绝创建这条钥匙串项。这时设备槽不可用，密码解锁不受影响
+- 标记为不同步 iCloud
+- `tauri dev` 默认是临时签名，没有数据保护钥匙串所需的 entitlement。这时改存本机登录钥匙串，设备槽仍可用
 - 旧的 `device-kek-v1`（每次都要用户在场）不再读取。需要重新启用一次设备槽
 
 ### Android

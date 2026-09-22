@@ -5,13 +5,13 @@ use block2::RcBlock;
 use objc2::runtime::Bool;
 use objc2_foundation::{NSError, NSString};
 use objc2_local_authentication::{LAContext, LAPolicy};
+use objc2_security::{
+  errSecAuthFailed, errSecInteractionNotAllowed, errSecItemNotFound, errSecMissingEntitlement, errSecNotAvailable,
+  errSecUserCanceled,
+};
 use security_framework::access_control::{ProtectionMode, SecAccessControl};
 use security_framework::passwords::{
   PasswordOptions, delete_generic_password_options, generic_password, set_generic_password_options,
-};
-use security_framework_sys::base::{
-  errSecAuthFailed, errSecInteractionNotAllowed, errSecItemNotFound, errSecMissingEntitlement, errSecNotAvailable,
-  errSecUserCanceled,
 };
 use zeroize::{Zeroize, Zeroizing};
 
@@ -30,7 +30,7 @@ pub(crate) struct MacosDevice;
 impl super::DeviceSlot for MacosDevice {
   fn enroll(&self, dek: &[u8; 32]) -> Result<Vec<u8>, DeviceError> {
     let kek = random_dek().map_err(|_| DeviceError::Internal)?;
-    if let Err(err) = store_kek(kek.as_ref()) {
+    if let Err(err) = store_kek(&kek) {
       let _ = delete_kek();
       return Err(err);
     }
@@ -97,28 +97,58 @@ fn map_touch_id(code: objc2_foundation::NSInteger) -> DeviceError {
   }
 }
 
-fn base_options() -> PasswordOptions {
+fn base_options(protected: bool) -> PasswordOptions {
   let mut options = PasswordOptions::new_generic_password(SERVICE, ACCOUNT);
-  options.use_protected_keychain();
+  if protected {
+    options.use_protected_keychain();
+  }
   options.set_access_synchronized(Some(false));
   options
 }
 
 fn store_kek(kek: &[u8; 32]) -> Result<(), DeviceError> {
   delete_kek()?;
-  let access = SecAccessControl::create_with_protection(Some(ProtectionMode::AccessibleWhenUnlockedThisDeviceOnly), 0)
-    .map_err(|err| {
-      tauri_plugin_log::log::error!("device slot macos access control: {err}");
-      DeviceError::Unavailable
-    })?;
-  let mut options = base_options();
-  options.set_access_control(access);
+  match store_into(kek, true) {
+    Ok(()) => Ok(()),
+    Err(err) if err.code() == errSecMissingEntitlement => {
+      tauri_plugin_log::log::warn!(
+        "device slot macos: data protection keychain needs a signed entitlement, using login keychain"
+      );
+      store_into(kek, false).map_err(map_sec)
+    }
+    Err(err) => Err(map_sec(err)),
+  }
+}
+
+fn store_into(kek: &[u8; 32], protected: bool) -> Result<(), security_framework::base::Error> {
+  let mut options = base_options(protected);
+  if protected {
+    let access = SecAccessControl::create_with_protection(Some(ProtectionMode::AccessibleWhenUnlockedThisDeviceOnly), 0)
+      .map_err(|err| {
+        tauri_plugin_log::log::error!("device slot macos access control: {err}");
+        err
+      })?;
+    options.set_access_control(access);
+  }
   options.set_label("Precession 设备密钥");
-  set_generic_password_options(kek, options).map_err(map_sec)
+  set_generic_password_options(kek, options)
 }
 
 fn read_kek() -> Result<Zeroizing<[u8; 32]>, DeviceError> {
-  let mut bytes = generic_password(base_options()).map_err(map_sec)?;
+  match load_bytes(true) {
+    Ok(bytes) => kek_from_bytes(bytes),
+    Err(err) if err.code() == errSecMissingEntitlement || err.code() == errSecItemNotFound => {
+      kek_from_bytes(load_bytes(false).map_err(map_sec)?)
+    }
+    Err(err) => Err(map_sec(err)),
+  }
+}
+
+fn load_bytes(protected: bool) -> Result<Vec<u8>, security_framework::base::Error> {
+  generic_password(base_options(protected))
+}
+
+fn kek_from_bytes(mut bytes: Vec<u8>) -> Result<Zeroizing<[u8; 32]>, DeviceError> {
   if bytes.len() != 32 {
     bytes.zeroize();
     return Err(DeviceError::Invalid);
@@ -130,9 +160,15 @@ fn read_kek() -> Result<Zeroizing<[u8; 32]>, DeviceError> {
 }
 
 fn delete_kek() -> Result<(), DeviceError> {
-  match delete_generic_password_options(base_options()) {
+  delete_one(true)?;
+  delete_one(false)
+}
+
+fn delete_one(protected: bool) -> Result<(), DeviceError> {
+  match delete_generic_password_options(base_options(protected)) {
     Ok(()) => Ok(()),
     Err(err) if err.code() == errSecItemNotFound => Ok(()),
+    Err(err) if protected && err.code() == errSecMissingEntitlement => Ok(()),
     Err(err) => Err(map_sec(err)),
   }
 }
