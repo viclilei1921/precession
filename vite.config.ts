@@ -3,6 +3,8 @@ import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
 const host = process.env.TAURI_DEV_HOST;
+// 真机走 adb reverse，只转发 devUrl 的 1420。热更新若单独占用 1421，手机连不上。
+const hmrOnDevPort = host === '127.0.0.1' || host === 'localhost' || host === '::1';
 
 export default defineConfig(() => ({
   plugins: [react()],
@@ -26,7 +28,7 @@ export default defineConfig(() => ({
       ? {
           protocol: 'ws',
           host,
-          port: 1421
+          ...(hmrOnDevPort ? {} : { port: 1421 })
         }
       : undefined,
     watch: {

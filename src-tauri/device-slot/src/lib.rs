@@ -19,9 +19,16 @@ pub enum SlotError {
   Internal,
 }
 
-#[derive(Clone)]
 pub struct DeviceApi<R: Runtime> {
   handle: PluginHandle<R>,
+}
+
+impl<R: Runtime> Clone for DeviceApi<R> {
+  fn clone(&self) -> Self {
+    Self {
+      handle: self.handle.clone(),
+    }
+  }
 }
 
 #[derive(Serialize)]
