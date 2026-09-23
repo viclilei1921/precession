@@ -31,16 +31,19 @@ hex = "0.4"
 base64 = "0.23"
 thiserror = "2"
 
+# --- windows Hello 设备密钥 ---
 [target.'cfg(target_os = "windows")'.dependencies]
-windows = { version = "0.61", features = [
+windows = { version = "0.62", features = [
   "Win32_Foundation",
   "Win32_Security_Cryptography",
   "Win32_System_WinRT",
   "Win32_UI_WindowsAndMessaging",
   "Security_Credentials_UI",
 ] }
-windows-future = "0.2.1"
+# windows 0.62版本对应的只能是0.3版本
+windows-future = "0.3"
 
+# --- mac 钥匙串 ---
 [target.'cfg(target_os = "macos")'.dependencies]
 security-framework = { version = "3", features = ["OSX_10_15"] }
 objc2 = "0.6"
@@ -49,6 +52,7 @@ objc2-local-authentication = "0.3.2"
 objc2-security = "0.3.2"
 block2 = "0.6"
 
+# --- 设备槽/密钥 ---
 [target.'cfg(target_os = "android")'.dependencies]
 precession-device-slot = { path = "device-slot" }
 

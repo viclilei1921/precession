@@ -1,0 +1,14 @@
+.page {
+  display: grid;
+  gap: 8px;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.hint {
+  margin: 0;
+  color: #5c6b66;
+}

@@ -123,11 +123,13 @@ fn store_kek(kek: &[u8; 32]) -> Result<(), DeviceError> {
 fn store_into(kek: &[u8; 32], protected: bool) -> Result<(), security_framework::base::Error> {
   let mut options = base_options(protected);
   if protected {
-    let access = SecAccessControl::create_with_protection(Some(ProtectionMode::AccessibleWhenUnlockedThisDeviceOnly), 0)
-      .map_err(|err| {
-        tauri_plugin_log::log::error!("device slot macos access control: {err}");
-        err
-      })?;
+    let access =
+      SecAccessControl::create_with_protection(Some(ProtectionMode::AccessibleWhenUnlockedThisDeviceOnly), 0).map_err(
+        |err| {
+          tauri_plugin_log::log::error!("device slot macos access control: {err}");
+          err
+        },
+      )?;
     options.set_access_control(access);
   }
   options.set_label("Precession 设备密钥");

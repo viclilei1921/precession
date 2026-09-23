@@ -46,7 +46,7 @@ pnpm tauri icon ./app-icon.png
 
 ## 前端
 
-
+界面结构、状态和路由见 [docs/frontend.md](./docs/frontend.md)。
 
 ### 格式化（Biome）
 

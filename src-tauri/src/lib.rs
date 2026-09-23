@@ -1,10 +1,14 @@
+mod catalog;
 mod constants;
 mod crypto;
 mod db;
 mod db_demo;
+mod library;
 #[cfg(desktop)]
 mod menu;
+mod plan;
 mod plugin;
+mod record;
 mod utils;
 
 use tauri::Manager;
@@ -32,7 +36,13 @@ pub fn run() {
     })?;
 
     // 初始化数据库状态
-    let db = db::state::DbState::new(app_data_dir).with_migrators(vec![db_demo::migrate]);
+    let db = db::state::DbState::new(app_data_dir).with_migrators(vec![
+      db_demo::migrate,
+      catalog::migrate,
+      record::migrate,
+      plan::migrate,
+      library::migrate,
+    ]);
     #[cfg(target_os = "android")]
     let db = {
       let api = app.state::<precession_device_slot::DeviceApi<tauri::Wry>>().inner().clone();
@@ -63,6 +73,46 @@ pub fn run() {
     db_demo::commands::demo_create,
     db_demo::commands::demo_update,
     db_demo::commands::demo_delete,
+    catalog::commands::member_list,
+    catalog::commands::member_get,
+    catalog::commands::member_create,
+    catalog::commands::member_update,
+    catalog::commands::member_delete,
+    catalog::commands::tag_list,
+    catalog::commands::tag_create,
+    catalog::commands::tag_update,
+    catalog::commands::tag_delete,
+    catalog::commands::place_list,
+    catalog::commands::place_create,
+    catalog::commands::place_update,
+    catalog::commands::place_delete,
+    record::commands::record_list,
+    record::commands::record_get,
+    record::commands::record_create,
+    record::commands::record_update,
+    record::commands::record_delete,
+    record::commands::media_list,
+    record::commands::media_create,
+    record::commands::media_delete,
+    record::commands::record_link_list,
+    record::commands::record_link_create,
+    record::commands::record_link_delete,
+    plan::commands::plan_list,
+    plan::commands::plan_get,
+    plan::commands::plan_create,
+    plan::commands::plan_update,
+    plan::commands::plan_complete,
+    plan::commands::plan_delete,
+    library::commands::book_list,
+    library::commands::book_get,
+    library::commands::book_create,
+    library::commands::book_update,
+    library::commands::book_delete,
+    library::commands::quote_list,
+    library::commands::quote_get,
+    library::commands::quote_create,
+    library::commands::quote_update,
+    library::commands::quote_delete,
   ]);
 
   // 桌面：关闭窗口时隐藏到托盘；移动端不注册，交给系统默认关闭行为

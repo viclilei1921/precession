@@ -1,0 +1,55 @@
+.gate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 2rem 1.5rem;
+  margin: 0;
+  text-align: center;
+}
+
+.muted {
+  max-width: 22rem;
+  margin: 0 0 1.5rem;
+  color: #5c6b66;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: stretch;
+  width: min(22rem, 100%);
+  text-align: left;
+}
+
+.form label {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.form input,
+.form button {
+  padding: 0.6em 1.2em;
+  color: #22322e;
+  background: #fff;
+  border: 1px solid #e4ebe7;
+  border-radius: 8px;
+}
+
+.form button {
+  margin-top: 0.75rem;
+  cursor: pointer;
+}
+
+.form button:disabled,
+.form input:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.error {
+  margin: 0.25rem 0;
+  color: #c62828;
+}

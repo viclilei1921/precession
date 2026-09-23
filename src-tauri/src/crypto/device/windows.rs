@@ -64,9 +64,9 @@ fn verify_hello() -> Result<(), DeviceError> {
       log_windows("hello availability", &err);
       DeviceError::Unavailable
     })?
-    .get()
+    .join()
     .map_err(|err| {
-      log_windows("hello availability get", &err);
+      log_windows("hello availability join", &err);
       DeviceError::Unavailable
     })?;
   if availability != UserConsentVerifierAvailability::Available {
@@ -89,8 +89,8 @@ fn verify_hello() -> Result<(), DeviceError> {
       DeviceError::Unavailable
     })?
   };
-  let result = operation.get().map_err(|err| {
-    log_windows("hello get", &err);
+  let result = operation.join().map_err(|err| {
+    log_windows("hello join", &err);
     DeviceError::Internal
   })?;
   match result {

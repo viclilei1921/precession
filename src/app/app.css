@@ -1,0 +1,16 @@
+html,
+body {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  color: #22322e;
+  background: #f6f9f7;
+}
+
+button,
+input {
+  font: inherit;
+}
