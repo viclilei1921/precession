@@ -42,7 +42,7 @@ class OpenArgs {
 class DeviceSlotPlugin(private val activity: Activity) : Plugin(activity) {
     @Command
     fun enroll(invoke: Invoke) {
-        if (!supported()) {
+        if (!canConfirm()) {
             finish(invoke, false, "unavailable")
             return
         }
@@ -75,7 +75,7 @@ class DeviceSlotPlugin(private val activity: Activity) : Plugin(activity) {
 
     @Command
     fun open(invoke: Invoke) {
-        if (!supported()) {
+        if (!keystoreReady()) {
             finish(invoke, false, "unavailable")
             return
         }
@@ -117,7 +117,7 @@ class DeviceSlotPlugin(private val activity: Activity) : Plugin(activity) {
     @Command
     fun confirm(invoke: Invoke) {
         val host = activity as? FragmentActivity
-        if (host == null) {
+        if (host == null || !canConfirm()) {
             finish(invoke, false, "unavailable")
             return
         }
@@ -141,13 +141,7 @@ class DeviceSlotPlugin(private val activity: Activity) : Plugin(activity) {
                 }
             },
         )
-        val info = BiometricPrompt.PromptInfo.Builder()
-            .setTitle("解锁人生档案")
-            .setSubtitle("验证生物识别以打开档案")
-            .setNegativeButtonText("取消")
-            .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
-            .build()
-        prompt.authenticate(info)
+        prompt.authenticate(promptInfo())
     }
 
     @Command
@@ -160,8 +154,37 @@ class DeviceSlotPlugin(private val activity: Activity) : Plugin(activity) {
         }
     }
 
-    private fun supported(): Boolean {
+    private fun keystoreReady(): Boolean {
         return Build.VERSION.SDK_INT >= Build.VERSION_CODES.P
+    }
+
+    /** 启用和锁定后解锁共用：强生物识别或锁屏密码至少有一种可用。 */
+    private fun canConfirm(): Boolean {
+        if (!keystoreReady()) {
+            return false
+        }
+        return BiometricManager.from(activity).canAuthenticate(authenticators()) ==
+            BiometricManager.BIOMETRIC_SUCCESS
+    }
+
+    private fun authenticators(): Int {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            BiometricManager.Authenticators.BIOMETRIC_STRONG or
+                BiometricManager.Authenticators.DEVICE_CREDENTIAL
+        } else {
+            BiometricManager.Authenticators.BIOMETRIC_STRONG
+        }
+    }
+
+    private fun promptInfo(): BiometricPrompt.PromptInfo {
+        val builder = BiometricPrompt.PromptInfo.Builder()
+            .setTitle("解锁人生档案")
+            .setSubtitle("通过系统验证以打开档案")
+            .setAllowedAuthenticators(authenticators())
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+            builder.setNegativeButtonText("取消")
+        }
+        return builder.build()
     }
 
     private fun createKey() {

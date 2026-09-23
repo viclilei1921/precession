@@ -424,7 +424,7 @@ function UnlockedView({ deviceUnlock, onChanged }: { deviceUnlock: boolean; onCh
           <p className="gate-muted">
             {deviceUnlock
               ? '再次打开应用会直接进入。点锁定后会保持锁定，重启也一样，解锁需要系统验证。'
-              : '锁定或退出后需要再输入密码。可以启用设备解锁，以后打开应用不必输入档案密码。'}
+              : '锁定或退出后需要再输入密码。可以启用设备解锁，以后打开应用不必输入档案密码。启用前需要已设置锁屏密码，或已录入指纹、人脸。'}
           </p>
         </div>
         <button type="button" disabled={busy || locking} onClick={lock}>
