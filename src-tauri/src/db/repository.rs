@@ -30,7 +30,7 @@ use std::fs;
 use rusqlite::Connection;
 use zeroize::Zeroizing;
 
-use super::constants::{DB_HEADER, DB_HEADER_TMP, DB_SQLITE, PROBE_KEY, PROBE_VALUE};
+use super::constants::{DB_DEVICE_WRAP_TMP, DB_HEADER, DB_HEADER_TMP, DB_SQLITE, PROBE_KEY, PROBE_VALUE};
 use super::error::DbError;
 use super::state::DbState;
 use crate::crypto::header::KeyHeader;
@@ -104,6 +104,14 @@ pub fn open_db(path: &std::path::Path, dek: &[u8; 32]) -> Result<Connection, DbE
 pub fn read_header(path: &std::path::Path) -> Result<KeyHeader, DbError> {
   let raw = fs::read_to_string(path).map_err(|_| DbError::Io)?;
   Ok(KeyHeader::from_json(&raw)?)
+}
+
+/// 先写草稿再改名，避免写到一半留下半份设备槽密文。
+pub fn write_device_wrap_atomic(state: &DbState, bytes: &[u8]) -> Result<(), DbError> {
+  let tmp = state.dir.join(DB_DEVICE_WRAP_TMP);
+  fs::write(&tmp, bytes).map_err(|_| DbError::Io)?;
+  fs::rename(&tmp, &state.device_wrap).map_err(|_| DbError::Io)?;
+  Ok(())
 }
 
 /// 先写草稿再改名

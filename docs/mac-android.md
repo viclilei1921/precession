@@ -240,6 +240,7 @@ adb install -r ~/app-universal-release.apk
 | `java.lang.System::load` 的 WARNING | 用错新 JDK 时的附带警告；先换成 JDK 21 即可 |
 | `sdkmanager` / Gradle 找不到 `android-36` | SDK Manager 未装 `platforms;android-36` |
 | Configure / Perl 相关失败 | 确认 `which perl` 可用；必要时 `brew install perl` |
+| `:app:rustBuild*Debug`：`A problem occurred starting process 'command 'pnpm''` | Gradle 守护进程仍用**启动时**的 `PATH` 找 `pnpm`。fnm/corepack 的 `pnpm` 是当前 shell 的符号链接，旧守护进程会直接 ENOENT。`gen/android` 里的 `BuildTask.kt` 已改为经 `/bin/sh` 启动。若刚跑过 `tauri android init`（会覆盖该文件），先 `src-tauri/gen/android/gradlew --stop` 再重试 |
 
 ## 与 Windows WSL 文档的差异
 

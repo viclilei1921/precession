@@ -70,7 +70,7 @@ mod tests {
     assert_eq!(updated.body, "新正文");
     assert!(updated.updated_at >= item.updated_at);
 
-    db.lock();
+    db.lock().expect("lock");
     assert!(matches!(list(&db), Err(DemoError::Locked)));
     db.unlock("test-password-123").expect("unlock");
 

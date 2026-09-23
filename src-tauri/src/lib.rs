@@ -9,12 +9,18 @@ mod utils;
 
 use tauri::Manager;
 
+#[cfg(target_os = "android")]
+use std::sync::Arc;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   let builder = tauri::Builder::default();
 
   // 初始化日志
   let builder = builder.plugin(plugin::log::init_log());
+
+  #[cfg(target_os = "android")]
+  let builder = builder.plugin(precession_device_slot::init());
 
   let builder = builder.setup(|app| {
     // 获取应用数据目录
@@ -26,7 +32,13 @@ pub fn run() {
     })?;
 
     // 初始化数据库状态
-    app.manage(db::state::DbState::new(app_data_dir).with_migrators(vec![db_demo::migrate]));
+    let db = db::state::DbState::new(app_data_dir).with_migrators(vec![db_demo::migrate]);
+    #[cfg(target_os = "android")]
+    let db = {
+      let api = app.state::<precession_device_slot::DeviceApi<tauri::Wry>>().inner().clone();
+      db.with_device(Arc::new(crate::crypto::device::AndroidDevice::new(api)))
+    };
+    app.manage(db);
 
     // 注册托盘菜单；进程级数据库会话在 setup 里挂上（此时才有 AppHandle）。
     #[cfg(desktop)]
@@ -43,6 +55,9 @@ pub fn run() {
     db::commands::db_create,
     db::commands::db_unlock,
     db::commands::db_lock,
+    db::commands::db_enable_device_unlock,
+    db::commands::db_unlock_device,
+    db::commands::db_disable_device_unlock,
     db_demo::commands::demo_list,
     db_demo::commands::demo_get,
     db_demo::commands::demo_create,
@@ -63,7 +78,7 @@ pub fn run() {
   let app = builder.build(tauri::generate_context!()).unwrap();
   app.run(|app_handle, event| match event {
     tauri::RunEvent::ExitRequested { .. } => {
-      app_handle.state::<db::state::DbState>().lock();
+      app_handle.state::<db::state::DbState>().release_session();
     }
     _ => {}
   });

@@ -111,7 +111,7 @@ fn derive_kek(
 }
 
 /// 用 KEK 把 DEK 包起来
-fn wrap_dek(kek: &[u8; KEK_LEN], dek: &[u8; DEK_LEN]) -> Result<([u8; NONCE_LEN], Vec<u8>), CryptoError> {
+pub(crate) fn wrap_dek(kek: &[u8; KEK_LEN], dek: &[u8; DEK_LEN]) -> Result<([u8; NONCE_LEN], Vec<u8>), CryptoError> {
   // 用 KEK 装好锁
   // ChaCha20 负责把 DEK 打乱成密文
   // Poly1305 负责贴一张「防伪标签」，改一个字节都能发现
@@ -137,7 +137,11 @@ fn wrap_dek(kek: &[u8; KEK_LEN], dek: &[u8; DEK_LEN]) -> Result<([u8; NONCE_LEN]
 
 /// 解包 DEK
 /// 用 KEK、当时的 nonce 和密文，把 DEK 从保险箱里拿出来。
-fn unwrap_dek(kek: &[u8; KEK_LEN], nonce: &[u8], ct: &[u8]) -> Result<Zeroizing<[u8; DEK_LEN]>, CryptoError> {
+pub(crate) fn unwrap_dek(
+  kek: &[u8; KEK_LEN],
+  nonce: &[u8],
+  ct: &[u8],
+) -> Result<Zeroizing<[u8; DEK_LEN]>, CryptoError> {
   // 用 KEK 装好锁
   let cipher = XChaCha20Poly1305::new(&Key::from(*kek));
 

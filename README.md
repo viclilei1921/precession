@@ -172,13 +172,15 @@ rusqlite = { version = "0.40", features = ["bundled-sqlcipher-vendored-openssl"]
 | ----------------- | ------------------------------- |
 | `data.sqlite`     | SQLCipher 加密库；没有正确 DEK 时内容不可读   |
 | `key.header.json` | 密钥头：盐、Argon2id 参数、被 KEK 包装的 DEK |
+| `device.wrap`     | 设备槽密文。系统密钥库才能解开；没有它时每次都要输入档案密码 |
 
 
 流程概要：
 
 1. 用户密码经 **Argon2id** 派生 **KEK**，用 **XChaCha20-Poly1305** 包装随机 **DEK**（32 字节），写入 `key.header.json`。
 2. 开库时解开 DEK，执行 `PRAGMA key = "x'<64 hex>'"`（原始密钥，不再让 SQLCipher 做口令派生）。
-3. 业务表通过 `DbState::with_conn` 访问；如何新增业务模块见 [docs/db-feature.md](./docs/db-feature.md)。
+3. 启用设备槽后，同一把 DEK 再由本机系统密钥库包一份，写入 `device.wrap`。未锁定时打开应用会直接进入。点锁定后写入 `user.lock`，重启仍保持锁定，解锁需要 Windows Hello、Touch ID 或生物识别。拷走数据库目录仍然无法解密。见 [docs/device-unlock.md](./docs/device-unlock.md)。
+4. 业务表通过 `DbState::with_conn` 访问；如何新增业务模块见 [docs/db-feature.md](./docs/db-feature.md)。
 
 
 

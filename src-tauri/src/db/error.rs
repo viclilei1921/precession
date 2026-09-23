@@ -1,5 +1,6 @@
 use serde::Serialize;
 
+use crate::crypto::device::DeviceError;
 use crate::crypto::error::CryptoError;
 
 #[derive(Debug, thiserror::Error)]
@@ -34,6 +35,26 @@ pub enum DbError {
   /// 数据库已解锁
   #[error("数据库已解锁")]
   AlreadyUnlocked,
+  /// 本机没有 TPM、钥匙串或 Android Keystore
+  #[error("这台设备不支持设备解锁")]
+  DeviceUnavailable,
+  /// 用户取消了系统验证
+  #[error("已取消设备验证")]
+  DeviceCancelled,
+  /// 设备槽密文或系统密钥已经对不上
+  #[error("设备解锁已失效")]
+  DeviceInvalid,
+}
+
+impl From<DeviceError> for DbError {
+  fn from(err: DeviceError) -> Self {
+    match err {
+      DeviceError::Unavailable => DbError::DeviceUnavailable,
+      DeviceError::Cancelled => DbError::DeviceCancelled,
+      DeviceError::Invalid => DbError::DeviceInvalid,
+      DeviceError::Internal => DbError::Internal,
+    }
+  }
 }
 
 impl From<CryptoError> for DbError {
