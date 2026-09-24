@@ -1,0 +1,111 @@
+:root {
+  --radius: 0.625rem;
+  --font-size-base: 1rem;
+
+  --background: oklch(97.28% 0.0057 264.53);
+  --foreground: oklch(20.48% 0.0061 271.11);
+  --card: oklch(100% 0 none);
+  --card-foreground: var(--foreground);
+  --popover: var(--card);
+  --popover-foreground: var(--foreground);
+  --primary: oklch(54.71% 0.2506 270.88);
+  --primary-foreground: oklch(100% 0 none);
+  --secondary: oklch(95.43% 0.0074 260.73);
+  --secondary-foreground: var(--foreground);
+  --muted: oklch(95.78% 0.0058 264.53);
+  --muted-foreground: oklch(55.10% 0.0234 264.36);
+  --accent: var(--muted);
+  --accent-foreground: var(--foreground);
+  --destructive: oklch(55.10% 0.1719 24.78);
+  --border: oklch(92.71% 0.0075 260.73);
+  --input: var(--border);
+  --ring: oklch(from var(--primary) l c h / 45%);
+  --sidebar: var(--secondary);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--card);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+  --overlay: oklch(from var(--foreground) l c h / 42%);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-pill: 999px;
+
+  --font-sans: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", "IBM Plex Sans", sans-serif;
+  --font-mono: "IBM Plex Mono", "Noto Sans Mono", ui-monospace, monospace;
+
+  --text-xs: calc(var(--font-size-base) * 0.75);
+  --text-sm: calc(var(--font-size-base) * 0.875);
+  --text-base: var(--font-size-base);
+  --text-lg: calc(var(--font-size-base) * 1.125);
+  --text-xl: calc(var(--font-size-base) * 1.25);
+  --text-2xl: calc(var(--font-size-base) * 1.5);
+  --text-3xl: calc(var(--font-size-base) * 1.875);
+  --text-4xl: calc(var(--font-size-base) * 2.25);
+
+  --space: 0.25rem;
+  --space-1: var(--space);
+  --space-2: calc(var(--space) * 2);
+  --space-3: calc(var(--space) * 3);
+  --space-4: calc(var(--space) * 4);
+  --space-5: calc(var(--space) * 6);
+  --space-6: calc(var(--space) * 8);
+  --space-8: calc(var(--space) * 12);
+  --space-10: calc(var(--space) * 16);
+  --space-12: calc(var(--space) * 20);
+
+  --measure: 42rem;
+  --site-width: 68rem;
+  --header-h: 3.5rem;
+  --sidebar-w: 12.75rem;
+  --dock-h: 4rem;
+  --bar-h: 4.5rem;
+  --shell-pad: 1.5rem;
+  --tap: 2.75rem;
+  --icon-sm: 1rem;
+  --icon-md: 1.125rem;
+  --icon-lg: 1.25rem;
+  --transition: 140ms ease;
+
+  --gutter: max(1rem, env(safe-area-inset-left, 0px));
+  --gutter-end: max(1rem, env(safe-area-inset-right, 0px));
+  --inset-top: env(safe-area-inset-top, 0px);
+  --inset-right: env(safe-area-inset-right, 0px);
+  --inset-bottom: env(safe-area-inset-bottom, 0px);
+  --inset-left: env(safe-area-inset-left, 0px);
+
+  --z-sidebar: 15;
+  --z-header: 20;
+  --z-dock: 25;
+  --z-drawer: 40;
+  --z-drawer-panel: 50;
+  --z-popover: 60;
+  --z-modal: 70;
+  --z-toast: 80;
+
+  --scrollbar-size: 6px;
+  --scrollbar-thumb: color-mix(in oklch, var(--foreground) 28%, transparent);
+  --scrollbar-thumb-hover: color-mix(in oklch, var(--foreground) 48%, transparent);
+
+  color-scheme: light;
+}
+
+html.dark {
+  --background: oklch(17.68% 0.0070 258.37);
+  --foreground: oklch(95.15% 0.0046 258.32);
+  --card: oklch(23.45% 0.0124 264.30);
+  --primary: oklch(66.51% 0.1789 275.83);
+  --secondary: oklch(19.98% 0.0086 264.36);
+  --muted: oklch(25.88% 0.0127 258.37);
+  --muted-foreground: oklch(71.29% 0.0197 258.36);
+  --destructive: oklch(75.01% 0.1245 41.56);
+  --border: oklch(29.21% 0.0140 261.70);
+  --overlay: oklch(0% 0 none / 58%);
+
+  color-scheme: dark;
+}

@@ -1,0 +1,47 @@
+@import "./token.css";
+@import "./reset.css";
+
+html,
+body,
+#root {
+  height: 100%;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+html[data-touch-ui="true"] {
+  /* 移除点击元素时的默认半透明灰色高亮（Android） */
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+
+html[data-touch-ui="true"] body {
+  overscroll-behavior: none;
+
+  /* 禁用双击缩放，仅允许滑动 */
+  touch-action: pan-x pan-y;
+}
+
+html[data-touch-ui="true"] button,
+html[data-touch-ui="true"] a {
+  /* 禁用 iOS 长按弹出的菜单 */
+  -webkit-touch-callout: none;
+}
+
+html[data-touch-ui="true"],
+html[data-touch-ui="true"] * {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+html[data-touch-ui="true"]::-webkit-scrollbar,
+html[data-touch-ui="true"] *::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
