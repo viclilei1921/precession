@@ -19,6 +19,12 @@ pub enum JournalError {
   /// 数据库未解锁
   #[error("数据库未解锁")]
   Locked,
+  /// 密码不能为空
+  #[error("密码不能为空")]
+  PasswordEmpty,
+  /// 正文无法读取
+  #[error("正文无法读取")]
+  BodyUnreadable,
   /// 操作失败
   #[error("操作失败")]
   Internal,

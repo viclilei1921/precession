@@ -1,4 +1,5 @@
 use tauri::State;
+use zeroize::Zeroize;
 
 use super::dto::{JournalCitation, JournalEntry, JournalEntryInput, JournalLink};
 use super::error::JournalError;
@@ -82,4 +83,39 @@ pub async fn journal_citation_create(
 #[tauri::command]
 pub async fn journal_citation_delete(state: State<'_, DbState>, id: String) -> Result<(), JournalError> {
   service::citation_delete(&state, id.as_str())
+}
+
+#[tauri::command]
+pub async fn journal_entry_seal(body: String, password: String) -> Result<String, JournalError> {
+  spawn_cipher(move || {
+    let result = service::seal_body(&body, &password);
+    let mut password = password;
+    password.zeroize();
+    result
+  })
+  .await
+}
+
+#[tauri::command]
+pub async fn journal_entry_open(body: String, password: String) -> Result<String, JournalError> {
+  spawn_cipher(move || {
+    let result = service::open_body(&body, &password);
+    let mut password = password;
+    password.zeroize();
+    result
+  })
+  .await
+}
+
+async fn spawn_cipher<T>(work: impl FnOnce() -> Result<T, JournalError> + Send + 'static) -> Result<T, JournalError>
+where
+  T: Send + 'static,
+{
+  match tauri::async_runtime::spawn_blocking(work).await {
+    Ok(result) => result,
+    Err(err) => {
+      tauri_plugin_log::log::error!("journal cipher: {err}");
+      Err(JournalError::Internal)
+    }
+  }
 }

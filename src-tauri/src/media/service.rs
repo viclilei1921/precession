@@ -88,6 +88,7 @@ mod tests {
       },
     )
     .expect("media");
+    assert!(!media.encrypted);
     assert_eq!(list(&db, Owner::Plan.as_str(), &plan_id).expect("list").len(), 1);
 
     delete(&db, &media.id).expect("delete");

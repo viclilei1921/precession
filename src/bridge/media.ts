@@ -16,6 +16,7 @@ export type Media = {
   mime: string;
   sort: number;
   locked: boolean;
+  encrypted: boolean;
   createdAt: number;
 };
 

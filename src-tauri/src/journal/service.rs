@@ -1,5 +1,8 @@
 //! 手记。校验放在进库之前。
 
+use base64::Engine;
+use base64::engine::general_purpose::STANDARD as BASE64;
+
 use super::dto::{JournalCitation, JournalEntry, JournalEntryInput, JournalLink};
 use super::error::JournalError;
 use super::repository;
@@ -62,6 +65,34 @@ pub fn citation_delete(db: &DbState, id: &str) -> Result<(), JournalError> {
   db.with_conn(|conn| repository::citation_delete(conn, id))
 }
 
+pub fn seal_body(body: &str, password: &str) -> Result<String, JournalError> {
+  if password.is_empty() {
+    return Err(JournalError::PasswordEmpty);
+  }
+  let bytes = crate::crypto::file::encrypt_bytes(body.as_bytes(), password).map_err(cipher_err)?;
+  Ok(BASE64.encode(bytes))
+}
+
+pub fn open_body(body: &str, password: &str) -> Result<String, JournalError> {
+  if password.is_empty() {
+    return Err(JournalError::PasswordEmpty);
+  }
+  let raw = BASE64.decode(body.trim()).map_err(|_| JournalError::BodyUnreadable)?;
+  let plain = crate::crypto::file::decrypt_bytes(&raw, password).map_err(cipher_err)?;
+  String::from_utf8(plain).map_err(|_| JournalError::BodyUnreadable)
+}
+
+fn cipher_err(err: crate::crypto::file::FileError) -> JournalError {
+  match err {
+    crate::crypto::file::FileError::PasswordEmpty => JournalError::PasswordEmpty,
+    crate::crypto::file::FileError::BadMagic
+    | crate::crypto::file::FileError::BadVersion
+    | crate::crypto::file::FileError::Truncated
+    | crate::crypto::file::FileError::Canceled => JournalError::BodyUnreadable,
+    crate::crypto::file::FileError::SamePath | crate::crypto::file::FileError::Internal => JournalError::Internal,
+  }
+}
+
 fn prepare(mut input: JournalEntryInput) -> Result<JournalEntryInput, JournalError> {
   input.kind = input.kind.trim().to_string();
   input.title = input.title.trim().to_string();
@@ -107,6 +138,17 @@ mod tests {
 
     db.lock().expect("lock");
     assert!(matches!(list(&db, None, None, None), Err(JournalError::Locked)));
+  }
+
+  #[test]
+  fn seal_and_open_body() {
+    assert!(matches!(seal_body("今天下雨", ""), Err(JournalError::PasswordEmpty)));
+    let sealed = seal_body("今天下雨", "diary-password").expect("seal");
+    assert_eq!(open_body(&sealed, "diary-password").expect("open"), "今天下雨");
+    assert!(matches!(
+      open_body("not-base64", "diary-password"),
+      Err(JournalError::BodyUnreadable)
+    ));
   }
 
   fn sample() -> JournalEntryInput {

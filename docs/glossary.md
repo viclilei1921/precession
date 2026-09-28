@@ -8,16 +8,17 @@
 | --- | --- | --- |
 | 今天 | `today` | 只读时间轴，不单独建表 |
 | 计划 | `plan` | |
-| 手记 | `journal` | |
+| 手记 | `journal` | 日记正文可以再用单独密码封起来 |
 | 成长 | `growth` | |
 | 书库 | `library` | |
-| 工具箱 | `toolbox` | 还没有后端表 |
+| 工具箱 | `toolbox` | 界面还没有 |
 | 回顾 | `review` | 和今天共用 `timeline` |
 | 设置 | `settings` | |
 | 成员 | `member` | |
 | 标签 | `tag` | |
 | 地点 | `place` | |
-| 影像 | `media` | 图片和视频的元数据，文件本体不进库 |
+| 影像 | `media` | 图片和视频的元数据，文件本体不进库。`encrypted` 表示文件是否已加密 |
+| 任务 | `task` | 耗时的文件处理。密码只在入队时输入，队列不入库 |
 | 时间轴 | `timeline` | 只读聚合，没有自己的表 |
 
 ## 实体
@@ -38,6 +39,7 @@
 | 标签 | `Tag` | 命令参数 `name` |
 | 地点 | `Place` | 命令参数 `name` |
 | 影像 | `Media` | `MediaInput` |
+| 任务 | `Task` | `TaskInput` |
 | 时间轴条目 | `TimelineItem` | 无 |
 
 类型字段一律叫 `kind`，不用 `type`。

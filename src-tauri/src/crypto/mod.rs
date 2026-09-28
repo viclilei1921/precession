@@ -3,3 +3,5 @@ pub mod dek;
 pub mod device;
 pub mod error;
 pub mod header;
+
+pub(crate) mod file;

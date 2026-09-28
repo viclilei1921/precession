@@ -24,7 +24,8 @@ fn map_media(row: &rusqlite::Row<'_>) -> rusqlite::Result<Media> {
     mime: row.get(5)?,
     sort: row.get(6)?,
     locked: row.get(7)?,
-    created_at: row.get(8)?,
+    encrypted: row.get(8)?,
+    created_at: row.get(9)?,
   })
 }
 
@@ -47,6 +48,11 @@ pub(super) fn ensure_schema(conn: &Connection) -> Result<(), MediaError> {
          CREATE INDEX IF NOT EXISTS media_owner ON media(owner, owner_id);",
       )
       .map_err(|e| db_fail("media migrate v1", e))?;
+  }
+  if current < 2 {
+    conn
+      .execute("ALTER TABLE media ADD COLUMN encrypted INTEGER NOT NULL DEFAULT 0", [])
+      .map_err(|e| db_fail("media migrate v2", e))?;
   }
   if current < SCHEMA_VERSION {
     crate::db::schema::write_version(conn, SCHEMA_VERSION_KEY, SCHEMA_VERSION)
@@ -72,7 +78,7 @@ pub(super) fn prepare(mut input: MediaInput) -> Result<(Owner, MediaInput), Medi
 
 pub(super) fn list(conn: &Connection, owner: &str, owner_id: &str) -> Result<Vec<Media>, MediaError> {
   let sql = format!(
-    "SELECT id, owner, owner_id, kind, rel_path, mime, sort, locked, created_at
+    "SELECT id, owner, owner_id, kind, rel_path, mime, sort, locked, encrypted, created_at
      FROM {MEDIA_TABLE} WHERE owner = ?1 AND owner_id = ?2 ORDER BY sort, created_at"
   );
   let mut stmt = conn.prepare(&sql).map_err(|e| db_fail("media list", e))?;
@@ -109,15 +115,62 @@ pub(super) fn delete(conn: &Connection, id: &str) -> Result<(), MediaError> {
   Ok(())
 }
 
+pub(super) fn insert_imported(
+  conn: &Connection,
+  id: &str,
+  input: MediaInput,
+  encrypted: bool,
+) -> Result<Media, MediaError> {
+  let (owner, input) = prepare(input)?;
+  let alive = owner::exists(conn, owner, &input.owner_id).map_err(|e| db_fail("media owner", e))?;
+  if !alive {
+    return Err(MediaError::ReferencedMissing);
+  }
+  let now = now_unix_ms();
+  let sql = format!(
+    "INSERT INTO {MEDIA_TABLE}
+       (id, owner, owner_id, kind, rel_path, mime, sort, locked, encrypted, created_at)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)"
+  );
+  conn
+    .execute(
+      &sql,
+      params![
+        id,
+        input.owner,
+        input.owner_id,
+        input.kind,
+        input.rel_path,
+        input.mime,
+        input.sort,
+        input.locked,
+        encrypted,
+        now
+      ],
+    )
+    .map_err(|e| db_fail("media import", e))?;
+  get(conn, id)
+}
+
+pub(super) fn set_encrypted(conn: &Connection, id: &str, encrypted: bool) -> Result<(), MediaError> {
+  let sql = format!("UPDATE {MEDIA_TABLE} SET encrypted = ?1 WHERE id = ?2");
+  let n = conn.execute(&sql, params![encrypted, id]).map_err(|e| db_fail("media encrypted", e))?;
+  if n == 0 {
+    return Err(MediaError::NotFound);
+  }
+  Ok(())
+}
+
 pub(super) fn clear(conn: &Connection, owner: &str, owner_id: &str) -> Result<(), MediaError> {
   let sql = format!("DELETE FROM {MEDIA_TABLE} WHERE owner = ?1 AND owner_id = ?2");
   conn.execute(&sql, params![owner, owner_id]).map_err(|e| db_fail("media clear", e))?;
   Ok(())
 }
 
-fn get(conn: &Connection, id: &str) -> Result<Media, MediaError> {
+pub(super) fn get(conn: &Connection, id: &str) -> Result<Media, MediaError> {
   let sql = format!(
-    "SELECT id, owner, owner_id, kind, rel_path, mime, sort, locked, created_at FROM {MEDIA_TABLE} WHERE id = ?1"
+    "SELECT id, owner, owner_id, kind, rel_path, mime, sort, locked, encrypted, created_at
+     FROM {MEDIA_TABLE} WHERE id = ?1"
   );
   conn.query_row(&sql, [id], map_media).map_err(|e| match e {
     rusqlite::Error::QueryReturnedNoRows => MediaError::NotFound,

@@ -9,4 +9,5 @@ export * from './member';
 export * from './place';
 export * from './plan';
 export * from './tag';
+export * from './task';
 export * from './timeline';

@@ -12,6 +12,7 @@ pub struct Media {
   pub mime: String,
   pub sort: i64,
   pub locked: bool,
+  pub encrypted: bool,
   pub created_at: i64,
 }
 

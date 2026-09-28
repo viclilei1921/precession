@@ -106,3 +106,13 @@ export function journalCitationCreate(entryId: string, bookNoteId: string) {
 export function journalCitationDelete(id: string) {
   return invokeCommand<void>('journal_citation_delete', { id });
 }
+
+/** 用单独密码把日记正文封成 Base64 */
+export function journalEntrySeal(body: string, password: string) {
+  return invokeCommand<string>('journal_entry_seal', { body, password });
+}
+
+/** 解开封过的日记正文 */
+export function journalEntryOpen(body: string, password: string) {
+  return invokeCommand<string>('journal_entry_open', { body, password });
+}

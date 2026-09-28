@@ -100,7 +100,31 @@ place_ref(place_id, owner, owner_id)
 
 主键是这三列。各模块提供 `replace`、`list_ids`、`clear`，由拥有记录的模块在同一次 `with_conn` 里调用。
 
-影像直接写在 `media` 上：`owner`、`owner_id`、`kind`（`image` 或 `video`）、`rel_path`、`mime`、`sort`、`locked`。创建前先确认所属记录存在。删记录时调用 `media::clear`。
+影像直接写在 `media` 上：`owner`、`owner_id`、`kind`（`image` 或 `video`）、`rel_path`、`mime`、`sort`、`locked`、`encrypted`。创建前先确认所属记录存在。`encrypted` 不接受调用方传入，只在任务成功结束时改写。删记录时调用 `media::clear`。
+
+## 任务
+
+耗时的文件处理在 `task`，没有自己的表。`crypto/file.rs` 只提供加解密方法。日记正文的 `journal_entry_seal` / `journal_entry_open` 仍是内存调用，不进这个队列。
+
+一条任务对用户是一个进度，内部按顺序跑步骤。这次的步骤是复制、加密、解密。转码、裁剪、合并以后仍走同一步骤接口，不另开队列。密码只能在 `task_enqueue` 时传入，不读档案会话，也不读设备槽。空密码在加密或解密时拒绝。密码只留在这条内存任务里，队列不入库。
+
+`task_enqueue` 的 `kind`：
+
+- `encryptFile` / `decryptFile`：输入路径、输出路径、密码。写到调用方给的路径，不建 `media` 行
+- `importMedia`：来源路径、`owner`、`ownerId`、`mediaKind`、`encrypt`、密码。所属记录必须已经存在。文件写到 `data/media/<id>`，成功后才插入 `media` 行，`rel_path` 是相对 `data` 的 `media/<id>`。不加密时密码可空
+- `encryptMedia` / `decryptMedia`：`mediaId` 和密码。替换该文件，成功后翻转 `encrypted`。已经加密的不能再加密，还没加密的不能解密
+
+相对路径拼到 `data` 目录上；绝对路径按原样打开。一次只跑一个，先入先出。状态是 `pending`、`processing`、`completed`、`failed`、`canceled`。大约每 1MB 或结束时，进度折成 0 到 100，消息为「正在处理...」，广播 `task-update`（任务 id、`kind`、状态、进度、消息，有影像行时再带 `mediaId`）。入队、取消和结束时另发 `queue-updated`。失败或取消删掉临时文件。替换时如果档案已锁上，任务失败，原文件仍在。应用退出后未完成的任务消失。
+
+文件格式与 rigel 一致，两边的文件可以互相解开：
+
+- 头是 `chacha20`、版本 `0x01`、16 字节盐、12 字节 nonce
+- 正文是 ChaCha20 密钥流，按文件内偏移处理，64 KiB 一块
+- 密钥由 Argon2id 派生，内存 15000 KiB，迭代 3，并行度 1。这和档案密码用的平台参数不是一套
+
+这是流加密，没有校验和。密码错了不会报错，只会得到另一串字节。文件密码只拒绝空串，不要求档案密码的 8 位。输入和输出是同一个路径会拒绝。
+
+`journal_entry_seal(body, password)` 用同一套格式在内存里加密，返回 Base64。`journal_entry_open(body, password)` 解开。结果不是合法 UTF-8，或密文格式不对，返回「正文无法读取」。`body` 仍由调用方决定存明文还是这段 Base64。
 
 ## 时间轴
 

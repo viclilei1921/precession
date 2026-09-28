@@ -10,6 +10,7 @@ mod place;
 mod plan;
 mod plugin;
 mod tag;
+mod task;
 mod timeline;
 #[cfg(desktop)]
 mod tray;
@@ -56,6 +57,8 @@ pub fn run() {
       db.with_device(Arc::new(crate::crypto::device::AndroidDevice::new(api)))
     };
     app.manage(db);
+    app.manage(task::TaskQueue::default());
+    task::spawn_worker(app.handle().clone());
 
     // 注册托盘菜单；进程级数据库会话在 setup 里挂上（此时才有 AppHandle）。
     #[cfg(desktop)]
@@ -91,6 +94,9 @@ pub fn run() {
     media::commands::media_list,
     media::commands::media_create,
     media::commands::media_delete,
+    task::commands::task_enqueue,
+    task::commands::task_list,
+    task::commands::task_cancel,
     plan::commands::plan_list,
     plan::commands::plan_get,
     plan::commands::plan_create,
@@ -108,6 +114,8 @@ pub fn run() {
     journal::commands::journal_citation_list,
     journal::commands::journal_citation_create,
     journal::commands::journal_citation_delete,
+    journal::commands::journal_entry_seal,
+    journal::commands::journal_entry_open,
     growth::commands::growth_entry_list,
     growth::commands::growth_entry_get,
     growth::commands::growth_entry_create,
