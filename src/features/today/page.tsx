@@ -25,11 +25,11 @@ import { CompleteDialog } from '@/shared/data/plan/complete-dialog';
 import { planMeta, todayCompletion, todayPlanPanel } from '@/shared/data/plan/group';
 import { PlanCheck } from '@/shared/data/plan/plan-check';
 import { planListQuery } from '@/shared/data/plan/query';
+import { taskListQuery } from '@/shared/data/task/query';
 import { timelineListQuery } from '@/shared/data/timeline/query';
 import { addLocalDays, formatDayHeading, formatFeedClock, startOfLocalDay, toDateInputValue } from '@/shared/lib/day';
 import { errorMessage } from '@/shared/lib/error';
 import styles from './page.module.css';
-import { taskListQuery } from './query';
 
 const kindMeta: Record<TimelineKind, { label: string; tone: string; Icon: typeof ListChecks }> = {
   plan: { label: '计划', tone: 'plan', Icon: ListChecks },
@@ -87,7 +87,7 @@ export function TodayPage() {
           type="button"
           className={styles.chip}
           data-tone="journal"
-          onClick={() => void navigate({ to: PATH.journal })}
+          onClick={() => void navigate({ to: PATH.journal, search: { create: true, kind: 'diary' } })}
         >
           <PencilSimple className={styles.chipIcon} weight="regular" />
           文字
@@ -96,7 +96,7 @@ export function TodayPage() {
           type="button"
           className={styles.chip}
           data-tone="growth"
-          onClick={() => void navigate({ to: PATH.growth })}
+          onClick={() => void navigate({ to: PATH.growth, search: { create: true, kind: 'milestone' } })}
         >
           <Flag className={styles.chipIcon} weight="regular" />
           里程碑
@@ -219,6 +219,31 @@ function FeedRow({ item }: { item: TimelineItem }) {
         className={styles.feed}
         onClick={() => void navigate({ to: PATH.plan, search: { id: item.id } })}
       >
+        {body}
+      </button>
+    );
+  }
+  if (item.kind === 'diary' || item.kind === 'spark' || item.kind === 'writing') {
+    return (
+      <button
+        type="button"
+        className={styles.feed}
+        onClick={() => void navigate({ to: PATH.journalEntry, params: { entryId: item.id } })}
+      >
+        {body}
+      </button>
+    );
+  }
+  if (item.kind === 'milestone' || item.kind === 'moment') {
+    return (
+      <button type="button" className={styles.feed} onClick={() => void navigate({ to: PATH.growth })}>
+        {body}
+      </button>
+    );
+  }
+  if (item.kind === 'excerpt' || item.kind === 'note') {
+    return (
+      <button type="button" className={styles.feed} onClick={() => void navigate({ to: PATH.library })}>
         {body}
       </button>
     );

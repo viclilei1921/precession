@@ -31,8 +31,20 @@ export function CaptureDialog({ open, onClose }: CaptureDialogProps) {
               className={styles.choice}
               onClick={() => {
                 onClose();
-                if (item.to === PATH.plan) {
+                if (item.label === '计划') {
                   void navigate({ to: PATH.plan, search: { create: true } });
+                  return;
+                }
+                if (item.label === '日记' || item.label === '灵感' || item.label === '写作') {
+                  const kind = item.label === '日记' ? 'diary' : item.label === '灵感' ? 'spark' : 'writing';
+                  void navigate({ to: PATH.journal, search: { create: true, kind } });
+                  return;
+                }
+                if (item.label === '里程碑' || item.label === '瞬间') {
+                  void navigate({
+                    to: PATH.growth,
+                    search: { create: true, kind: item.label === '里程碑' ? 'milestone' : 'moment' }
+                  });
                   return;
                 }
                 void navigate({ to: item.to });

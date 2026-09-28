@@ -55,9 +55,26 @@ const planRoute = createRoute({
   component: PlanPage
 });
 
+type JournalSearch = {
+  create?: boolean;
+  kind?: 'diary' | 'spark' | 'writing';
+};
+
+function validateJournalSearch(search: Record<string, unknown>): JournalSearch {
+  const next: JournalSearch = {};
+  if (search.create === true || search.create === '1' || search.create === 'true') {
+    next.create = true;
+  }
+  if (search.kind === 'diary' || search.kind === 'spark' || search.kind === 'writing') {
+    next.kind = search.kind;
+  }
+  return next;
+}
+
 const journalRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: PATH.journal,
+  validateSearch: validateJournalSearch,
   component: JournalPage
 });
 
@@ -67,15 +84,44 @@ const journalEntryRoute = createRoute({
   component: JournalEntryPage
 });
 
+type GrowthSearch = {
+  create?: boolean;
+  kind?: 'milestone' | 'moment';
+};
+
+function validateGrowthSearch(search: Record<string, unknown>): GrowthSearch {
+  const next: GrowthSearch = {};
+  if (search.create === true || search.create === '1' || search.create === 'true') {
+    next.create = true;
+  }
+  if (search.kind === 'milestone' || search.kind === 'moment') {
+    next.kind = search.kind;
+  }
+  return next;
+}
+
 const growthRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: PATH.growth,
+  validateSearch: validateGrowthSearch,
   component: GrowthPage
 });
+
+type LibrarySearch = {
+  create?: boolean;
+};
+
+function validateLibrarySearch(search: Record<string, unknown>): LibrarySearch {
+  if (search.create === true || search.create === '1' || search.create === 'true') {
+    return { create: true };
+  }
+  return {};
+}
 
 const libraryRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: PATH.library,
+  validateSearch: validateLibrarySearch,
   component: LibraryPage
 });
 

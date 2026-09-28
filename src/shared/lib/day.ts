@@ -13,6 +13,36 @@ export function startOfLocalMonth(time = Date.now()): number {
   return new Date(date.getFullYear(), date.getMonth(), 1).getTime();
 }
 
+/** 本地当年 1 月 1 日 0 点 */
+export function startOfLocalYear(time = Date.now()): number {
+  return new Date(new Date(time).getFullYear(), 0, 1).getTime();
+}
+
+/** 加减年份，落到该年 1 月 1 日 */
+export function addLocalYears(time: number, years: number): number {
+  const date = new Date(time);
+  return new Date(date.getFullYear() + years, 0, 1).getTime();
+}
+
+/** 从生日到某一天的年龄。不满两岁用月龄 */
+export function ageLabel(birthday: number, at = Date.now()): string {
+  const birth = new Date(birthday);
+  const when = new Date(at);
+  let months = (when.getFullYear() - birth.getFullYear()) * 12 + (when.getMonth() - birth.getMonth());
+  if (when.getDate() < birth.getDate()) {
+    months -= 1;
+  }
+  if (months < 0) {
+    return '';
+  }
+  if (months < 24) {
+    return `${months} 个月`;
+  }
+  const years = Math.floor(months / 12);
+  const rest = months % 12;
+  return rest === 0 ? `${years} 岁` : `${years} 岁 ${rest} 个月`;
+}
+
 /** 本地周一 0 点 */
 export function startOfLocalWeek(time = Date.now()): number {
   const start = startOfLocalDay(time);
