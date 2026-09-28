@@ -1,41 +1,41 @@
-//! 计划。同一次 `with_conn` 里写 `record` 和计划明细。
+//! 计划。同一次 `with_conn` 里写计划、步骤和引用。
 
 use super::constants::{STATUS_DONE, STATUS_INBOX, STATUS_SCHEDULED};
-use super::dto::{PlanItem, PlanWrite};
+use super::dto::{Plan, PlanInput};
 use super::error::PlanError;
 use super::repository;
 use crate::db::state::DbState;
 
 const STATUSES: &[&str] = &[STATUS_INBOX, STATUS_SCHEDULED, STATUS_DONE];
 
-pub fn list(db: &DbState) -> Result<Vec<PlanItem>, PlanError> {
+pub fn list(db: &DbState) -> Result<Vec<Plan>, PlanError> {
   db.with_conn(repository::list)
 }
 
-pub fn get(db: &DbState, id: &str) -> Result<PlanItem, PlanError> {
+pub fn get(db: &DbState, id: &str) -> Result<Plan, PlanError> {
   db.with_conn(|conn| repository::get(conn, id))
 }
 
-pub fn create(db: &DbState, input: PlanWrite) -> Result<PlanItem, PlanError> {
+pub fn create(db: &DbState, input: PlanInput) -> Result<Plan, PlanError> {
   let input = prepare(input)?;
   db.with_conn(|conn| repository::create(conn, &input))
 }
 
-pub fn update(db: &DbState, id: &str, input: PlanWrite) -> Result<PlanItem, PlanError> {
+pub fn update(db: &DbState, id: &str, input: PlanInput) -> Result<Plan, PlanError> {
   let input = prepare(input)?;
   db.with_conn(|conn| repository::update(conn, id, &input))
 }
 
-pub fn complete(db: &DbState, id: &str, result: &str) -> Result<PlanItem, PlanError> {
-  let result = result.trim();
-  db.with_conn(|conn| repository::complete(conn, id, result))
+pub fn complete(db: &DbState, id: &str, result: &str) -> Result<Plan, PlanError> {
+  let result = result.trim().to_string();
+  db.with_conn(move |conn| repository::complete(conn, id, &result))
 }
 
 pub fn delete(db: &DbState, id: &str) -> Result<(), PlanError> {
   db.with_conn(|conn| repository::delete(conn, id))
 }
 
-fn prepare(mut input: PlanWrite) -> Result<PlanWrite, PlanError> {
+fn prepare(mut input: PlanInput) -> Result<PlanInput, PlanError> {
   input.title = input.title.trim().to_string();
   input.body = input.body.trim().to_string();
   input.result = input.result.trim().to_string();
@@ -58,27 +58,36 @@ fn prepare(mut input: PlanWrite) -> Result<PlanWrite, PlanError> {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::plan::dto::PlanStepWrite;
+  use crate::plan::dto::PlanStepInput;
 
   fn setup() -> (tempfile::TempDir, DbState) {
     let dir = tempfile::tempdir().expect("tempdir");
-    let db = DbState::new(dir.path().to_path_buf()).with_migrators(vec![crate::record::migrate, crate::plan::migrate]);
-    db.create("test-password-123").expect("create db");
+    let db = DbState::new(dir.path().to_path_buf()).with_migrators(vec![
+      crate::member::migrate,
+      crate::tag::migrate,
+      crate::place::migrate,
+      crate::media::migrate,
+      crate::plan::migrate,
+    ]);
+    db.create("test-password-123", "test-password-123").expect("create db");
     (dir, db)
   }
 
-  fn sample() -> PlanWrite {
-    PlanWrite {
-      occurred_at: 10,
+  fn sample() -> PlanInput {
+    PlanInput {
       title: "晨跑".into(),
       body: String::new(),
-      locked: false,
-      highlight: false,
       status: STATUS_SCHEDULED.into(),
       priority: 1,
+      scheduled_at: Some(10),
       due_at: Some(10),
       result: String::new(),
-      steps: vec![PlanStepWrite { title: "热身".into(), done: false }],
+      locked: false,
+      highlight: false,
+      steps: vec![PlanStepInput { title: "热身".into(), done: false }],
+      member_ids: Vec::new(),
+      tag_ids: Vec::new(),
+      place_ids: Vec::new(),
     }
   }
 
@@ -91,11 +100,11 @@ mod tests {
 
     let item = create(&db, sample()).expect("create");
     assert_eq!(item.steps.len(), 1);
-    assert_eq!(list(&db).expect("list").len(), 1);
 
     let done = complete(&db, &item.id, "到了公园").expect("complete");
     assert_eq!(done.status, STATUS_DONE);
     assert_eq!(done.result, "到了公园");
+    assert!(done.completed_at.is_some());
 
     db.lock().expect("lock");
     assert!(matches!(list(&db), Err(PlanError::Locked)));

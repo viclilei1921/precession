@@ -1,14 +1,18 @@
-mod catalog;
-mod constants;
 mod crypto;
 mod db;
-mod db_demo;
+mod growth;
+mod journal;
 mod library;
-#[cfg(desktop)]
-mod menu;
+mod media;
+mod member;
+mod owner;
+mod place;
 mod plan;
 mod plugin;
-mod record;
+mod tag;
+mod timeline;
+#[cfg(desktop)]
+mod tray;
 mod utils;
 
 use tauri::Manager;
@@ -37,10 +41,13 @@ pub fn run() {
 
     // 初始化数据库状态
     let db = db::state::DbState::new(app_data_dir).with_migrators(vec![
-      db_demo::migrate,
-      catalog::migrate,
-      record::migrate,
+      member::migrate,
+      tag::migrate,
+      place::migrate,
+      media::migrate,
       plan::migrate,
+      journal::migrate,
+      growth::migrate,
       library::migrate,
     ]);
     #[cfg(target_os = "android")]
@@ -52,7 +59,7 @@ pub fn run() {
 
     // 注册托盘菜单；进程级数据库会话在 setup 里挂上（此时才有 AppHandle）。
     #[cfg(desktop)]
-    if let Err(e) = menu::tray::register_tray_menu(app) {
+    if let Err(e) = tray::register_tray_menu(app) {
       tauri_plugin_log::log::error!("tray menu registration failed: {e}");
     }
 
@@ -68,51 +75,55 @@ pub fn run() {
     db::commands::db_enable_device_unlock,
     db::commands::db_unlock_device,
     db::commands::db_disable_device_unlock,
-    db_demo::commands::demo_list,
-    db_demo::commands::demo_get,
-    db_demo::commands::demo_create,
-    db_demo::commands::demo_update,
-    db_demo::commands::demo_delete,
-    catalog::commands::member_list,
-    catalog::commands::member_get,
-    catalog::commands::member_create,
-    catalog::commands::member_update,
-    catalog::commands::member_delete,
-    catalog::commands::tag_list,
-    catalog::commands::tag_create,
-    catalog::commands::tag_update,
-    catalog::commands::tag_delete,
-    catalog::commands::place_list,
-    catalog::commands::place_create,
-    catalog::commands::place_update,
-    catalog::commands::place_delete,
-    record::commands::record_list,
-    record::commands::record_get,
-    record::commands::record_create,
-    record::commands::record_update,
-    record::commands::record_delete,
-    record::commands::media_list,
-    record::commands::media_create,
-    record::commands::media_delete,
-    record::commands::record_link_list,
-    record::commands::record_link_create,
-    record::commands::record_link_delete,
+    member::commands::member_list,
+    member::commands::member_get,
+    member::commands::member_create,
+    member::commands::member_update,
+    member::commands::member_delete,
+    tag::commands::tag_list,
+    tag::commands::tag_create,
+    tag::commands::tag_update,
+    tag::commands::tag_delete,
+    place::commands::place_list,
+    place::commands::place_create,
+    place::commands::place_update,
+    place::commands::place_delete,
+    media::commands::media_list,
+    media::commands::media_create,
+    media::commands::media_delete,
     plan::commands::plan_list,
     plan::commands::plan_get,
     plan::commands::plan_create,
     plan::commands::plan_update,
     plan::commands::plan_complete,
     plan::commands::plan_delete,
+    journal::commands::journal_entry_list,
+    journal::commands::journal_entry_get,
+    journal::commands::journal_entry_create,
+    journal::commands::journal_entry_update,
+    journal::commands::journal_entry_delete,
+    journal::commands::journal_link_list,
+    journal::commands::journal_link_create,
+    journal::commands::journal_link_delete,
+    journal::commands::journal_citation_list,
+    journal::commands::journal_citation_create,
+    journal::commands::journal_citation_delete,
+    growth::commands::growth_entry_list,
+    growth::commands::growth_entry_get,
+    growth::commands::growth_entry_create,
+    growth::commands::growth_entry_update,
+    growth::commands::growth_entry_delete,
     library::commands::book_list,
     library::commands::book_get,
     library::commands::book_create,
     library::commands::book_update,
     library::commands::book_delete,
-    library::commands::quote_list,
-    library::commands::quote_get,
-    library::commands::quote_create,
-    library::commands::quote_update,
-    library::commands::quote_delete,
+    library::commands::book_note_list,
+    library::commands::book_note_get,
+    library::commands::book_note_create,
+    library::commands::book_note_update,
+    library::commands::book_note_delete,
+    timeline::commands::timeline_list,
   ]);
 
   // 桌面：关闭窗口时隐藏到托盘；移动端不注册，交给系统默认关闭行为
@@ -126,10 +137,9 @@ pub fn run() {
 
   // 构建应用
   let app = builder.build(tauri::generate_context!()).unwrap();
-  app.run(|app_handle, event| match event {
-    tauri::RunEvent::ExitRequested { .. } => {
+  app.run(|app_handle, event| {
+    if let tauri::RunEvent::ExitRequested { .. } = event {
       app_handle.state::<db::state::DbState>().release_session();
     }
-    _ => {}
   });
 }

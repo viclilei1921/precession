@@ -25,9 +25,7 @@ pub struct DeviceApi<R: Runtime> {
 
 impl<R: Runtime> Clone for DeviceApi<R> {
   fn clone(&self) -> Self {
-    Self {
-      handle: self.handle.clone(),
-    }
+    Self { handle: self.handle.clone() }
   }
 }
 

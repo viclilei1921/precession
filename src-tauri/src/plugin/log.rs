@@ -1,5 +1,6 @@
-use crate::constants::path::LOG_FILE;
 use crate::utils::time::now_utc8;
+
+const LOG_FILE: &str = "precession";
 use tauri::Runtime;
 use tauri::plugin::TauriPlugin;
 use tauri_plugin_log::{Target, TargetKind, WEBVIEW_TARGET};

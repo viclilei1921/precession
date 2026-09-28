@@ -1,4 +1,7 @@
-/// 数据库目录（相对应用数据目录）
+/// 用户数据目录（相对应用本地数据目录）
+pub const DATA_DIR: &str = "data";
+
+/// 数据库目录（相对用户数据目录）
 pub const DB_DIR: &str = "db";
 
 /// SQLCipher 库文件

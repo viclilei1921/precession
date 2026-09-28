@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { dbDisableDeviceUnlock, dbUnlock, dbUnlockDevice } from '@/bridge/db';
-import { errorMessage } from './error';
+import { errorMessage } from '@/shared/lib/error';
 import styles from './gate.module.css';
 
 type UnlockViewProps = {
   deviceUnlock: boolean;
-  held: boolean;
+  userLocked: boolean;
   onDone: () => Promise<unknown>;
 };
 
-export function UnlockView({ deviceUnlock, held, onDone }: UnlockViewProps) {
+export function UnlockView({ deviceUnlock, userLocked, onDone }: UnlockViewProps) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -33,12 +33,12 @@ export function UnlockView({ deviceUnlock, held, onDone }: UnlockViewProps) {
   }, []);
 
   useEffect(() => {
-    if (held || !deviceUnlock || attempted.current) {
+    if (userLocked || !deviceUnlock || attempted.current) {
       return;
     }
     attempted.current = true;
     void unlockWithDevice();
-  }, [deviceUnlock, held, unlockWithDevice]);
+  }, [deviceUnlock, userLocked, unlockWithDevice]);
 
   async function submit() {
     setBusy(true);
@@ -74,16 +74,16 @@ export function UnlockView({ deviceUnlock, held, onDone }: UnlockViewProps) {
       <p className={styles.muted}>
         {showPassword
           ? deviceUnlock
-            ? held
+            ? userLocked
               ? '可以输入档案密码，也可以再试一次系统验证。'
               : '可以输入档案密码，也可以直接解锁。'
             : '输入密码以打开人生档案。'
-          : held
+          : userLocked
             ? '已锁定。点解锁后需要通过系统验证。'
             : '正在打开档案…'}
       </p>
       {busy && !showPassword ? <p className={styles.muted}>正在解锁…</p> : null}
-      {!showPassword && held ? (
+      {!showPassword && userLocked ? (
         <form
           className={styles.form}
           onSubmit={(event) => {
@@ -130,7 +130,7 @@ export function UnlockView({ deviceUnlock, held, onDone }: UnlockViewProps) {
                 void unlockWithDevice();
               }}
             >
-              {held ? '用系统验证解锁' : '直接解锁'}
+              {userLocked ? '用系统验证解锁' : '直接解锁'}
             </button>
           ) : null}
           {error === '设备解锁已失效' ? (

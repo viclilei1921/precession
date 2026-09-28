@@ -1,0 +1,243 @@
+.desktop {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
+  min-height: 100vh;
+  color: var(--foreground);
+  background: var(--background);
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-3);
+  background: var(--sidebar);
+  border-right: 1px solid var(--sidebar-border);
+}
+
+.brand {
+  padding: var(--space-1) var(--space-3);
+  margin: 0;
+  font-weight: 800;
+}
+
+.group {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.groupLabel {
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--muted-foreground);
+  letter-spacing: 0.12em;
+}
+
+.link,
+.segment,
+.tab {
+  color: var(--foreground);
+  text-decoration: none;
+}
+
+.link {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+}
+
+.link[data-tone]::before {
+  width: 0.5rem;
+  height: 0.5rem;
+  content: "";
+  border-radius: var(--radius-pill);
+}
+
+.link[data-tone="plan"]::before {
+  background: var(--plan);
+}
+
+.link[data-tone="journal"]::before {
+  background: var(--journal);
+}
+
+.link[data-tone="growth"]::before {
+  background: var(--growth);
+}
+
+.link[data-tone="library"]::before {
+  background: var(--library);
+}
+
+.link[data-tone="toolbox"]::before {
+  background: var(--toolbox);
+}
+
+.link[data-status="active"],
+.segment[data-status="active"],
+.tab[data-status="active"] {
+  font-weight: 700;
+  background: var(--sidebar-accent);
+}
+
+.main,
+.mobile {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 100vh;
+}
+
+.topbar {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  height: var(--header-h);
+  padding: 0 var(--space-5);
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+}
+
+.search {
+  flex: 1;
+  max-width: 16rem;
+  padding: var(--space-2) var(--space-3);
+  color: var(--muted-foreground);
+  text-align: left;
+  cursor: pointer;
+  background: var(--muted);
+  border: 0;
+  border-radius: var(--radius-md);
+}
+
+.capture,
+.fab {
+  color: var(--primary-foreground);
+  cursor: pointer;
+  background: var(--plan);
+  border: 0;
+}
+
+.capture {
+  padding: var(--space-2) var(--space-3);
+  margin-left: auto;
+  font-weight: 600;
+  border-radius: var(--radius-md);
+}
+
+.content {
+  flex: 1;
+  padding: var(--space-4) var(--space-5);
+}
+
+.segments {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4) 0;
+  overflow: auto;
+}
+
+.segment {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-pill);
+}
+
+.tabbar {
+  position: sticky;
+  bottom: 0;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  align-items: center;
+  height: var(--dock-h);
+  background: var(--card);
+  border-top: 1px solid var(--border);
+}
+
+.tab {
+  text-align: center;
+}
+
+.fab {
+  width: var(--tap);
+  height: var(--tap);
+  margin: 0 auto;
+  font-size: var(--text-xl);
+  border-radius: var(--radius-pill);
+}
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: grid;
+  place-items: center;
+  padding: var(--space-5);
+  background: var(--overlay);
+}
+
+.scrim {
+  position: absolute;
+  inset: 0;
+  padding: 0;
+  cursor: default;
+  background: transparent;
+  border: 0;
+}
+
+.dialog,
+.sheet {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: var(--space-3);
+  width: min(24rem, 100%);
+  padding: var(--space-4);
+  color: var(--foreground);
+  outline: none;
+  background: var(--card);
+  border-radius: var(--radius-lg);
+}
+
+.sheet {
+  align-self: end;
+  width: 100%;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+.backdrop:has(.sheet) {
+  align-items: end;
+  padding: 0;
+}
+
+.overlayTitle {
+  margin: 0;
+  font-size: var(--text-lg);
+}
+
+.choiceList {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.choice,
+.commandInput {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  color: var(--foreground);
+  text-align: left;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.choice {
+  cursor: pointer;
+}
+
+.emptySearch {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--muted-foreground);
+}

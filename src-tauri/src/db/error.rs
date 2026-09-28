@@ -14,6 +14,9 @@ pub enum DbError {
   /// 密码不能为空
   #[error("密码不能为空")]
   PasswordEmpty,
+  /// 密码太短
+  #[error("密码至少 8 位")]
+  PasswordTooShort,
   /// 数据库已存在
   #[error("数据库已存在")]
   AlreadyExists,

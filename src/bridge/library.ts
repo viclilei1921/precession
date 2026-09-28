@@ -1,10 +1,10 @@
 import { invokeCommand } from './invoke';
 
 /** 书架状态 */
-export type BookStatus = 'want' | 'reading' | 'done';
+export type BookStatus = 'want' | 'reading' | 'finished';
 
 /** 书摘或读书笔记 */
-export type QuoteType = 'excerpt' | 'note';
+export type BookNoteKind = 'excerpt' | 'note';
 
 /** 一本书 */
 export type Book = {
@@ -22,7 +22,7 @@ export type Book = {
 };
 
 /** 新建或修改书 */
-export type BookWrite = {
+export type BookInput = {
   title: string;
   author: string;
   coverPath: string;
@@ -34,28 +34,38 @@ export type BookWrite = {
 };
 
 /** 书摘或读书笔记 */
-export type QuoteItem = {
+export type BookNote = {
   id: string;
   bookId: string;
-  type: QuoteType;
+  kind: BookNoteKind;
   occurredAt: number;
   title: string;
   body: string;
   chapter: string;
   location: string;
+  locked: boolean;
+  highlight: boolean;
+  memberIds: string[];
+  tagIds: string[];
+  placeIds: string[];
   createdAt: number;
   updatedAt: number;
 };
 
 /** 新建或修改书摘、读书笔记 */
-export type QuoteWrite = {
+export type BookNoteInput = {
   bookId: string;
-  type: QuoteType;
+  kind: BookNoteKind;
   occurredAt: number;
   title: string;
   body: string;
   chapter: string;
   location: string;
+  locked: boolean;
+  highlight: boolean;
+  memberIds: string[];
+  tagIds: string[];
+  placeIds: string[];
 };
 
 /** 列出未删除的书 */
@@ -69,12 +79,12 @@ export function bookGet(id: string) {
 }
 
 /** 添加书 */
-export function bookCreate(input: BookWrite) {
+export function bookCreate(input: BookInput) {
   return invokeCommand<Book>('book_create', { input });
 }
 
 /** 修改书 */
-export function bookUpdate(id: string, input: BookWrite) {
+export function bookUpdate(id: string, input: BookInput) {
   return invokeCommand<Book>('book_update', { id, input });
 }
 
@@ -84,26 +94,26 @@ export function bookDelete(id: string) {
 }
 
 /** 列出一本书的书摘和笔记 */
-export function quoteList(bookId: string) {
-  return invokeCommand<QuoteItem[]>('quote_list', { bookId });
+export function bookNoteList(bookId: string) {
+  return invokeCommand<BookNote[]>('book_note_list', { bookId });
 }
 
 /** 读取一条书摘或笔记 */
-export function quoteGet(id: string) {
-  return invokeCommand<QuoteItem>('quote_get', { id });
+export function bookNoteGet(id: string) {
+  return invokeCommand<BookNote>('book_note_get', { id });
 }
 
 /** 新建书摘或笔记 */
-export function quoteCreate(input: QuoteWrite) {
-  return invokeCommand<QuoteItem>('quote_create', { input });
+export function bookNoteCreate(input: BookNoteInput) {
+  return invokeCommand<BookNote>('book_note_create', { input });
 }
 
 /** 修改书摘或笔记 */
-export function quoteUpdate(id: string, input: QuoteWrite) {
-  return invokeCommand<QuoteItem>('quote_update', { id, input });
+export function bookNoteUpdate(id: string, input: BookNoteInput) {
+  return invokeCommand<BookNote>('book_note_update', { id, input });
 }
 
 /** 软删除书摘或笔记 */
-export function quoteDelete(id: string) {
-  return invokeCommand<void>('quote_delete', { id });
+export function bookNoteDelete(id: string) {
+  return invokeCommand<void>('book_note_delete', { id });
 }

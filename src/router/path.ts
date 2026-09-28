@@ -1,6 +1,6 @@
 export const PATH = {
-  /* 首页 */
-  home: '/',
+  /* 根路径，进入后转到今天 */
+  root: '/',
   /* 今天 */
   today: '/today',
   /* 计划 */
@@ -8,19 +8,19 @@ export const PATH = {
   /* 手记 */
   journal: '/journal',
   /* 手记编辑 */
-  journalEditor: '/journal/$entryId',
+  journalEntry: '/journal/$entryId',
   /* 成长 */
   growth: '/growth',
   /* 书库 */
   library: '/library',
   /* 阅读器 */
-  reader: '/library/$bookId',
+  bookReader: '/library/$bookId',
   /* 工具箱 */
   toolbox: '/toolbox',
   /* 回顾 */
   review: '/review',
   /* 年度之书 */
-  year: '/review/year',
+  yearBook: '/review/year',
   /* 设置 */
   settings: '/settings'
 } as const;

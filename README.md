@@ -46,7 +46,7 @@ pnpm tauri icon ./app-icon.png
 
 ## 前端
 
-界面结构、状态和路由见 [docs/frontend.md](./docs/frontend.md)。
+界面结构、状态和路由见 [docs/frontend.md](./docs/frontend.md)。中文和代码标识的对照见 [docs/glossary.md](./docs/glossary.md)。
 
 ### 格式化（Biome）
 
@@ -168,11 +168,12 @@ rusqlite = { version = "0.40", features = ["bundled-sqlcipher-vendored-openssl"]
 应用数据目录下大致为：
 
 
-| 文件                | 作用                              |
-| ----------------- | ------------------------------- |
-| `data.sqlite`     | SQLCipher 加密库；没有正确 DEK 时内容不可读   |
-| `key.header.json` | 密钥头：盐、Argon2id 参数、被 KEK 包装的 DEK |
-| `device.wrap`     | 设备槽密文。系统密钥库才能解开；没有它时每次都要输入档案密码 |
+| 文件                         | 作用                              |
+| -------------------------- | ------------------------------- |
+| `data/db/data.sqlite`      | SQLCipher 加密库；没有正确 DEK 时内容不可读   |
+| `data/db/key.header.json`  | 密钥头：盐、Argon2id 参数、被 KEK 包装的 DEK |
+| `data/db/device.wrap`      | 设备槽密文。系统密钥库才能解开；没有它时每次都要输入档案密码 |
+| `data/db/user.lock`        | 用户锁定标记。存在时重启仍停在解锁页            |
 
 
 流程概要：
@@ -180,7 +181,9 @@ rusqlite = { version = "0.40", features = ["bundled-sqlcipher-vendored-openssl"]
 1. 用户密码经 **Argon2id** 派生 **KEK**，用 **XChaCha20-Poly1305** 包装随机 **DEK**（32 字节），写入 `key.header.json`。
 2. 开库时解开 DEK，执行 `PRAGMA key = "x'<64 hex>'"`（原始密钥，不再让 SQLCipher 做口令派生）。
 3. 启用设备槽后，同一把 DEK 再由本机系统密钥库包一份，写入 `device.wrap`。未锁定时打开应用会直接进入。点锁定后写入 `user.lock`，重启仍保持锁定，解锁需要 Windows Hello、Touch ID 或生物识别。拷走数据库目录仍然无法解密。见 [docs/device-unlock.md](./docs/device-unlock.md)。
-4. 业务表通过 `DbState::with_conn` 访问；如何新增业务模块见 [docs/db-feature.md](./docs/db-feature.md)。
+4. 业务表通过 `DbState::with_conn` 访问；如何新增业务模块见 [docs/backend.md](./docs/backend.md)。术语对照见 [docs/glossary.md](./docs/glossary.md)。
+
+表结构在初始架构阶段全部重建，旧的开发库不会迁移。升级后需要手动删除本地 `data/db`。
 
 
 

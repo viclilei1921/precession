@@ -13,26 +13,30 @@ pub struct PlanStep {
 /// 写入步骤
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct PlanStepWrite {
+pub struct PlanStepInput {
   pub title: String,
   pub done: bool,
 }
 
-/// 一条计划，含记录卡片上的字段
+/// 一条计划
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct PlanItem {
+pub struct Plan {
   pub id: String,
-  pub occurred_at: i64,
   pub title: String,
   pub body: String,
-  pub locked: bool,
-  pub highlight: bool,
   pub status: String,
   pub priority: i64,
+  pub scheduled_at: Option<i64>,
   pub due_at: Option<i64>,
+  pub completed_at: Option<i64>,
   pub result: String,
+  pub locked: bool,
+  pub highlight: bool,
   pub steps: Vec<PlanStep>,
+  pub member_ids: Vec<String>,
+  pub tag_ids: Vec<String>,
+  pub place_ids: Vec<String>,
   pub created_at: i64,
   pub updated_at: i64,
 }
@@ -40,15 +44,18 @@ pub struct PlanItem {
 /// 新建或修改计划
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct PlanWrite {
-  pub occurred_at: i64,
+pub struct PlanInput {
   pub title: String,
   pub body: String,
-  pub locked: bool,
-  pub highlight: bool,
   pub status: String,
   pub priority: i64,
+  pub scheduled_at: Option<i64>,
   pub due_at: Option<i64>,
   pub result: String,
-  pub steps: Vec<PlanStepWrite>,
+  pub locked: bool,
+  pub highlight: bool,
+  pub steps: Vec<PlanStepInput>,
+  pub member_ids: Vec<String>,
+  pub tag_ids: Vec<String>,
+  pub place_ids: Vec<String>,
 }

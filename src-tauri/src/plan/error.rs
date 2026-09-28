@@ -13,9 +13,12 @@ pub enum PlanError {
   /// 状态不正确
   #[error("状态不正确")]
   StatusInvalid,
-  /// 记录不存在
-  #[error("记录不存在")]
-  RecordNotFound,
+  /// 计划不存在
+  #[error("计划不存在")]
+  NotFound,
+  /// 引用不存在
+  #[error("引用不存在")]
+  ReferencedMissing,
   /// 数据库未解锁
   #[error("数据库未解锁")]
   Locked,

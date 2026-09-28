@@ -15,10 +15,13 @@ pub enum LibraryError {
   ProgressInvalid,
   /// 类型不正确
   #[error("类型不正确")]
-  TypeInvalid,
-  /// 记录不存在
+  KindInvalid,
+  /// 书或笔记不存在
   #[error("记录不存在")]
-  RecordNotFound,
+  NotFound,
+  /// 引用不存在
+  #[error("引用不存在")]
+  ReferencedMissing,
   /// 数据库未解锁
   #[error("数据库未解锁")]
   Locked,

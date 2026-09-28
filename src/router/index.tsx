@@ -1,16 +1,17 @@
 import { createHashHistory, createRootRoute, createRoute, createRouter, redirect } from '@tanstack/react-router';
 import { GrowthPage } from '@/features/growth/page';
-import { JournalEditorPage } from '@/features/journal/editor';
+import { JournalEntryPage } from '@/features/journal/entry-page';
 import { JournalPage } from '@/features/journal/page';
 import { LibraryPage } from '@/features/library/page';
-import { ReaderPage } from '@/features/library/reader';
+import { ReaderPage } from '@/features/library/reader-page';
 import { PlanPage } from '@/features/plan/page';
 import { ReviewPage } from '@/features/review/page';
-import { YearPage } from '@/features/review/year';
+import { YearPage } from '@/features/review/year-page';
 import { SettingsPage } from '@/features/settings/page';
 import { TodayPage } from '@/features/today/page';
 import { ToolboxPage } from '@/features/toolbox/page';
-import { Layout } from './layout';
+import { Layout } from '@/layout';
+import { DeviceUnlock } from '@/session/device-unlock';
 import { PATH } from './path';
 
 const rootRoute = createRootRoute({
@@ -19,7 +20,7 @@ const rootRoute = createRootRoute({
 
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: PATH.home,
+  path: PATH.root,
   beforeLoad: () => {
     throw redirect({ to: PATH.today });
   }
@@ -43,10 +44,10 @@ const journalRoute = createRoute({
   component: JournalPage
 });
 
-const journalEditorRoute = createRoute({
+const journalEntryRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: PATH.journalEditor,
-  component: JournalEditorPage
+  path: PATH.journalEntry,
+  component: JournalEntryPage
 });
 
 const growthRoute = createRoute({
@@ -63,7 +64,7 @@ const libraryRoute = createRoute({
 
 const readerRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: PATH.reader,
+  path: PATH.bookReader,
   component: ReaderPage
 });
 
@@ -81,14 +82,18 @@ const reviewRoute = createRoute({
 
 const yearRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: PATH.year,
+  path: PATH.yearBook,
   component: YearPage
 });
+
+function SettingsRoute() {
+  return <SettingsPage deviceUnlock={<DeviceUnlock />} />;
+}
 
 const settingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: PATH.settings,
-  component: SettingsPage
+  component: SettingsRoute
 });
 
 const routeTree = rootRoute.addChildren([
@@ -96,7 +101,7 @@ const routeTree = rootRoute.addChildren([
   todayRoute,
   planRoute,
   journalRoute,
-  journalEditorRoute,
+  journalEntryRoute,
   growthRoute,
   libraryRoute,
   readerRoute,

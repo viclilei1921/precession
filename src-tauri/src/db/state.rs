@@ -7,11 +7,10 @@ use std::{
 use rusqlite::Connection;
 use zeroize::Zeroizing;
 
-use super::constants::{DB_DEVICE_WRAP, DB_DEVICE_WRAP_TMP, DB_DIR, DB_HEADER, DB_SQLITE, DB_USER_LOCK};
+use super::constants::{DATA_DIR, DB_DEVICE_WRAP, DB_DEVICE_WRAP_TMP, DB_DIR, DB_HEADER, DB_SQLITE, DB_USER_LOCK};
 use super::dto::DbStatus;
 use super::error::DbError;
-use super::repository::{create_db, open_db, read_header, remove_create_artifacts, write_device_wrap_atomic};
-use crate::constants::path::DATA_DIR;
+use super::storage::{create_db, open_db, read_header, remove_create_artifacts, write_device_wrap_atomic};
 use crate::crypto::dek::{open_dek, platform_kdf_params, random_dek, seal_dek};
 use crate::crypto::device::{self, DeviceSlot};
 
@@ -105,7 +104,9 @@ impl DbState {
     let _ = fs::remove_file(self.user_lock_path());
   }
 
-  pub fn create(&self, password: &str) -> Result<(), DbError> {
+  pub fn create(&self, password: &str, password_confirm: &str) -> Result<(), DbError> {
+    check_new_password(password, password_confirm)?;
+
     let DbStatus { exists, unlocked, .. } = self.status();
     if exists || unlocked {
       return Err(DbError::AlreadyExists);
@@ -120,15 +121,15 @@ impl DbState {
     let header = seal_dek(password, &dek, kdf)?;
 
     // 创建数据库, 失败时删除临时文件
-    let conn = create_db(&self, &dek, &header).map_err(|e| {
+    let conn = create_db(self, &dek, &header).map_err(|e| {
       tauri_plugin_log::log::error!("db create: {e}");
-      remove_create_artifacts(&self);
+      remove_create_artifacts(self);
       e
     })?;
 
     if let Err(e) = self.apply_migrators(&conn) {
       drop(conn);
-      remove_create_artifacts(&self);
+      remove_create_artifacts(self);
       return Err(e);
     }
 
@@ -161,6 +162,8 @@ impl DbState {
 
   /// 已解锁，并且密码能解开头文件时，把内存里的 DEK 登记进设备槽。
   pub fn enable_device(&self, password: &str) -> Result<(), DbError> {
+    check_password(password)?;
+
     let session_dek = {
       let guard = self.session.lock().unwrap();
       match &*guard {
@@ -249,6 +252,26 @@ impl DbState {
   }
 }
 
+const MIN_PASSWORD_LEN: usize = 8;
+
+fn check_password(password: &str) -> Result<(), DbError> {
+  if password.is_empty() {
+    return Err(DbError::PasswordEmpty);
+  }
+  if password.chars().count() < MIN_PASSWORD_LEN {
+    return Err(DbError::PasswordTooShort);
+  }
+  Ok(())
+}
+
+fn check_new_password(password: &str, password_confirm: &str) -> Result<(), DbError> {
+  check_password(password)?;
+  if password != password_confirm {
+    return Err(DbError::PasswordMismatch);
+  }
+  Ok(())
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -258,7 +281,7 @@ mod tests {
     let dir = tempfile::tempdir().expect("tempdir");
     let slot = Arc::new(MemorySlot::new());
     let db = DbState::new(dir.path().to_path_buf()).with_device(slot.clone());
-    db.create("test-password-123").expect("create db");
+    db.create("test-password-123", "test-password-123").expect("create db");
     (dir, db, slot)
   }
 

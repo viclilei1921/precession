@@ -11,16 +11,7 @@ pub fn db_status(state: State<'_, DbState>) -> Result<DbStatus, DbError> {
 /// 创建数据库
 #[tauri::command]
 pub async fn db_create(state: State<'_, DbState>, password: String, password_confirm: String) -> Result<(), DbError> {
-  if password.is_empty() {
-    return Err(DbError::PasswordEmpty);
-  }
-
-  // 密码不一致
-  if password != password_confirm {
-    return Err(DbError::PasswordMismatch);
-  }
-
-  state.create(password.as_str())
+  state.create(password.as_str(), password_confirm.as_str())
 }
 
 /// 解锁数据库
@@ -38,9 +29,6 @@ pub fn db_lock(state: State<'_, DbState>) -> Result<(), DbError> {
 /// 用当前密码把已解开的库登记到这台设备的系统密钥库。
 #[tauri::command]
 pub async fn db_enable_device_unlock(state: State<'_, DbState>, password: String) -> Result<(), DbError> {
-  if password.is_empty() {
-    return Err(DbError::PasswordEmpty);
-  }
   state.enable_device(password.as_str())
 }
 
