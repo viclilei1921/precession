@@ -32,9 +32,26 @@ const todayRoute = createRoute({
   component: TodayPage
 });
 
+type PlanSearch = {
+  create?: boolean;
+  id?: string;
+};
+
+function validatePlanSearch(search: Record<string, unknown>): PlanSearch {
+  const next: PlanSearch = {};
+  if (search.create === true || search.create === '1' || search.create === 'true') {
+    next.create = true;
+  }
+  if (typeof search.id === 'string' && search.id.length > 0) {
+    next.id = search.id;
+  }
+  return next;
+}
+
 const planRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: PATH.plan,
+  validateSearch: validatePlanSearch,
   component: PlanPage
 });
 

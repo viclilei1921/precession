@@ -31,6 +31,10 @@ export function CaptureDialog({ open, onClose }: CaptureDialogProps) {
               className={styles.choice}
               onClick={() => {
                 onClose();
+                if (item.to === PATH.plan) {
+                  void navigate({ to: PATH.plan, search: { create: true } });
+                  return;
+                }
                 void navigate({ to: item.to });
               }}
             >

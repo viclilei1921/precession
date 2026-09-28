@@ -1,0 +1,100 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: grid;
+  place-items: center;
+  padding: var(--space-5);
+  background: var(--overlay);
+}
+
+.scrim {
+  position: absolute;
+  inset: 0;
+  padding: 0;
+  cursor: default;
+  background: transparent;
+  border: 0;
+}
+
+.dialog {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: var(--space-3);
+  width: min(24rem, 100%);
+  padding: var(--space-4);
+  color: var(--foreground);
+  outline: none;
+  background: var(--card);
+  border-radius: var(--radius-lg);
+}
+
+.title {
+  font-size: var(--text-lg);
+}
+
+.name {
+  font-size: var(--text-sm);
+  color: var(--muted-foreground);
+}
+
+.field {
+  display: grid;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+}
+
+.field textarea {
+  min-height: 5rem;
+  padding: var(--space-2) var(--space-3);
+  resize: vertical;
+  user-select: text;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.error {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--destructive);
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+
+.ghost,
+.primary {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+}
+
+.ghost {
+  border: 1px solid var(--border);
+}
+
+.primary {
+  font-weight: 600;
+  color: var(--primary-foreground);
+  background: var(--plan);
+}
+
+.primary:disabled,
+.ghost:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+:global(html[data-platform="mobile"]) .backdrop {
+  align-items: end;
+  padding: 0;
+}
+
+:global(html[data-platform="mobile"]) .dialog {
+  width: 100%;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}

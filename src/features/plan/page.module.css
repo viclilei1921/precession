@@ -1,0 +1,247 @@
+.page {
+  display: grid;
+  gap: var(--space-4);
+  color: var(--foreground);
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.title {
+  font-size: var(--text-xl);
+}
+
+.hint {
+  flex-basis: 100%;
+  font-size: var(--text-sm);
+  color: var(--muted-foreground);
+}
+
+.segments {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--muted);
+  border-radius: var(--radius-md);
+}
+
+.segment,
+.primary {
+  display: inline-flex;
+  gap: var(--space-1);
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+}
+
+.segment[data-on="true"] {
+  font-weight: 700;
+  background: var(--card);
+}
+
+.primary {
+  margin-left: auto;
+  font-weight: 600;
+  color: var(--primary-foreground);
+  background: var(--plan);
+  border-radius: var(--radius-md);
+}
+
+.icon,
+.iconButton .icon {
+  flex: none;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+
+.split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(16rem, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.stack {
+  display: grid;
+  gap: var(--space-4);
+  align-content: start;
+}
+
+.card {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.cardTitle {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
+.extra {
+  margin-left: auto;
+  font-weight: 400;
+  color: var(--muted-foreground);
+}
+
+.empty,
+.note {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--muted-foreground);
+}
+
+.error {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--destructive);
+}
+
+.inboxRow {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-2) 0;
+  border-bottom: 1px dashed var(--border);
+}
+
+.inboxRow:last-child {
+  border-bottom: 0;
+}
+
+.inboxTitle {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  text-align: left;
+}
+
+.schedule {
+  display: grid;
+  gap: 2px;
+  font-size: var(--text-xs);
+  color: var(--muted-foreground);
+}
+
+.schedule input {
+  color: var(--foreground);
+  user-select: text;
+}
+
+.statValue {
+  font-size: var(--text-2xl);
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.statLabel {
+  font-size: var(--text-xs);
+  color: var(--muted-foreground);
+}
+
+.progress {
+  height: 0.4rem;
+  overflow: hidden;
+  background: var(--muted);
+  border-radius: var(--radius-pill);
+}
+
+.progress i {
+  display: block;
+  height: 100%;
+  background: var(--plan);
+  border-radius: var(--radius-pill);
+}
+
+.monthBar {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 700;
+}
+
+.iconButton {
+  display: grid;
+  place-items: center;
+  padding: var(--space-1);
+}
+
+.weekdays,
+.days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 2px;
+  text-align: center;
+}
+
+.weekdays {
+  font-size: var(--text-xs);
+  color: var(--muted-foreground);
+}
+
+.day {
+  display: grid;
+  gap: 2px;
+  justify-items: center;
+  padding: var(--space-1) 0;
+  font-size: var(--text-xs);
+  border-radius: var(--radius-sm);
+}
+
+.day[data-muted="true"] {
+  color: var(--muted-foreground);
+}
+
+.day[data-today="true"] {
+  font-weight: 700;
+}
+
+.day[data-selected="true"] {
+  font-weight: 700;
+  color: var(--primary-foreground);
+  background: var(--plan);
+}
+
+.dot,
+.dotSpacer {
+  width: 0.25rem;
+  height: 0.25rem;
+  border-radius: var(--radius-pill);
+}
+
+.dot {
+  background: var(--plan);
+}
+
+.day[data-selected="true"] .dot {
+  background: var(--primary-foreground);
+}
+
+.linkCard {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-4);
+  text-align: left;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+:global(html[data-platform="mobile"]) .split {
+  grid-template-columns: 1fr;
+}
+
+:global(html[data-platform="mobile"]) .primary {
+  margin-left: 0;
+}

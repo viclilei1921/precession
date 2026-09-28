@@ -19,6 +19,7 @@
 | `@tanstack/react-router` | 已解锁之后的页面 |
 | `@tanstack/react-query` | 已解锁之后从数据库来的列表和详情 |
 | `zustand` | 跨组件的客户端状态，包括解锁会话 |
+| `@phosphor-icons/react` | 界面图标。`weight="regular"`，尺寸用 `--icon-sm`、`--icon-md` |
 
 路由表手写在 `src/router/index.tsx`。不装 `@tanstack/router-plugin`，避免页面被赶到 `src/routes/`。
 

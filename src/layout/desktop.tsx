@@ -1,3 +1,4 @@
+import { MagnifyingGlass, Plus } from '@phosphor-icons/react';
 import { Link, Outlet } from '@tanstack/react-router';
 import { itemsOn, sidebarGroups } from '@/router/items';
 import { LockButton } from '@/session/lock-button';
@@ -36,9 +37,11 @@ export function DesktopLayout({ onCapture, onCommand }: DesktopLayoutProps) {
       <div className={styles.main}>
         <header className={styles.topbar}>
           <button type="button" className={styles.search} onClick={onCommand}>
+            <MagnifyingGlass className={styles.icon} weight="regular" />
             搜索全部记录
           </button>
           <button type="button" className={styles.capture} onClick={onCapture}>
+            <Plus className={styles.icon} weight="regular" />
             记一笔
           </button>
         </header>
