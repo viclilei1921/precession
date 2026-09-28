@@ -1,4 +1,4 @@
-import { Plus } from '@phosphor-icons/react';
+import { PlusIcon } from '@phosphor-icons/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
@@ -52,7 +52,7 @@ export function LibraryPage() {
           ))}
         </div>
         <button type="button" className={styles.primary} onClick={() => setEditing('new')}>
-          <Plus className={styles.icon} weight="regular" />
+          <PlusIcon className={styles.icon} weight="regular" />
           添加书
         </button>
       </header>

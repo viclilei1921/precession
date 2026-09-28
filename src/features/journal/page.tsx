@@ -1,4 +1,4 @@
-import { Lightning, Notebook, PencilLine, Plus } from '@phosphor-icons/react';
+import { LightningIcon, NotebookIcon, PencilLineIcon, PlusIcon } from '@phosphor-icons/react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
@@ -11,10 +11,10 @@ import { Dialog } from '@/shared/ui/dialog';
 import styles from '@/shared/ui/record.module.css';
 import { JournalEditor } from './editor';
 
-const kinds: { kind: JournalKind; label: string; Icon: typeof Notebook }[] = [
-  { kind: 'diary', label: '日记', Icon: Notebook },
-  { kind: 'spark', label: '灵感', Icon: Lightning },
-  { kind: 'writing', label: '写作', Icon: PencilLine }
+const kinds: { kind: JournalKind; label: string; Icon: typeof NotebookIcon }[] = [
+  { kind: 'diary', label: '日记', Icon: NotebookIcon },
+  { kind: 'spark', label: '灵感', Icon: LightningIcon },
+  { kind: 'writing', label: '写作', Icon: PencilLineIcon }
 ];
 
 export function JournalPage() {
@@ -57,7 +57,7 @@ export function JournalPage() {
           ))}
         </div>
         <button type="button" className={styles.primary} onClick={() => setCreating(true)}>
-          <Plus className={styles.icon} weight="regular" />
+          <PlusIcon className={styles.icon} weight="regular" />
           新建
         </button>
       </header>

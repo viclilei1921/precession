@@ -1,4 +1,4 @@
-import { CaretLeft, CaretRight } from '@phosphor-icons/react';
+import { CaretLeftIcon, CaretRightIcon } from '@phosphor-icons/react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
@@ -49,7 +49,7 @@ export function YearPage() {
             aria-label="上一年"
             onClick={() => setYearStart(addLocalYears(yearStart, -1))}
           >
-            <CaretLeft className={styles.icon} weight="regular" />
+            <CaretLeftIcon className={styles.icon} weight="regular" />
           </button>
           <button
             type="button"
@@ -57,7 +57,7 @@ export function YearPage() {
             aria-label="下一年"
             onClick={() => setYearStart(addLocalYears(yearStart, 1))}
           >
-            <CaretRight className={styles.icon} weight="regular" />
+            <CaretRightIcon className={styles.icon} weight="regular" />
           </button>
         </div>
         <Link to={PATH.review} className={styles.primary}>

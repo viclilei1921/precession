@@ -1,4 +1,4 @@
-import { CheckCircle, Circle } from '@phosphor-icons/react';
+import { CheckCircleIcon, CircleIcon } from '@phosphor-icons/react';
 import type { Plan } from '@/bridge/plan';
 import styles from './plan-check.module.css';
 
@@ -22,9 +22,9 @@ export function PlanCheck({ plan, meta, onComplete, onOpen }: PlanCheckProps) {
         onClick={() => onComplete(plan)}
       >
         {done ? (
-          <CheckCircle className={styles.icon} weight="regular" />
+          <CheckCircleIcon className={styles.icon} weight="regular" />
         ) : (
-          <Circle className={styles.icon} weight="regular" />
+          <CircleIcon className={styles.icon} weight="regular" />
         )}
       </button>
       <button type="button" className={done ? styles.doneTitle : styles.title} onClick={() => onOpen(plan)}>

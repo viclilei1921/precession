@@ -1,4 +1,4 @@
-import { Plus, Trash } from '@phosphor-icons/react';
+import { PlusIcon, TrashIcon } from '@phosphor-icons/react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import type { Plan, PlanInput, PlanStatus } from '@/bridge/plan';
@@ -197,7 +197,7 @@ export function PlanForm({ plan, onClose }: PlanFormProps) {
                 aria-label="删除步骤"
                 onClick={() => setSteps((current) => current.filter((item) => item.key !== step.key))}
               >
-                <Trash className={styles.icon} weight="regular" />
+                <TrashIcon className={styles.icon} weight="regular" />
               </button>
             </div>
           ))}
@@ -206,7 +206,7 @@ export function PlanForm({ plan, onClose }: PlanFormProps) {
             className={styles.add}
             onClick={() => setSteps((current) => [...current, { key: crypto.randomUUID(), title: '', done: false }])}
           >
-            <Plus className={styles.icon} weight="regular" />
+            <PlusIcon className={styles.icon} weight="regular" />
             添加步骤
           </button>
         </div>

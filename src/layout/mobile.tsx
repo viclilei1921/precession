@@ -1,4 +1,4 @@
-import { Plus } from '@phosphor-icons/react';
+import { PlusIcon } from '@phosphor-icons/react';
 import { Link, Outlet, useRouterState } from '@tanstack/react-router';
 import { itemsOn } from '@/router/items';
 import { PATH } from '@/router/path';
@@ -52,7 +52,7 @@ export function MobileLayout({ onCapture }: MobileLayoutProps) {
           记录
         </Link>
         <button type="button" className={styles.fab} aria-label="记一笔" onClick={onCapture}>
-          <Plus className={styles.icon} weight="regular" />
+          <PlusIcon className={styles.icon} weight="regular" />
         </button>
         <Link to={PATH.library} className={styles.tab} data-status={tab === 'library' ? 'active' : undefined}>
           书库

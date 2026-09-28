@@ -1,18 +1,18 @@
 import {
-  BookOpen,
-  CalendarBlank,
-  Camera,
-  ClockCounterClockwise,
-  Fire,
-  Flag,
-  Hourglass,
-  Lightning,
-  ListChecks,
-  Lock,
-  Notebook,
-  PencilLine,
-  PencilSimple,
-  Quotes
+  BookOpenIcon,
+  CalendarBlankIcon,
+  CameraIcon,
+  ClockCounterClockwiseIcon,
+  FireIcon,
+  FlagIcon,
+  HourglassIcon,
+  LightningIcon,
+  ListChecksIcon,
+  LockIcon,
+  NotebookIcon,
+  PencilLineIcon,
+  PencilSimpleIcon,
+  QuotesIcon
 } from '@phosphor-icons/react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
@@ -31,15 +31,15 @@ import { addLocalDays, formatDayHeading, formatFeedClock, startOfLocalDay, toDat
 import { errorMessage } from '@/shared/lib/error';
 import styles from './page.module.css';
 
-const kindMeta: Record<TimelineKind, { label: string; tone: string; Icon: typeof ListChecks }> = {
-  plan: { label: '计划', tone: 'plan', Icon: ListChecks },
-  diary: { label: '日记', tone: 'journal', Icon: Notebook },
-  spark: { label: '灵感', tone: 'journal', Icon: Lightning },
-  writing: { label: '写作', tone: 'journal', Icon: PencilLine },
-  milestone: { label: '里程碑', tone: 'growth', Icon: Flag },
-  moment: { label: '瞬间', tone: 'growth', Icon: Camera },
-  excerpt: { label: '书摘', tone: 'library', Icon: Quotes },
-  note: { label: '笔记', tone: 'library', Icon: BookOpen }
+const kindMeta: Record<TimelineKind, { label: string; tone: string; Icon: typeof ListChecksIcon }> = {
+  plan: { label: '计划', tone: 'plan', Icon: ListChecksIcon },
+  diary: { label: '日记', tone: 'journal', Icon: NotebookIcon },
+  spark: { label: '灵感', tone: 'journal', Icon: LightningIcon },
+  writing: { label: '写作', tone: 'journal', Icon: PencilLineIcon },
+  milestone: { label: '里程碑', tone: 'growth', Icon: FlagIcon },
+  moment: { label: '瞬间', tone: 'growth', Icon: CameraIcon },
+  excerpt: { label: '书摘', tone: 'library', Icon: QuotesIcon },
+  note: { label: '笔记', tone: 'library', Icon: BookOpenIcon }
 };
 
 const kindOrder: TimelineKind[] = ['diary', 'spark', 'writing', 'milestone', 'moment', 'excerpt', 'note', 'plan'];
@@ -81,7 +81,7 @@ export function TodayPage() {
       </header>
 
       <div className={styles.capture}>
-        <PencilSimple className={styles.statIcon} weight="regular" />
+        <PencilSimpleIcon className={styles.statIcon} weight="regular" />
         <span className={styles.prompt}>记点什么…文字、里程碑、书摘、计划，都从这里进</span>
         <button
           type="button"
@@ -89,7 +89,7 @@ export function TodayPage() {
           data-tone="journal"
           onClick={() => void navigate({ to: PATH.journal, search: { create: true, kind: 'diary' } })}
         >
-          <PencilSimple className={styles.chipIcon} weight="regular" />
+          <PencilSimpleIcon className={styles.chipIcon} weight="regular" />
           文字
         </button>
         <button
@@ -98,7 +98,7 @@ export function TodayPage() {
           data-tone="growth"
           onClick={() => void navigate({ to: PATH.growth, search: { create: true, kind: 'milestone' } })}
         >
-          <Flag className={styles.chipIcon} weight="regular" />
+          <FlagIcon className={styles.chipIcon} weight="regular" />
           里程碑
         </button>
         <button
@@ -107,7 +107,7 @@ export function TodayPage() {
           data-tone="library"
           onClick={() => void navigate({ to: PATH.library })}
         >
-          <Quotes className={styles.chipIcon} weight="regular" />
+          <QuotesIcon className={styles.chipIcon} weight="regular" />
           书摘
         </button>
         <button
@@ -116,7 +116,7 @@ export function TodayPage() {
           data-tone="plan"
           onClick={() => void navigate({ to: PATH.plan, search: { create: true } })}
         >
-          <ListChecks className={styles.chipIcon} weight="regular" />
+          <ListChecksIcon className={styles.chipIcon} weight="regular" />
           计划
         </button>
       </div>
@@ -125,7 +125,7 @@ export function TodayPage() {
 
       <div className={styles.stats}>
         <article className={styles.stat}>
-          <ListChecks className={styles.statIcon} weight="regular" />
+          <ListChecksIcon className={styles.statIcon} weight="regular" />
           <span className={styles.statValue}>
             {completion.done}
             <small> / {completion.total}</small>
@@ -136,21 +136,21 @@ export function TodayPage() {
           </div>
         </article>
         <article className={styles.stat}>
-          <Notebook className={styles.statIcon} weight="regular" />
+          <NotebookIcon className={styles.statIcon} weight="regular" />
           <span className={styles.statValue}>
             {feed.length} <small>条</small>
           </span>
           <span className={styles.statLabel}>今天记录{recordSummary(feed) ? ` · ${recordSummary(feed)}` : ''}</span>
         </article>
         <article className={styles.stat}>
-          <Fire className={styles.statIcon} weight="regular" />
+          <FireIcon className={styles.statIcon} weight="regular" />
           <span className={styles.statValue}>
             {streakCount(streakQuery.data ?? [], todayStart)} <small>天</small>
           </span>
           <span className={styles.statLabel}>连续记录</span>
         </article>
         <article className={styles.stat}>
-          <Hourglass className={styles.statIcon} weight="regular" />
+          <HourglassIcon className={styles.statIcon} weight="regular" />
           <span className={styles.statValue}>
             {running} <small>运行中</small>
           </span>
@@ -161,7 +161,7 @@ export function TodayPage() {
       <div className={styles.split}>
         <article className={styles.card}>
           <h2 className={styles.cardTitle}>
-            <ClockCounterClockwise className={styles.icon} weight="regular" />
+            <ClockCounterClockwiseIcon className={styles.icon} weight="regular" />
             今日动态
             <span className={styles.extra}>按时间混排</span>
           </h2>
@@ -173,7 +173,7 @@ export function TodayPage() {
         </article>
         <article className={styles.card}>
           <h2 className={styles.cardTitle}>
-            <CalendarBlank className={styles.icon} weight="regular" />
+            <CalendarBlankIcon className={styles.icon} weight="regular" />
             今日计划
             {overdue > 0 ? <span className={styles.extra}>{overdue} 项逾期</span> : null}
           </h2>
@@ -207,7 +207,7 @@ function FeedRow({ item }: { item: TimelineItem }) {
         {meta.label}
       </span>
       <span className={styles.feedText}>{text}</span>
-      {item.locked ? <Lock className={styles.lock} weight="regular" /> : null}
+      {item.locked ? <LockIcon className={styles.lock} weight="regular" /> : null}
       <time className={styles.clock}>{formatFeedClock(item.occurredAt)}</time>
     </>
   );

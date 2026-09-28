@@ -1,4 +1,4 @@
-import { CalendarBlank, ListChecks, Plus, Tray } from '@phosphor-icons/react';
+import { CalendarBlankIcon, ListChecksIcon, PlusIcon, TrayIcon } from '@phosphor-icons/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
@@ -100,7 +100,7 @@ export function PlanPage() {
             data-on={view === 'todo' ? 'true' : undefined}
             onClick={() => setView('todo')}
           >
-            <ListChecks className={styles.icon} weight="regular" />
+            <ListChecksIcon className={styles.icon} weight="regular" />
             待办
           </button>
           <button
@@ -109,7 +109,7 @@ export function PlanPage() {
             data-on={view === 'inbox' ? 'true' : undefined}
             onClick={() => setView('inbox')}
           >
-            <Tray className={styles.icon} weight="regular" />
+            <TrayIcon className={styles.icon} weight="regular" />
             收集箱 {inbox.length}
           </button>
           <button
@@ -118,12 +118,12 @@ export function PlanPage() {
             data-on={view === 'calendar' ? 'true' : undefined}
             onClick={() => setView('calendar')}
           >
-            <CalendarBlank className={styles.icon} weight="regular" />
+            <CalendarBlankIcon className={styles.icon} weight="regular" />
             日历
           </button>
         </div>
         <button type="button" className={styles.primary} onClick={() => setEditing('new')}>
-          <Plus className={styles.icon} weight="regular" />
+          <PlusIcon className={styles.icon} weight="regular" />
           新建计划
         </button>
       </header>

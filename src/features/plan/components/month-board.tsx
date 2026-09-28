@@ -1,4 +1,4 @@
-import { CaretLeft, CaretRight } from '@phosphor-icons/react';
+import { CaretLeftIcon, CaretRightIcon } from '@phosphor-icons/react';
 import type { CalendarDay } from '@/bridge/calendar';
 import {
   addLocalDays,
@@ -64,7 +64,7 @@ export function MonthBoard({ month, selected, marked, days, onSelect, onMonth }:
           aria-label="上个月"
           onClick={() => onMonth(addLocalMonths(month, -1))}
         >
-          <CaretLeft className={styles.icon} weight="regular" />
+          <CaretLeftIcon className={styles.icon} weight="regular" />
         </button>
         <span>{formatMonth(month)}</span>
         <button
@@ -73,7 +73,7 @@ export function MonthBoard({ month, selected, marked, days, onSelect, onMonth }:
           aria-label="下个月"
           onClick={() => onMonth(addLocalMonths(month, 1))}
         >
-          <CaretRight className={styles.icon} weight="regular" />
+          <CaretRightIcon className={styles.icon} weight="regular" />
         </button>
       </div>
       <div className={styles.weekdays}>

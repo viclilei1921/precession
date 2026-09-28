@@ -1,4 +1,4 @@
-import { Camera, Flag, Plus } from '@phosphor-icons/react';
+import { CameraIcon, FlagIcon, PlusIcon } from '@phosphor-icons/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
@@ -61,7 +61,7 @@ export function GrowthPage() {
             data-on={kind === 'milestone' ? 'true' : undefined}
             onClick={() => setKind('milestone')}
           >
-            <Flag className={styles.icon} weight="regular" />
+            <FlagIcon className={styles.icon} weight="regular" />
             里程碑
           </button>
           <button
@@ -70,12 +70,12 @@ export function GrowthPage() {
             data-on={kind === 'moment' ? 'true' : undefined}
             onClick={() => setKind('moment')}
           >
-            <Camera className={styles.icon} weight="regular" />
+            <CameraIcon className={styles.icon} weight="regular" />
             瞬间
           </button>
         </div>
         <button type="button" className={styles.primary} disabled={selected == null} onClick={() => setEditing('new')}>
-          <Plus className={styles.icon} weight="regular" />
+          <PlusIcon className={styles.icon} weight="regular" />
           记一笔
         </button>
       </header>
