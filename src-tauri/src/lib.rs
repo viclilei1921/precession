@@ -1,3 +1,4 @@
+mod calendar;
 mod crypto;
 mod db;
 mod growth;
@@ -50,6 +51,7 @@ pub fn run() {
       journal::migrate,
       growth::migrate,
       library::migrate,
+      calendar::migrate,
     ]);
     #[cfg(target_os = "android")]
     let db = {
@@ -132,6 +134,11 @@ pub fn run() {
     library::commands::book_note_update,
     library::commands::book_note_delete,
     timeline::commands::timeline_list,
+    calendar::commands::calendar_list,
+    calendar::commands::calendar_day_upsert,
+    calendar::commands::calendar_day_delete,
+    calendar::commands::calendar_official_import,
+    calendar::commands::calendar_almanac,
   ]);
 
   // 桌面：关闭窗口时隐藏到托盘；移动端不注册，交给系统默认关闭行为

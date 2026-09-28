@@ -20,6 +20,7 @@
 | 影像 | `media` | 图片和视频的元数据，文件本体不进库。`encrypted` 表示文件是否已加密 |
 | 任务 | `task` | 耗时的文件处理。密码只在入队时输入，队列不入库 |
 | 时间轴 | `timeline` | 只读聚合，没有自己的表 |
+| 日历 | `calendar` | 官方节假日、个人单日覆盖、农历。今天和计划月历只读合成结果 |
 
 ## 实体
 
@@ -41,6 +42,10 @@
 | 影像 | `Media` | `MediaInput` |
 | 任务 | `Task` | `TaskInput` |
 | 时间轴条目 | `TimelineItem` | 无 |
+| 日历日 | `CalendarDay` | 无。区间合成，不单独写入 |
+| 个人覆盖 | `CalendarOverride` | `CalendarDayInput` |
+| 官方导入 | `OfficialImport` | `OfficialImportInput` |
+| 黄历 | `Almanac` | 无 |
 
 类型字段一律叫 `kind`，不用 `type`。
 
@@ -73,6 +78,9 @@
 | 安排时间 | `scheduled_at` | 计划。时间轴上没有它时用 `created_at` |
 | 完成时间 | `completed_at` | 计划 |
 | 读完时间 | `finished_at` | 书。不要把书的状态写成 `done` |
+| 是否上班 | `is_workday` | 个人覆盖优先，其次官方调休，否则周末休息 |
+| 是否休息日 | `is_off_day` | 官方安排。`false` 表示调休上班 |
+| 节日名 | `holiday_name` | 有官方行才有。导入时字段是 `name` |
 
 ## 裁定
 

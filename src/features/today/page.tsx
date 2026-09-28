@@ -20,12 +20,13 @@ import { useState } from 'react';
 import type { Plan } from '@/bridge/plan';
 import type { TimelineItem, TimelineKind } from '@/bridge/timeline';
 import { PATH } from '@/router/path';
+import { calendarCaption, calendarRangeQuery } from '@/shared/data/calendar/query';
 import { CompleteDialog } from '@/shared/data/plan/complete-dialog';
 import { planMeta, todayCompletion, todayPlanPanel } from '@/shared/data/plan/group';
 import { PlanCheck } from '@/shared/data/plan/plan-check';
 import { planListQuery } from '@/shared/data/plan/query';
 import { timelineListQuery } from '@/shared/data/timeline/query';
-import { addLocalDays, formatDayHeading, formatFeedClock, startOfLocalDay } from '@/shared/lib/day';
+import { addLocalDays, formatDayHeading, formatFeedClock, startOfLocalDay, toDateInputValue } from '@/shared/lib/day';
 import { errorMessage } from '@/shared/lib/error';
 import styles from './page.module.css';
 import { taskListQuery } from './query';
@@ -52,6 +53,8 @@ export function TodayPage() {
   const feedQuery = useQuery(timelineListQuery(todayStart, tomorrow));
   const streakQuery = useQuery(timelineListQuery(streakFrom, tomorrow));
   const tasksQuery = useQuery(taskListQuery);
+  const todayKey = toDateInputValue(todayStart);
+  const calendarQuery = useQuery(calendarRangeQuery(todayKey, todayKey));
   const [completing, setCompleting] = useState<Plan | null>(null);
 
   const plans = plansQuery.data ?? [];
@@ -64,13 +67,17 @@ export function TodayPage() {
   ).length;
   const running =
     tasksQuery.data?.filter((task) => task.status === 'pending' || task.status === 'processing').length ?? 0;
-  const error = plansQuery.error ?? feedQuery.error ?? streakQuery.error ?? tasksQuery.error;
+  const error = plansQuery.error ?? feedQuery.error ?? streakQuery.error ?? tasksQuery.error ?? calendarQuery.error;
+  const caption = calendarCaption(calendarQuery.data?.days[0]);
 
   return (
     <section className={styles.page}>
       <header className={styles.head}>
         <h1 className={styles.title}>今天</h1>
-        <p className={styles.hint}>{formatDayHeading(todayStart)}</p>
+        <p className={styles.hint}>
+          {formatDayHeading(todayStart)}
+          {caption ? ` · ${caption}` : ''}
+        </p>
       </header>
 
       <div className={styles.capture}>

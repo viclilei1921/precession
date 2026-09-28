@@ -4,14 +4,21 @@ import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import type { Plan } from '@/bridge/plan';
 import { planUpdate } from '@/bridge/plan';
+import { calendarCaption, calendarRangeQuery } from '@/shared/data/calendar/query';
 import { CompleteDialog } from '@/shared/data/plan/complete-dialog';
 import { groupTodo, markedDays, planMeta, plansOnDay, weekCompletion } from '@/shared/data/plan/group';
 import { toPlanInput } from '@/shared/data/plan/input';
 import { PlanCheck } from '@/shared/data/plan/plan-check';
 import { planListQuery, refreshPlanViews } from '@/shared/data/plan/query';
-import { formatMonthDay, fromDateInputValue, startOfLocalDay, startOfLocalMonth } from '@/shared/lib/day';
+import {
+  formatMonthDay,
+  fromDateInputValue,
+  startOfLocalDay,
+  startOfLocalMonth,
+  toDateInputValue
+} from '@/shared/lib/day';
 import { errorMessage } from '@/shared/lib/error';
-import { MonthBoard } from './components/month-board';
+import { MonthBoard, monthGridBounds } from './components/month-board';
 import { PlanForm } from './components/plan-form';
 import styles from './page.module.css';
 
@@ -22,12 +29,15 @@ export function PlanPage() {
   const navigate = useNavigate();
   const search = useSearch({ from: '/plan' });
   const queryClient = useQueryClient();
-  const plansQuery = useQuery(planListQuery);
-  const plans = plansQuery.data ?? [];
   const todayStart = startOfLocalDay();
   const [view, setView] = useState<PlanView>('todo');
   const [month, setMonth] = useState(() => startOfLocalMonth());
   const [selectedDay, setSelectedDay] = useState(todayStart);
+  const plansQuery = useQuery(planListQuery);
+  const grid = monthGridBounds(month);
+  const calendarQuery = useQuery(calendarRangeQuery(toDateInputValue(grid.from), toDateInputValue(grid.to)));
+  const plans = plansQuery.data ?? [];
+  const calendarDays = calendarQuery.data?.days ?? [];
   const [editing, setEditing] = useState<Editing>(null);
   const [completing, setCompleting] = useState<Plan | null>(null);
   const pendingId = useRef<string | undefined>(undefined);
@@ -75,6 +85,7 @@ export function PlanPage() {
   const weekRate = week.total === 0 ? 0 : Math.round((week.done / week.total) * 100);
   const marks = markedDays(plans);
   const dayPlans = plansOnDay(plans, selectedDay);
+  const selectedCaption = calendarCaption(calendarDays.find((day) => day.date === toDateInputValue(selectedDay)));
   const editingPlan = editing === 'new' ? null : editing;
 
   return (
@@ -118,6 +129,7 @@ export function PlanPage() {
       </header>
 
       {plansQuery.error ? <p className={styles.error}>{errorMessage(plansQuery.error)}</p> : null}
+      {calendarQuery.error ? <p className={styles.error}>{errorMessage(calendarQuery.error)}</p> : null}
       {schedule.error ? <p className={styles.error}>{errorMessage(schedule.error)}</p> : null}
       {plansQuery.isPending ? <p className={styles.note}>正在读取…</p> : null}
 
@@ -161,8 +173,15 @@ export function PlanPage() {
           </div>
           <div className={styles.stack}>
             <div className={styles.card}>
-              <MonthBoard month={month} selected={selectedDay} marked={marks} onMonth={setMonth} onSelect={openDay} />
-              <p className={styles.note}>有计划的日期有圆点。点某一天看当天。</p>
+              <MonthBoard
+                month={month}
+                selected={selectedDay}
+                marked={marks}
+                days={calendarDays}
+                onMonth={setMonth}
+                onSelect={openDay}
+              />
+              <p className={styles.note}>有计划的日期有圆点。休息日和节日写在日期下面。</p>
             </div>
             <div className={styles.card}>
               <span className={styles.statValue}>{weekRate}%</span>
@@ -216,6 +235,7 @@ export function PlanPage() {
               month={month}
               selected={selectedDay}
               marked={marks}
+              days={calendarDays}
               onMonth={setMonth}
               onSelect={(time) => {
                 setSelectedDay(startOfLocalDay(time));
@@ -225,6 +245,7 @@ export function PlanPage() {
           </div>
           <div className={styles.card}>
             <h2 className={styles.cardTitle}>{formatMonthDay(selectedDay)}</h2>
+            {selectedCaption ? <p className={styles.note}>{selectedCaption}</p> : null}
             {dayPlans.length === 0 ? <p className={styles.empty}>这一天没有计划。</p> : null}
             {dayPlans.map((plan) => (
               <PlanCheck

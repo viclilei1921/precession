@@ -213,6 +213,29 @@
   background: var(--plan);
 }
 
+.mark,
+.markSpacer {
+  max-width: 100%;
+  height: 0.75rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.625rem;
+  line-height: 0.75rem;
+  white-space: nowrap;
+}
+
+.mark {
+  color: var(--muted-foreground);
+}
+
+.day[data-off="true"] .mark {
+  color: var(--destructive);
+}
+
+.day[data-selected="true"] .mark {
+  color: inherit;
+}
+
 .dot,
 .dotSpacer {
   width: 0.25rem;

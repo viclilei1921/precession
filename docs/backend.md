@@ -24,11 +24,13 @@ flowchart TD
   place[place]
   media[media]
   timeline[timeline]
+  calendar[calendar]
   lib --> db
   plan --> db
   journal --> db
   growth --> db
   library --> db
+  calendar --> db
   member --> owner
   tag --> owner
   place --> owner
@@ -57,9 +59,10 @@ flowchart TD
 | `place` | `place`、`place_ref` | 地点 |
 | `media` | `media` | 影像元数据 |
 | `timeline` | 无 | 按时间只读聚合 |
+| `calendar` | `calendar_official`、`calendar_day` | 官方节假日和个人单日覆盖。农历黄历不入库 |
 | `owner` | 无 | 归属类型，以及这条记录是否存在 |
 
-注册顺序：`member`、`tag`、`place`、`media`、`plan`、`journal`、`growth`、`library`。`timeline` 不建表。
+注册顺序：`member`、`tag`、`place`、`media`、`plan`、`journal`、`growth`、`library`、`calendar`。`timeline` 不建表。
 
 ## 和 `db` 的边界
 
