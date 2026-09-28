@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { errorMessage } from '@/app/error';
 import { dbDisableDeviceUnlock, dbUnlock, dbUnlockDevice } from '@/bridge/db';
+import { errorMessage } from './error';
 import styles from './gate.module.css';
 
 type UnlockViewProps = {

@@ -263,7 +263,7 @@ mod tests {
   }
 
   #[test]
-  fn device_slot_requires_password_and_roundtrips() {
+  fn device_slot_requires_password_and_round_trips() {
     let (dir, db, slot) = setup();
     assert!(!db.status().device_unlock);
 

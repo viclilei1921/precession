@@ -1,13 +1,13 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider } from '@tanstack/react-router';
 import { useEffect } from 'react';
-import { errorMessage } from './error';
-import { CreateView } from './gate/CreateView';
-import styles from './gate/gate.module.css';
-import { UnlockView } from './gate/UnlockView';
-import { queryClient } from './query';
-import { router } from './router';
-import { useSession } from './session';
+import { router } from '@/router';
+import { CreateView } from '@/session/create';
+import { errorMessage } from '@/session/error';
+import styles from '@/session/gate.module.css';
+import { queryClient } from '@/session/query';
+import { useSession } from '@/session/store';
+import { UnlockView } from '@/session/unlock';
 
 export default function App() {
   const status = useSession((state) => state.status);

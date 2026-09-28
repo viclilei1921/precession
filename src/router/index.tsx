@@ -10,83 +10,84 @@ import { YearPage } from '@/features/review/year';
 import { SettingsPage } from '@/features/settings/page';
 import { TodayPage } from '@/features/today/page';
 import { ToolboxPage } from '@/features/toolbox/page';
-import { Shell } from './shell/Shell';
+import { Layout } from './layout';
+import { PATH } from './path';
 
 const rootRoute = createRootRoute({
-  component: Shell
+  component: Layout
 });
 
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/',
+  path: PATH.home,
   beforeLoad: () => {
-    throw redirect({ to: '/today' });
+    throw redirect({ to: PATH.today });
   }
 });
 
 const todayRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/today',
+  path: PATH.today,
   component: TodayPage
 });
 
 const planRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/plan',
+  path: PATH.plan,
   component: PlanPage
 });
 
 const journalRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/journal',
+  path: PATH.journal,
   component: JournalPage
 });
 
 const journalEditorRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/journal/$entryId',
+  path: PATH.journalEditor,
   component: JournalEditorPage
 });
 
 const growthRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/growth',
+  path: PATH.growth,
   component: GrowthPage
 });
 
 const libraryRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/library',
+  path: PATH.library,
   component: LibraryPage
 });
 
 const readerRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/library/$bookId',
+  path: PATH.reader,
   component: ReaderPage
 });
 
 const toolboxRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/toolbox',
+  path: PATH.toolbox,
   component: ToolboxPage
 });
 
 const reviewRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/review',
+  path: PATH.review,
   component: ReviewPage
 });
 
 const yearRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/review/year',
+  path: PATH.year,
   component: YearPage
 });
 
 const settingsRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/settings',
+  path: PATH.settings,
   component: SettingsPage
 });
 
