@@ -1,0 +1,23 @@
+{
+  "version": 1.1,
+  "properties": [
+    {
+      "name": "app-region",
+      "description": "Tauri 窗口拖拽区域。drag 可拖动窗口，no-drag 把点击留给按钮。",
+      "references": [
+        {
+          "name": "Tauri window customization",
+          "url": "https://v2.tauri.app/learn/window-customization/"
+        }
+      ],
+      "values": [
+        {
+          "name": "drag"
+        },
+        {
+          "name": "no-drag"
+        }
+      ]
+    }
+  ]
+}

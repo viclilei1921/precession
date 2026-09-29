@@ -1,0 +1,58 @@
+.bar {
+  display: grid;
+  flex: none;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  height: 2rem;
+  color: var(--foreground);
+  user-select: none;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+}
+
+.drag {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  padding-left: var(--space-4);
+}
+
+.title {
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
+.controls {
+  display: flex;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2rem;
+  padding: 0;
+  color: inherit;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  app-region: no-drag;
+}
+
+.button:hover {
+  background: var(--muted);
+}
+
+.close:hover {
+  color: var(--primary-foreground);
+  background: var(--destructive);
+}
+
+.icon {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+
+:global([data-tauri-drag-region]) {
+  app-region: drag;
+}

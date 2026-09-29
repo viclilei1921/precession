@@ -40,6 +40,7 @@
   "rust-analyzer.linkedProjects": [
     "src-tauri/Cargo.toml"
   ],
+  "css.customData": [".vscode/css-custom-data.json"],
   "css.lint.unknownAtRules": "ignore",
   "[rust]": {
     "editor.defaultFormatter": "rust-lang.rust-analyzer",
