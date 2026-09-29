@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { useEffect, useRef } from 'react';
-import { isMobilePlatform } from '@/platform';
+import { isMobile } from '@/bridge';
 import styles from './layout.module.css';
 
 type OverlayProps = {
@@ -38,7 +38,7 @@ export function Overlay({ open, title, onClose, children }: OverlayProps) {
     return null;
   }
 
-  const placement = isMobilePlatform() ? styles.sheet : styles.dialog;
+  const placement = isMobile() ? styles.sheet : styles.dialog;
 
   return (
     <div className={styles.backdrop}>

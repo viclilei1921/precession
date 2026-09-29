@@ -1,24 +1,18 @@
 import { CopySimpleIcon, MinusIcon, SquareIcon, XIcon } from '@phosphor-icons/react';
 import { useEffect, useState } from 'react';
-import { windowClose, windowIsMaximized, windowMinimize, windowOnResized, windowToggleMaximize } from '@/bridge';
-import { isMobilePlatform } from '@/platform';
+import {
+  isMobile,
+  windowClose,
+  windowIsMaximized,
+  windowMinimize,
+  windowOnResized,
+  windowToggleMaximize
+} from '@/bridge';
 import styles from './titlebar.module.css';
 
-function isTauri() {
-  return '__TAURI_INTERNALS__' in window;
-}
-
 export function TitleBar() {
-  const [visible, setVisible] = useState(() => isTauri() && !isMobilePlatform());
+  const [visible] = useState(() => !isMobile());
   const [maximized, setMaximized] = useState(false);
-
-  useEffect(() => {
-    const root = document.documentElement;
-    const sync = () => setVisible(isTauri() && root.dataset.platform !== 'mobile');
-    const observer = new MutationObserver(sync);
-    observer.observe(root, { attributes: true, attributeFilter: ['data-platform'] });
-    return () => observer.disconnect();
-  }, []);
 
   useEffect(() => {
     if (!visible) {
@@ -59,7 +53,7 @@ export function TitleBar() {
   }
 
   return (
-    <header className={styles.bar}>
+    <header className={styles.bar} data-tauri-drag-region>
       <div className={styles.drag} data-tauri-drag-region>
         <span className={styles.title} data-tauri-drag-region>
           Precession
@@ -73,7 +67,7 @@ export function TitleBar() {
           aria-label="最小化"
           onClick={() => windowMinimize()}
         >
-          <MinusIcon className={styles.icon} weight="bold" />
+          <MinusIcon className={styles.icon} weight="thin" />
         </button>
         <button
           type="button"
@@ -83,9 +77,9 @@ export function TitleBar() {
           onClick={() => windowToggleMaximize()}
         >
           {maximized ? (
-            <CopySimpleIcon className={styles.icon} weight="bold" />
+            <CopySimpleIcon className={styles.icon} weight="thin" />
           ) : (
-            <SquareIcon className={styles.icon} weight="regular" />
+            <SquareIcon className={styles.icon} weight="thin" />
           )}
         </button>
         <button
@@ -95,7 +89,7 @@ export function TitleBar() {
           aria-label="关闭"
           onClick={() => windowClose()}
         >
-          <XIcon className={styles.icon} weight="bold" />
+          <XIcon className={styles.icon} weight="thin" />
         </button>
       </div>
     </header>

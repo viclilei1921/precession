@@ -386,9 +386,7 @@ pub(super) fn complete(
      SET status = ?1, result = ?2, completed_at = ?3, updated_at = ?3
      WHERE id = ?4 AND deleted_at IS NULL"
   );
-  let n = conn
-    .execute(&sql, params![status, result, completed_at, id])
-    .map_err(|e| db_fail("plan complete", e))?;
+  let n = conn.execute(&sql, params![status, result, completed_at, id]).map_err(|e| db_fail("plan complete", e))?;
   if n == 0 {
     return Err(PlanError::NotFound);
   }

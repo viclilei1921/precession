@@ -1,11 +1,3 @@
-.shell {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  color: var(--foreground);
-  background: var(--background);
-}
-
 .body {
   display: flex;
   flex: 1;

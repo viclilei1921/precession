@@ -8,7 +8,7 @@ import styles from './app.module.css';
 
 export default function App() {
   return (
-    <div className={styles.shell}>
+    <>
       <TitleBar />
       <div className={styles.body}>
         <SessionGate>
@@ -17,6 +17,6 @@ export default function App() {
           </QueryClientProvider>
         </SessionGate>
       </div>
-    </div>
+    </>
   );
 }

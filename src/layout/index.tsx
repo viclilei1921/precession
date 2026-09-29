@@ -1,21 +1,14 @@
 import { useEffect, useState } from 'react';
-import { isMobilePlatform } from '@/platform';
+import { isMobile } from '@/bridge';
 import { CaptureDialog } from './capture';
 import { CommandPalette } from './command';
 import { DesktopLayout } from './desktop';
 import { MobileLayout } from './mobile';
 
 export function Layout() {
-  const [mobile, setMobile] = useState(isMobilePlatform);
+  const [mobile] = useState(isMobile());
   const [captureOpen, setCaptureOpen] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
-
-  useEffect(() => {
-    const root = document.documentElement;
-    const observer = new MutationObserver(() => setMobile(isMobilePlatform()));
-    observer.observe(root, { attributes: true, attributeFilter: ['data-platform'] });
-    return () => observer.disconnect();
-  }, []);
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
