@@ -1,3 +1,4 @@
+mod book;
 mod calendar;
 mod crypto;
 mod db;
