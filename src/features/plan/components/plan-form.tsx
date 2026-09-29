@@ -1,7 +1,7 @@
 import { PlusIcon, TrashIcon } from '@phosphor-icons/react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
-import type { Plan, PlanInput, PlanStatus } from '@/bridge/plan';
+import type { Plan, PlanInput, PlanPatch, PlanStatus } from '@/bridge/plan';
 import { planCreate, planDelete, planUpdate } from '@/bridge/plan';
 import { refreshPlanViews } from '@/shared/data/plan/query';
 import { fromDateInputValue, startOfLocalDay, toDateInputValue } from '@/shared/lib/day';
@@ -46,7 +46,8 @@ export function PlanForm({ plan, onClose }: PlanFormProps) {
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const save = useMutation({
-    mutationFn: (input: PlanInput) => (plan ? planUpdate(plan.id, input) : planCreate(input)),
+    mutationFn: (payload: { kind: 'create'; input: PlanInput } | { kind: 'update'; patch: PlanPatch }) =>
+      payload.kind === 'create' ? planCreate(payload.input) : planUpdate(plan?.id ?? '', payload.patch),
     onSuccess: async () => {
       await refreshPlanViews(queryClient);
       onCloseRef.current();
@@ -84,21 +85,18 @@ export function PlanForm({ plan, onClose }: PlanFormProps) {
     };
   }, []);
 
-  function buildInput(): PlanInput {
+  function formFields() {
     return {
       title,
       body,
-      status: done ? 'done' : status,
+      status: (done ? 'done' : status) as PlanStatus,
       priority,
       scheduledAt: status === 'inbox' && !done ? null : (fromDateInputValue(scheduled) ?? startOfLocalDay()),
       dueAt: fromDateInputValue(due),
       result: plan?.result ?? '',
       locked: plan?.locked ?? false,
       highlight: plan?.highlight ?? false,
-      steps: steps.filter((step) => step.title.trim()).map((step) => ({ title: step.title.trim(), done: step.done })),
-      memberIds: plan?.memberIds ?? [],
-      tagIds: plan?.tagIds ?? [],
-      placeIds: plan?.placeIds ?? []
+      steps: steps.filter((step) => step.title.trim()).map((step) => ({ title: step.title.trim(), done: step.done }))
     };
   }
 
@@ -114,7 +112,20 @@ export function PlanForm({ plan, onClose }: PlanFormProps) {
         tabIndex={-1}
         onSubmit={(event) => {
           event.preventDefault();
-          save.mutate(buildInput());
+          const fields = formFields();
+          if (!plan) {
+            save.mutate({ kind: 'create', input: fields });
+            return;
+          }
+          const { scheduledAt, dueAt, ...rest } = fields;
+          save.mutate({
+            kind: 'update',
+            patch: {
+              ...rest,
+              ...(scheduledAt != null ? { scheduledAt } : {}),
+              ...(dueAt != null ? { dueAt } : {})
+            }
+          });
         }}
       >
         <h2 className={styles.title}>{plan ? '编辑计划' : '新建计划'}</h2>

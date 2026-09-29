@@ -7,7 +7,7 @@ import { planUpdate } from '@/bridge/plan';
 import { calendarCaption, calendarRangeQuery } from '@/shared/data/calendar/query';
 import { CompleteDialog } from '@/shared/data/plan/complete-dialog';
 import { groupTodo, markedDays, planMeta, plansOnDay, weekCompletion } from '@/shared/data/plan/group';
-import { toPlanInput } from '@/shared/data/plan/input';
+import { toPlanPatch } from '@/shared/data/plan/input';
 import { PlanCheck } from '@/shared/data/plan/plan-check';
 import { planListQuery, refreshPlanViews } from '@/shared/data/plan/query';
 import {
@@ -44,7 +44,7 @@ export function PlanPage() {
 
   const schedule = useMutation({
     mutationFn: ({ plan, day }: { plan: Plan; day: number }) =>
-      planUpdate(plan.id, toPlanInput(plan, { status: 'scheduled', scheduledAt: day })),
+      planUpdate(plan.id, toPlanPatch({ status: 'scheduled', scheduledAt: day })),
     onSuccess: () => refreshPlanViews(queryClient)
   });
 

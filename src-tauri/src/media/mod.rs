@@ -20,6 +20,10 @@ pub(crate) fn clear(conn: &Connection, owner: &str, owner_id: &str) -> Result<()
   repository::clear(conn, owner, owner_id)
 }
 
+pub(crate) fn list_for(conn: &Connection, owner: &str, owner_id: &str) -> Result<Vec<dto::Media>, error::MediaError> {
+  repository::list(conn, owner, owner_id)
+}
+
 pub(crate) fn get(conn: &Connection, id: &str) -> Result<dto::Media, error::MediaError> {
   repository::get(conn, id)
 }

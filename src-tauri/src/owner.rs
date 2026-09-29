@@ -2,16 +2,23 @@
 
 use rusqlite::Connection;
 
+/// 记录属于哪个业务表。只有这里和 `lib.rs` 知道全部业务模块。
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Owner {
+  /// 计划
   Plan,
+  /// 日记
   JournalEntry,
+  /// 成长
   GrowthEntry,
+  /// 书籍
   Book,
+  /// 书籍笔记
   BookNote,
 }
 
 impl Owner {
+  /// 将 `Owner` 转换为字符串。
   pub(crate) fn as_str(self) -> &'static str {
     match self {
       Self::Plan => "plan",
@@ -22,6 +29,7 @@ impl Owner {
     }
   }
 
+  /// 将字符串转换为 `Owner`。
   pub(crate) fn parse(value: &str) -> Option<Self> {
     Some(match value {
       "plan" => Self::Plan,
@@ -34,6 +42,7 @@ impl Owner {
   }
 }
 
+/// 检查记录是否存在。
 pub(crate) fn exists(conn: &Connection, owner: Owner, id: &str) -> Result<bool, rusqlite::Error> {
   match owner {
     Owner::Plan => crate::plan::exists(conn, id),

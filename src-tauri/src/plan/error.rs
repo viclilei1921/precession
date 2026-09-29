@@ -13,6 +13,24 @@ pub enum PlanError {
   /// 状态不正确
   #[error("状态不正确")]
   StatusInvalid,
+  /// 名称不能为空
+  #[error("名称不能为空")]
+  NameEmpty,
+  /// 名称已被使用
+  #[error("名称已被使用")]
+  NameTaken,
+  /// 系统清单不能删除
+  #[error("系统清单不能删除")]
+  GroupProtected,
+  /// 父计划不正确
+  #[error("父计划不正确")]
+  ParentInvalid,
+  /// 重复设置不正确
+  #[error("重复设置不正确")]
+  RepeatInvalid,
+  /// 评论不能为空
+  #[error("评论不能为空")]
+  CommentEmpty,
   /// 计划不存在
   #[error("计划不存在")]
   NotFound,

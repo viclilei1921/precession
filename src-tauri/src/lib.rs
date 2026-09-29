@@ -34,9 +34,11 @@ pub fn run() {
   // 初始化日志
   let builder = builder.plugin(plugin::log::init_log());
 
+  // 桌面：初始化 shell 插件(为了侧车功能)
   #[cfg(desktop)]
   let builder = builder.plugin(tauri_plugin_shell::init());
 
+  // android端：初始化设备插槽插件(为了设备锁功能)
   #[cfg(target_os = "android")]
   let builder = builder.plugin(precession_device_slot::init());
 
@@ -61,15 +63,25 @@ pub fn run() {
       library::migrate,
       calendar::migrate,
     ]);
+
+    // android端：初始化设备插槽(为了设备锁功能)
     #[cfg(target_os = "android")]
     let db = {
       let api = app.state::<precession_device_slot::DeviceApi<tauri::Wry>>().inner().clone();
       db.with_device(Arc::new(crate::crypto::device::AndroidDevice::new(api)))
     };
+
+    // 管理数据库状态
     app.manage(db);
+
+    // 管理任务队列
     app.manage(task::TaskQueue::default());
+
+    // 桌面：管理侧车进程
     #[cfg(desktop)]
     app.manage(sidecar::ProcessSlot::default());
+
+    // 启动任务队列工作线程
     task::spawn_worker(app.handle().clone());
 
     // 注册托盘菜单；进程级数据库会话在 setup 里挂上（此时才有 AppHandle）。
@@ -115,6 +127,13 @@ pub fn run() {
     plan::commands::plan_update,
     plan::commands::plan_complete,
     plan::commands::plan_delete,
+    plan::commands::plan_group_list,
+    plan::commands::plan_group_create,
+    plan::commands::plan_group_update,
+    plan::commands::plan_group_delete,
+    plan::commands::plan_comment_create,
+    plan::commands::plan_comment_update,
+    plan::commands::plan_comment_delete,
     journal::commands::journal_entry_list,
     journal::commands::journal_entry_get,
     journal::commands::journal_entry_create,
