@@ -30,7 +30,7 @@ fn pump(app: &AppHandle) -> Result<(), TaskError> {
   let db = app.state::<DbState>().inner().clone();
   let id = ticket.id.clone();
   let app_emit = app.clone();
-  let result = service::run(&db, &ticket, &mut |progress, message| {
+  let result = service::run_job(app, &db, &ticket, &mut |progress, message| {
     if let Ok(Some(task)) = queue.note(&id, progress, message) {
       let _ = app_emit.emit(EVENT_TASK, &task);
     }

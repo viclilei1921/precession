@@ -2,7 +2,9 @@ mod book;
 mod calendar;
 mod crypto;
 mod db;
+mod ffmpeg;
 mod growth;
+mod image;
 mod journal;
 mod library;
 mod media;
@@ -11,6 +13,8 @@ mod owner;
 mod place;
 mod plan;
 mod plugin;
+#[cfg(desktop)]
+mod sidecar;
 mod tag;
 mod task;
 mod timeline;
@@ -29,6 +33,9 @@ pub fn run() {
 
   // 初始化日志
   let builder = builder.plugin(plugin::log::init_log());
+
+  #[cfg(desktop)]
+  let builder = builder.plugin(tauri_plugin_shell::init());
 
   #[cfg(target_os = "android")]
   let builder = builder.plugin(precession_device_slot::init());
@@ -61,6 +68,8 @@ pub fn run() {
     };
     app.manage(db);
     app.manage(task::TaskQueue::default());
+    #[cfg(desktop)]
+    app.manage(sidecar::ProcessSlot::default());
     task::spawn_worker(app.handle().clone());
 
     // 注册托盘菜单；进程级数据库会话在 setup 里挂上（此时才有 AppHandle）。

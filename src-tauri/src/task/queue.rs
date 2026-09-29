@@ -67,6 +67,11 @@ impl Default for TaskQueue {
   }
 }
 
+pub(super) struct CancelOutcome {
+  pub task: Task,
+  pub kill_child: bool,
+}
+
 impl TaskQueue {
   fn lock(&self) -> Result<std::sync::MutexGuard<'_, Vec<Job>>, TaskError> {
     self.jobs.lock().map_err(|_| TaskError::Internal)
@@ -109,24 +114,26 @@ impl TaskQueue {
     Ok(self.lock()?.iter().map(view).collect())
   }
 
-  pub(super) fn cancel(&self, id: &str) -> Result<Task, TaskError> {
+  pub(super) fn cancel(&self, id: &str) -> Result<CancelOutcome, TaskError> {
     let mut jobs = self.lock()?;
     let Some(job) = jobs.iter_mut().find(|job| job.id == id) else {
       return Err(TaskError::NotFound);
     };
-    match job.status {
+    let kill_child = match job.status {
       Status::Pending => {
         job.cancel.store(true, Ordering::Relaxed);
         job.password.zeroize();
         job.status = Status::Canceled;
         job.message = "已取消".to_string();
+        false
       }
       Status::Processing => {
         job.cancel.store(true, Ordering::Relaxed);
+        true
       }
-      Status::Completed | Status::Failed | Status::Canceled => {}
-    }
-    Ok(view(job))
+      Status::Completed | Status::Failed | Status::Canceled => false,
+    };
+    Ok(CancelOutcome { task: view(job), kill_child })
   }
 
   pub(super) fn wait_ticket(&self) -> Result<Ticket, TaskError> {

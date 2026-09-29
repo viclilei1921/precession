@@ -50,6 +50,13 @@ pub enum TaskError {
   /// 已取消
   #[error("已取消")]
   Canceled,
+  /// 仅桌面端支持
+  #[cfg(not(desktop))]
+  #[error("仅桌面端支持")]
+  DesktopOnly,
+  /// 转码或侧车失败，消息来自具体原因
+  #[error("{0}")]
+  Failed(String),
   /// 操作失败
   #[error("操作失败")]
   Internal,
@@ -79,5 +86,15 @@ impl From<MediaError> for TaskError {
 impl Serialize for TaskError {
   fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
     serializer.serialize_str(&self.to_string())
+  }
+}
+
+#[cfg(desktop)]
+impl From<crate::sidecar::SidecarError> for TaskError {
+  fn from(err: crate::sidecar::SidecarError) -> Self {
+    match err {
+      crate::sidecar::SidecarError::Canceled => TaskError::Canceled,
+      other => TaskError::Failed(other.to_string()),
+    }
   }
 }

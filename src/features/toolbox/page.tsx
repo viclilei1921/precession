@@ -11,7 +11,13 @@ const kindLabel: Record<Task['kind'], string> = {
   decryptFile: '解密文件',
   importMedia: '导入影像',
   encryptMedia: '加密影像',
-  decryptMedia: '解密影像'
+  decryptMedia: '解密影像',
+  convertVideo: '转码视频',
+  cutVideo: '裁剪视频',
+  mergeVideo: '合并视频',
+  appendVideo: '追加视频',
+  convertAvif: '转为 AVIF',
+  convertJxl: '转为 JXL'
 };
 
 const statusLabel: Record<Task['status'], string> = {
@@ -66,7 +72,7 @@ export function ToolboxPage() {
     <section className={styles.page}>
       <header className={styles.head}>
         <h1 className={styles.title}>工具箱</h1>
-        <p className={styles.hint}>文件加解密走同一条队列。转码、裁剪还没有步骤。</p>
+        <p className={styles.hint}>文件加解密在这里提交。转码、裁剪、合并和图片转码走同一条队列。</p>
       </header>
       <form
         className={styles.card}

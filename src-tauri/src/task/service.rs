@@ -2,18 +2,26 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
+#[cfg(desktop)]
+use std::sync::Arc;
 use std::sync::atomic::Ordering;
 
+use tauri::AppHandle;
 use zeroize::Zeroize;
 
 use super::constants::{
-  KIND_DECRYPT_FILE, KIND_DECRYPT_MEDIA, KIND_ENCRYPT_FILE, KIND_ENCRYPT_MEDIA, KIND_IMPORT_MEDIA, PROGRESS_STEP,
+  KIND_APPEND_VIDEO, KIND_CONVERT_AVIF, KIND_CONVERT_JXL, KIND_CONVERT_VIDEO, KIND_CUT_VIDEO, KIND_DECRYPT_FILE,
+  KIND_DECRYPT_MEDIA, KIND_ENCRYPT_FILE, KIND_ENCRYPT_MEDIA, KIND_IMPORT_MEDIA, KIND_MERGE_VIDEO, PROGRESS_STEP,
 };
 use super::dto::{Task, TaskInput};
 use super::error::TaskError;
+#[cfg(desktop)]
+use super::job::JobCtx;
 use super::queue::{TaskQueue, Ticket};
 use super::step::{self, Step};
 use crate::db::state::DbState;
+use crate::ffmpeg::models::TimeSegment;
+use crate::image::params::{AvifEncodeParams, JxlEncodeParams};
 use crate::media::{KIND_IMAGE, KIND_VIDEO};
 use crate::utils::id::new_uuid_v4;
 
@@ -21,6 +29,12 @@ pub(super) enum Spec {
   File { input: PathBuf, output: PathBuf, encrypt: bool },
   Import { source: PathBuf, owner: String, owner_id: String, media_kind: String, encrypt: bool },
   Media { media_id: String, encrypt: bool },
+  ConvertVideo { input: String, output: String, target_fps: Option<u32> },
+  CutVideo { input: String, output: String, segments: Vec<TimeSegment> },
+  MergeVideo { inputs: Vec<String>, output: String, draw_filename: bool },
+  AppendVideo { base: String, inputs: Vec<String>, output: String, draw_filename: bool },
+  ConvertAvif { input: String, output: String, params: AvifEncodeParams },
+  ConvertJxl { input: String, output: String, params: JxlEncodeParams },
 }
 
 pub(super) struct Prepared {
@@ -33,6 +47,26 @@ pub(super) struct Prepared {
 
 pub(super) fn enqueue(db: &DbState, queue: &TaskQueue, input: TaskInput) -> Result<Task, TaskError> {
   queue.push(prepare(db, input)?)
+}
+
+pub(super) fn run_job(
+  app: &AppHandle,
+  db: &DbState,
+  ticket: &Ticket,
+  report: &mut dyn FnMut(f64, &str),
+) -> Result<Option<String>, TaskError> {
+  if is_sidecar(&ticket.spec) {
+    #[cfg(desktop)]
+    {
+      return run_sidecar(app, ticket);
+    }
+    #[cfg(not(desktop))]
+    {
+      let _ = app;
+      return Err(TaskError::DesktopOnly);
+    }
+  }
+  run(db, ticket, report)
 }
 
 pub(super) fn run(
@@ -83,6 +117,51 @@ pub(super) fn run(
       Err(err)
     }
   }
+}
+
+#[cfg(desktop)]
+fn run_sidecar(app: &AppHandle, ticket: &Ticket) -> Result<Option<String>, TaskError> {
+  let job = JobCtx::new(app.clone(), ticket.id.clone(), Arc::clone(&ticket.cancel));
+  tauri::async_runtime::block_on(dispatch_sidecar(app, &job, &ticket.spec)).map(|()| None).map_err(TaskError::from)
+}
+
+#[cfg(desktop)]
+async fn dispatch_sidecar(app: &AppHandle, job: &JobCtx, spec: &Spec) -> Result<(), crate::sidecar::SidecarError> {
+  match spec {
+    Spec::ConvertVideo { input, output, target_fps } => {
+      crate::ffmpeg::run_convert(app, job, input, output, *target_fps).await
+    }
+    Spec::CutVideo { input, output, segments } => {
+      crate::ffmpeg::run_cut(app, job, input, output, segments.clone()).await
+    }
+    Spec::MergeVideo { inputs, output, draw_filename } => {
+      crate::ffmpeg::run_merge_smart(app, job, inputs.clone(), output, *draw_filename).await
+    }
+    Spec::AppendVideo { base, inputs, output, draw_filename } => {
+      crate::ffmpeg::run_append_smart(app, job, base, inputs.clone(), output, *draw_filename).await
+    }
+    Spec::ConvertAvif { input, output, params } => {
+      crate::image::run_convert_avif(app, job, input, output, params.clone()).await
+    }
+    Spec::ConvertJxl { input, output, params } => {
+      crate::image::run_convert_jxl(app, job, input, output, params.clone()).await
+    }
+    Spec::File { .. } | Spec::Import { .. } | Spec::Media { .. } => {
+      Err(crate::sidecar::SidecarError::invalid("不是转码任务"))
+    }
+  }
+}
+
+fn is_sidecar(spec: &Spec) -> bool {
+  matches!(
+    spec,
+    Spec::ConvertVideo { .. }
+      | Spec::CutVideo { .. }
+      | Spec::MergeVideo { .. }
+      | Spec::AppendVideo { .. }
+      | Spec::ConvertAvif { .. }
+      | Spec::ConvertJxl { .. }
+  )
 }
 
 struct Built {
@@ -164,6 +243,12 @@ fn build(db: &DbState, ticket: &Ticket) -> Result<Built, TaskError> {
         after: After::Replace { media_id: media_id.clone(), source, temp, encrypted: *encrypt },
       })
     }
+    Spec::ConvertVideo { .. }
+    | Spec::CutVideo { .. }
+    | Spec::MergeVideo { .. }
+    | Spec::AppendVideo { .. }
+    | Spec::ConvertAvif { .. }
+    | Spec::ConvertJxl { .. } => Err(TaskError::Failed("转码任务不能走加解密步骤".into())),
   }
 }
 
@@ -236,7 +321,179 @@ fn prepare(db: &DbState, input: TaskInput) -> Result<Prepared, TaskError> {
     }
     TaskInput::EncryptMedia { media_id, password } => prepare_media(db, KIND_ENCRYPT_MEDIA, media_id, password, true),
     TaskInput::DecryptMedia { media_id, password } => prepare_media(db, KIND_DECRYPT_MEDIA, media_id, password, false),
+    TaskInput::ConvertVideo { input, output, target_fps } => prepare_convert_video(input, output, target_fps),
+    TaskInput::CutVideo { input, output, segments } => prepare_cut_video(input, output, segments),
+    TaskInput::MergeVideo { inputs, output, draw_filename } => prepare_merge_video(inputs, output, draw_filename),
+    TaskInput::AppendVideo { base, inputs, output, draw_filename } => {
+      prepare_append_video(base, inputs, output, draw_filename)
+    }
+    TaskInput::ConvertAvif { input, output, params } => prepare_convert_avif(input, output, params),
+    TaskInput::ConvertJxl { input, output, params } => prepare_convert_jxl(input, output, params),
   }
+}
+
+fn prepare_convert_video(input: String, output: String, target_fps: Option<u32>) -> Result<Prepared, TaskError> {
+  #[cfg(not(desktop))]
+  {
+    let _ = (input, output, target_fps);
+    return Err(TaskError::DesktopOnly);
+  }
+  #[cfg(desktop)]
+  {
+    let input = require_file(input)?;
+    let output = require_output(&input, output)?;
+    Ok(sidecar_job(
+      KIND_CONVERT_VIDEO,
+      output.clone(),
+      Spec::ConvertVideo { input, output, target_fps },
+    ))
+  }
+}
+
+fn prepare_cut_video(input: String, output: String, segments: Vec<TimeSegment>) -> Result<Prepared, TaskError> {
+  #[cfg(not(desktop))]
+  {
+    let _ = (input, output, segments);
+    return Err(TaskError::DesktopOnly);
+  }
+  #[cfg(desktop)]
+  {
+    if segments.is_empty() {
+      return Err(TaskError::Failed("时间片段不能为空".into()));
+    }
+    let input = require_file(input)?;
+    let output = require_output(&input, output)?;
+    Ok(sidecar_job(
+      KIND_CUT_VIDEO,
+      output.clone(),
+      Spec::CutVideo { input, output, segments },
+    ))
+  }
+}
+
+fn prepare_merge_video(inputs: Vec<String>, output: String, draw_filename: bool) -> Result<Prepared, TaskError> {
+  #[cfg(not(desktop))]
+  {
+    let _ = (inputs, output, draw_filename);
+    return Err(TaskError::DesktopOnly);
+  }
+  #[cfg(desktop)]
+  {
+    let inputs = require_files(inputs)?;
+    let output = require_output_many(&inputs, output)?;
+    Ok(sidecar_job(
+      KIND_MERGE_VIDEO,
+      output.clone(),
+      Spec::MergeVideo { inputs, output, draw_filename },
+    ))
+  }
+}
+
+fn prepare_append_video(
+  base: String,
+  inputs: Vec<String>,
+  output: String,
+  draw_filename: bool,
+) -> Result<Prepared, TaskError> {
+  #[cfg(not(desktop))]
+  {
+    let _ = (base, inputs, output, draw_filename);
+    return Err(TaskError::DesktopOnly);
+  }
+  #[cfg(desktop)]
+  {
+    let base = require_file(base)?;
+    let inputs = require_files(inputs)?;
+    let mut all = Vec::with_capacity(inputs.len() + 1);
+    all.push(base.clone());
+    all.extend(inputs.iter().cloned());
+    let output = require_output_many(&all, output)?;
+    Ok(sidecar_job(
+      KIND_APPEND_VIDEO,
+      output.clone(),
+      Spec::AppendVideo { base, inputs, output, draw_filename },
+    ))
+  }
+}
+
+fn prepare_convert_avif(input: String, output: String, params: AvifEncodeParams) -> Result<Prepared, TaskError> {
+  #[cfg(not(desktop))]
+  {
+    let _ = (input, output, params);
+    return Err(TaskError::DesktopOnly);
+  }
+  #[cfg(desktop)]
+  {
+    let input = require_file(input)?;
+    let output = require_output(&input, output)?;
+    Ok(sidecar_job(
+      KIND_CONVERT_AVIF,
+      output.clone(),
+      Spec::ConvertAvif { input, output, params },
+    ))
+  }
+}
+
+fn prepare_convert_jxl(input: String, output: String, params: JxlEncodeParams) -> Result<Prepared, TaskError> {
+  #[cfg(not(desktop))]
+  {
+    let _ = (input, output, params);
+    return Err(TaskError::DesktopOnly);
+  }
+  #[cfg(desktop)]
+  {
+    let input = require_file(input)?;
+    let output = require_output(&input, output)?;
+    Ok(sidecar_job(
+      KIND_CONVERT_JXL,
+      output.clone(),
+      Spec::ConvertJxl { input, output, params },
+    ))
+  }
+}
+
+fn sidecar_job(kind: &str, target: String, spec: Spec) -> Prepared {
+  Prepared { kind: kind.to_string(), target, spec, password: String::new(), media_id: None }
+}
+
+fn require_file(path: String) -> Result<String, TaskError> {
+  let path = path.trim().to_string();
+  if path.is_empty() {
+    return Err(TaskError::PathEmpty);
+  }
+  if !Path::new(&path).is_file() {
+    return Err(TaskError::Missing);
+  }
+  Ok(path)
+}
+
+fn require_files(paths: Vec<String>) -> Result<Vec<String>, TaskError> {
+  if paths.is_empty() {
+    return Err(TaskError::PathEmpty);
+  }
+  paths.into_iter().map(require_file).collect()
+}
+
+fn require_output(input: &str, output: String) -> Result<String, TaskError> {
+  let output = output.trim().to_string();
+  if output.is_empty() {
+    return Err(TaskError::PathEmpty);
+  }
+  if input == output {
+    return Err(TaskError::SamePath);
+  }
+  Ok(output)
+}
+
+fn require_output_many(inputs: &[String], output: String) -> Result<String, TaskError> {
+  let output = output.trim().to_string();
+  if output.is_empty() {
+    return Err(TaskError::PathEmpty);
+  }
+  if inputs.iter().any(|input| input == &output) {
+    return Err(TaskError::SamePath);
+  }
+  Ok(output)
 }
 
 fn prepare_file(
@@ -579,7 +836,7 @@ mod tests {
     )
     .expect("enqueue");
     let canceled = queue.cancel(&pending.id).expect("cancel");
-    assert_eq!(canceled.status, STATUS_CANCELED);
+    assert_eq!(canceled.task.status, STATUS_CANCELED);
     assert!(matches!(queue.drive(&db), Err(TaskError::NotFound)));
     assert_eq!(fs::read(&path).expect("still"), original);
     let row = db.with_conn(|conn| crate::media::get(conn, &media.id)).expect("get");

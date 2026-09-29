@@ -8,16 +8,84 @@ import type { MediaKind, OwnerKind } from './media';
 export type TaskStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'canceled';
 
 /** 队列里的一条任务 */
+export type TaskKind =
+  | 'encryptFile'
+  | 'decryptFile'
+  | 'importMedia'
+  | 'encryptMedia'
+  | 'decryptMedia'
+  | 'convertVideo'
+  | 'cutVideo'
+  | 'mergeVideo'
+  | 'appendVideo'
+  | 'convertAvif'
+  | 'convertJxl';
+
+/** 队列里的一条任务 */
 export type Task = {
   id: string;
-  kind: 'encryptFile' | 'decryptFile' | 'importMedia' | 'encryptMedia' | 'decryptMedia';
+  kind: TaskKind;
   status: TaskStatus;
   progress: number;
   message: string;
   mediaId: string | null;
 };
 
-/** 入队参数。密码只在这一次传入。 */
+/** 裁剪片段。start / duration 为 `HH:MM:SS` 或秒数。 */
+export type TimeSegment = {
+  start: string;
+  duration: string;
+};
+
+export type JxlColorEncoding = 'srgb' | 'linearSrgb' | 'srgbLuma' | 'linearSrgbLuma';
+
+/** 缺省字段由后端补上：质量 60、速度 6、自动分块。 */
+export type AvifEncodeParams = {
+  qcolor?: number;
+  qalpha?: number;
+  speed?: number;
+  lossless?: boolean;
+  jobs?: number | null;
+  depth?: string;
+  yuv?: string;
+  premultiply?: boolean;
+  sharpyuv?: boolean;
+  ignoreExif?: boolean;
+  ignoreXmp?: boolean;
+  ignoreIcc?: boolean;
+  range?: string;
+  cicp?: string;
+  autotiling?: boolean;
+  tilerowslog2?: number | null;
+  tilecolslog2?: number | null;
+  codec?: string;
+  targetSize?: number | null;
+  progressive?: boolean;
+  pasp?: string;
+  crop?: string;
+  irot?: number | null;
+  imir?: number | null;
+  clli?: string;
+  advanced?: string[];
+};
+
+/** quality 是距离（0 无损），缺省 1、effort 7。 */
+export type JxlEncodeParams = {
+  lossless?: boolean;
+  quality?: number;
+  effort?: number;
+  losslessJpeg?: boolean;
+  useContainer?: boolean;
+  usesOriginalProfile?: boolean;
+  decodingSpeed?: number;
+  colorEncoding?: JxlColorEncoding | null;
+  targetIntensity?: number | null;
+  alphaDistance?: number | null;
+  progressive?: boolean;
+  extraHints?: string[];
+};
+
+/** 入队参数。密码只在加解密这一次传入。 */
 export type TaskInput =
   | { kind: 'encryptFile'; input: string; output: string; password: string }
   | { kind: 'decryptFile'; input: string; output: string; password: string }
@@ -31,7 +99,13 @@ export type TaskInput =
       password: string;
     }
   | { kind: 'encryptMedia'; mediaId: string; password: string }
-  | { kind: 'decryptMedia'; mediaId: string; password: string };
+  | { kind: 'decryptMedia'; mediaId: string; password: string }
+  | { kind: 'convertVideo'; input: string; output: string; targetFps?: number | null }
+  | { kind: 'cutVideo'; input: string; output: string; segments: TimeSegment[] }
+  | { kind: 'mergeVideo'; inputs: string[]; output: string; drawFilename?: boolean }
+  | { kind: 'appendVideo'; base: string; inputs: string[]; output: string; drawFilename?: boolean }
+  | { kind: 'convertAvif'; input: string; output: string; params?: AvifEncodeParams }
+  | { kind: 'convertJxl'; input: string; output: string; params?: JxlEncodeParams };
 
 /** 把一条耗时文件任务放进队列 */
 export function taskEnqueue(input: TaskInput) {
