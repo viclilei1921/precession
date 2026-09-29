@@ -9,6 +9,7 @@
 
 .bar[data-macos] {
   display: grid;
+  align-items: center;
 }
 
 .bar[data-macos][data-fullscreen] {
@@ -20,6 +21,7 @@
   display: flex;
   align-items: center;
   min-width: 0;
+  height: 100%;
   padding-left: var(--space-4);
 }
 
@@ -41,10 +43,13 @@
 .title {
   font-size: var(--text-sm);
   font-weight: 700;
+  line-height: 1;
 }
 
 .controls {
   display: flex;
+  align-items: center;
+  height: 100%;
   app-region: no-drag;
 }
 
@@ -53,7 +58,7 @@
   align-items: center;
   justify-content: center;
   width: 2.5rem;
-  height: 1.75rem;
+  height: 100%;
   padding: 0;
   cursor: pointer;
   background: transparent;
@@ -70,6 +75,7 @@
 }
 
 .icon {
+  display: block;
   width: var(--icon-xs);
   height: var(--icon-xs);
 }

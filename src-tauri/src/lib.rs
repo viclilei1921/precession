@@ -98,6 +98,8 @@ pub fn run() {
         if let Err(error) = window.with_webview(|webview| unsafe {
           let view: &objc2_web_kit::WKWebView = &*webview.inner().cast();
           disable_elastic_overscroll(view);
+          let ns_window: &objc2_app_kit::NSWindow = &*webview.ns_window().cast();
+          align_traffic_lights(ns_window);
         }) {
           tauri_plugin_log::log::error!("disable webview elastic overscroll failed: {error}");
         }
@@ -194,6 +196,16 @@ pub fn run() {
       api.prevent_close();
       let _ = window.hide();
     }
+
+    // 系统会在缩放后把红绿灯放回默认位置，重新对准标题栏中线。
+    // 全屏时按钮由系统收进屏幕顶栏，这里不要改。
+    #[cfg(target_os = "macos")]
+    if let tauri::WindowEvent::Resized(_) = event {
+      if window.is_fullscreen().ok() == Some(true) {
+        return;
+      }
+      align_main_traffic_lights(window);
+    }
   });
 
   // 构建应用
@@ -203,6 +215,52 @@ pub fn run() {
       app_handle.state::<db::state::DbState>().release_session();
     }
   });
+}
+
+/// 标题栏高度，和前端 `1.75rem` 一致。红绿灯中线和标题中线对齐。
+#[cfg(target_os = "macos")]
+const TITLEBAR_HEIGHT: f64 = 28.0;
+
+#[cfg(target_os = "macos")]
+fn align_main_traffic_lights(window: &tauri::Window) {
+  let Some(webview) = window.get_webview_window(window.label()) else {
+    return;
+  };
+  let _ = webview.with_webview(|webview| unsafe {
+    let ns_window: &objc2_app_kit::NSWindow = &*webview.ns_window().cast();
+    align_traffic_lights(ns_window);
+  });
+}
+
+/// 把关闭、最小化、缩放按钮的中线放到标题栏中线。只改纵向位置。
+#[cfg(target_os = "macos")]
+fn align_traffic_lights(window: &objc2_app_kit::NSWindow) {
+  use objc2_app_kit::NSWindowButton;
+  use objc2_foundation::NSPoint;
+
+  let Some(content) = window.contentView() else {
+    return;
+  };
+  let Some(close) = window.standardWindowButton(NSWindowButton::CloseButton) else {
+    return;
+  };
+  let Some(button_super) = (unsafe { close.superview() }) else {
+    return;
+  };
+
+  let button_height = close.frame().size.height;
+  let center_y = content.bounds().size.height - TITLEBAR_HEIGHT / 2.0;
+  let center = content.convertPoint_toView(NSPoint::new(0.0, center_y), Some(&*button_super));
+  let origin_y = center.y - button_height / 2.0;
+
+  for kind in [NSWindowButton::CloseButton, NSWindowButton::MiniaturizeButton, NSWindowButton::ZoomButton] {
+    let Some(button) = window.standardWindowButton(kind) else {
+      continue;
+    };
+    let mut origin = button.frame().origin;
+    origin.y = origin_y;
+    button.setFrameOrigin(origin);
+  }
 }
 
 /// 关掉 webview 里所有滚动视图的弹性回弹。WKWebView 的滚动视图是子视图，不是公开属性。
