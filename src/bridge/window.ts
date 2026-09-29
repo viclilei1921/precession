@@ -16,6 +16,10 @@ export function windowIsMaximized() {
   return getCurrentWindow().isMaximized();
 }
 
+export function windowIsFullscreen() {
+  return getCurrentWindow().isFullscreen();
+}
+
 export function windowOnResized(handler: () => void) {
   return getCurrentWindow().onResized(handler);
 }

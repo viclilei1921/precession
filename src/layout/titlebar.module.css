@@ -7,11 +7,35 @@
   background: var(--card);
 }
 
+.bar[data-macos] {
+  display: grid;
+}
+
+.bar[data-macos][data-fullscreen] {
+  height: 0;
+  overflow: hidden;
+}
+
 .drag {
   display: flex;
   align-items: center;
   min-width: 0;
   padding-left: var(--space-4);
+}
+
+.bar[data-macos] .drag {
+  grid-area: 1 / 1;
+  justify-content: center;
+  padding-right: 5rem;
+  padding-left: 5rem;
+}
+
+.traffic[data-tauri-drag-region] {
+  grid-area: 1 / 1;
+  justify-self: start;
+  width: 5rem;
+  height: 100%;
+  app-region: no-drag;
 }
 
 .title {

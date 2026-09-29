@@ -46,6 +46,7 @@ pub fn run() {
     // 获取应用数据目录
     // app_data_dir() 返回Roaming目录，不适合存放数据库文件
     // app_local_data_dir() 返回Local目录，适合存放数据库文件
+    tauri_plugin_log::log::info!("app path: {:?}", app.path().app_local_data_dir());
     let app_data_dir = app.path().app_local_data_dir().map_err(|e| {
       tauri_plugin_log::log::error!("failed to get app data dir, error: {e}");
       e
@@ -88,6 +89,22 @@ pub fn run() {
     #[cfg(desktop)]
     if let Err(e) = tray::register_tray_menu(app) {
       tauri_plugin_log::log::error!("tray menu registration failed: {e}");
+    }
+
+    // macOS：关掉 WKWebView 根滚动视图的弹性回弹，避免内容不够长时仍能拖出白边。
+    #[cfg(target_os = "macos")]
+    match app.get_webview_window("main") {
+      Some(window) => {
+        if let Err(error) = window.with_webview(|webview| unsafe {
+          let view: &objc2_web_kit::WKWebView = &*webview.inner().cast();
+          disable_elastic_overscroll(view);
+        }) {
+          tauri_plugin_log::log::error!("disable webview elastic overscroll failed: {error}");
+        }
+      }
+      None => {
+        tauri_plugin_log::log::error!("main window missing, elastic overscroll left enabled");
+      }
     }
 
     Ok(())
@@ -186,4 +203,21 @@ pub fn run() {
       app_handle.state::<db::state::DbState>().release_session();
     }
   });
+}
+
+/// 关掉 webview 里所有滚动视图的弹性回弹。WKWebView 的滚动视图是子视图，不是公开属性。
+#[cfg(target_os = "macos")]
+fn disable_elastic_overscroll(view: &objc2_app_kit::NSView) {
+  use objc2_app_kit::{NSScrollElasticity, NSScrollView};
+
+  if let Some(scroll) = view.downcast_ref::<NSScrollView>() {
+    scroll.setHorizontalScrollElasticity(NSScrollElasticity::None);
+    scroll.setVerticalScrollElasticity(NSScrollElasticity::None);
+  }
+
+  let subviews = view.subviews();
+  for index in 0..subviews.count() {
+    let child = subviews.objectAtIndex(index);
+    disable_elastic_overscroll(&child);
+  }
 }

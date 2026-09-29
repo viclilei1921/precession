@@ -7,8 +7,16 @@ body {
   height: 100%;
   padding: 0;
   margin: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
   -webkit-user-select: none;
   user-select: none;
+  background: var(--background);
+}
+
+body {
+  display: flex;
+  flex-direction: column;
 }
 
 html[data-touch-ui="true"] {

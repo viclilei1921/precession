@@ -35,7 +35,7 @@ export function DesktopLayout({ onCapture, onCommand }: DesktopLayoutProps) {
         <LockButton />
       </aside>
       <div className={styles.main}>
-        <header className={styles.topbar}>
+        <header className={styles.topBar}>
           <button type="button" className={styles.search} onClick={onCommand}>
             <MagnifyingGlassIcon className={styles.icon} weight="regular" />
             搜索全部记录

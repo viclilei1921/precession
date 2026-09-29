@@ -96,10 +96,11 @@
 }
 
 .mobile {
-  min-height: 100vh;
+  height: 100%;
+  min-height: 0;
 }
 
-.topbar {
+.top-bar {
   display: flex;
   gap: var(--space-3);
   align-items: center;
@@ -153,7 +154,8 @@
   padding: var(--space-4) var(--space-5);
 }
 
-.main .content {
+.main .content,
+.mobile .content {
   min-height: 0;
   overflow: auto;
 }
