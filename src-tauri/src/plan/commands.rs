@@ -2,17 +2,20 @@ use tauri::State;
 
 use super::constants::STATUSES;
 use super::dto::{
-  Plan, PlanComment, PlanGroup, PlanGroupInput, PlanGroupPatch, PlanInput, PlanPatch, PlanRepeatInput, PlanStepInput,
-  repeat_kind_ok,
+  Plan, PlanComment, PlanGroup, PlanGroupInput, PlanGroupPatch, PlanInput, PlanPatch, PlanQuery, PlanRepeatInput,
+  PlanStepInput, repeat_kind_ok,
 };
 use super::error::PlanError;
 use super::service;
 use crate::db::state::DbState;
 
-/// 获取计划列表
+/// 获取计划列表。条件都可省略，省略时返回全部未删除计划。
+/// `from` 含、`to` 不含：某一天传当天 0 点到次日 0 点，某个月传当月 1 日 0 点到下月 1 日 0 点。
+/// `group_id` 只返回该清单里的计划，可与时间一起用。
 #[tauri::command]
-pub async fn plan_list(state: State<'_, DbState>) -> Result<Vec<Plan>, PlanError> {
-  service::list(&state)
+pub async fn plan_list(state: State<'_, DbState>, query: Option<PlanQuery>) -> Result<Vec<Plan>, PlanError> {
+  let query = prepare_query(query.unwrap_or_default());
+  service::list(&state, &query)
 }
 
 /// 获取计划详情
@@ -151,6 +154,7 @@ pub async fn plan_comment_delete(state: State<'_, DbState>, id: String) -> Resul
   service::comment_delete(&state, id.as_str())
 }
 
+/// 准备计划输入。trim 前后空白，转换空字符串为 None。
 fn prepare_input(mut input: PlanInput) -> Result<PlanInput, PlanError> {
   input.title = input.title.trim().to_string();
   input.body = input.body.trim().to_string();
@@ -175,6 +179,7 @@ fn prepare_input(mut input: PlanInput) -> Result<PlanInput, PlanError> {
   Ok(input)
 }
 
+/// 准备计划更新。trim 前后空白，转换空字符串为 None。
 fn prepare_patch(mut patch: PlanPatch) -> Result<PlanPatch, PlanError> {
   if let Some(title) = &mut patch.title {
     *title = title.trim().to_string();
@@ -213,6 +218,7 @@ fn prepare_patch(mut patch: PlanPatch) -> Result<PlanPatch, PlanError> {
   Ok(patch)
 }
 
+/// 拒绝计划把自己设成父计划。
 fn reject_self_parent(id: &str, patch: &PlanPatch) -> Result<(), PlanError> {
   if let Some(parent_id) = &patch.parent_id
     && parent_id == id
@@ -222,6 +228,7 @@ fn reject_self_parent(id: &str, patch: &PlanPatch) -> Result<(), PlanError> {
   Ok(())
 }
 
+/// 准备计划步骤。trim 前后空白，转换空字符串为 None。
 fn prepare_steps(steps: &mut [PlanStepInput]) -> Result<(), PlanError> {
   for step in steps {
     step.title = step.title.trim().to_string();
@@ -232,6 +239,7 @@ fn prepare_steps(steps: &mut [PlanStepInput]) -> Result<(), PlanError> {
   Ok(())
 }
 
+/// 准备重复规则。trim 前后空白，转换空字符串为 None。
 fn prepare_repeat(repeat: &mut PlanRepeatInput) -> Result<(), PlanError> {
   repeat.kind = repeat.kind.trim().to_string();
   repeat.weekdays = repeat.weekdays.trim().to_string();
@@ -241,6 +249,7 @@ fn prepare_repeat(repeat: &mut PlanRepeatInput) -> Result<(), PlanError> {
   Ok(())
 }
 
+/// 准备清单输入。trim 前后空白，转换空字符串为 None。
 fn prepare_group(mut input: PlanGroupInput) -> Result<PlanGroupInput, PlanError> {
   input.name = input.name.trim().to_string();
   input.color = input.color.trim().to_string();
@@ -250,6 +259,7 @@ fn prepare_group(mut input: PlanGroupInput) -> Result<PlanGroupInput, PlanError>
   Ok(input)
 }
 
+/// 准备清单更新。trim 前后空白，转换空字符串为 None。
 fn prepare_group_patch(mut patch: PlanGroupPatch) -> Result<PlanGroupPatch, PlanError> {
   if let Some(name) = &mut patch.name {
     *name = name.trim().to_string();
@@ -263,11 +273,19 @@ fn prepare_group_patch(mut patch: PlanGroupPatch) -> Result<PlanGroupPatch, Plan
   Ok(patch)
 }
 
+/// 准备评论正文。trim 前后空白，转换空字符串为 None。
 fn prepare_comment(body: &str) -> Result<String, PlanError> {
   let body = body.trim().to_string();
   if body.is_empty() { Err(PlanError::CommentEmpty) } else { Ok(body) }
 }
 
+/// 准备计划查询条件。转换空字符串为 None。
+fn prepare_query(mut query: PlanQuery) -> PlanQuery {
+  query.group_id = blank_to_none(query.group_id);
+  query
+}
+
+/// 转换空字符串为 None
 fn blank_to_none(value: Option<String>) -> Option<String> {
   value.and_then(|text| {
     let text = text.trim().to_string();
@@ -290,8 +308,10 @@ mod tests {
     }
   }
 
+  /// 创建、更新、查询、评论和清单都会去掉前后空白；纯空白的可选 ID 会变成「未设置」。
   #[test]
   fn trims_fields() {
+    // 创建：标题、正文、步骤、重复规则、提醒备注去空白；空白清单 ID 视为无归属。
     let mut input = sample();
     input.title = " 晨跑 ".into();
     input.body = " 正文 ".into();
@@ -311,6 +331,7 @@ mod tests {
     assert_eq!(prepared.repeat.as_ref().map(|item| item.weekdays.as_str()), Some("1,3"));
     assert_eq!(prepared.reminders[0].note, "出门");
 
+    // 更新：只处理传来的字段，空白清单 ID 同样视为不改归属。
     let patch = prepare_patch(PlanPatch {
       title: Some(" 夜跑 ".into()),
       parent_id: Some(" parent ".into()),
@@ -322,6 +343,12 @@ mod tests {
     assert_eq!(patch.parent_id.as_deref(), Some("parent"));
     assert!(patch.group_id.is_none());
 
+    // 查询：清单 ID 去空白；纯空白则不按清单筛选。
+    let query = prepare_query(PlanQuery { group_id: Some("  life ".into()), ..PlanQuery::default() });
+    assert_eq!(query.group_id.as_deref(), Some("life"));
+    assert!(prepare_query(PlanQuery { group_id: Some("  ".into()), ..PlanQuery::default() }).group_id.is_none());
+
+    // 评论正文、清单名称和颜色同样去空白。
     assert_eq!(prepare_comment(" 记得 ").expect("comment"), "记得");
     let group =
       prepare_group(PlanGroupInput { name: " 生活 ".into(), color: " #fff ".into(), system: false, sort: 0 })
@@ -330,30 +357,37 @@ mod tests {
     assert_eq!(group.color, "#fff");
   }
 
+  /// 必填项为空、状态不在允许列表、重复类型非法或间隔小于 1 时，准备阶段直接拒绝。
   #[test]
   fn rejects_bad_parameters() {
+    // 创建：标题去掉空白后为空。
     let mut empty = sample();
     empty.title = "  ".into();
     assert!(matches!(prepare_input(empty), Err(PlanError::TitleEmpty)));
 
+    // 创建：步骤标题去掉空白后为空。
     let mut steps = sample();
     steps.steps = vec![PlanStepInput { title: "  ".into(), done: false }];
     assert!(matches!(prepare_input(steps), Err(PlanError::StepTitleEmpty)));
 
+    // 创建：状态不在允许列表里。
     let mut status = sample();
     status.status = "nope".into();
     assert!(matches!(prepare_input(status), Err(PlanError::StatusInvalid)));
 
+    // 创建：重复类型不是 daily / weekly / monthly / yearly。
     let mut repeat = sample();
     repeat.repeat =
       Some(PlanRepeatInput { kind: "hourly".into(), interval: 1, weekdays: String::new(), until_at: None });
     assert!(matches!(prepare_input(repeat), Err(PlanError::RepeatInvalid)));
 
+    // 创建：重复间隔必须至少为 1。
     let mut interval = sample();
     interval.repeat =
       Some(PlanRepeatInput { kind: "daily".into(), interval: 0, weekdays: String::new(), until_at: None });
     assert!(matches!(prepare_input(interval), Err(PlanError::RepeatInvalid)));
 
+    // 更新：传来的标题为空、状态非法时同样拒绝。
     assert!(matches!(
       prepare_patch(PlanPatch { title: Some("  ".into()), ..PlanPatch::default() }),
       Err(PlanError::TitleEmpty)
@@ -362,6 +396,8 @@ mod tests {
       prepare_patch(PlanPatch { status: Some("nope".into()), ..PlanPatch::default() }),
       Err(PlanError::StatusInvalid)
     ));
+
+    // 评论正文、清单名称（创建和更新）去掉空白后为空。
     assert!(matches!(prepare_comment("  "), Err(PlanError::CommentEmpty)));
     assert!(matches!(
       prepare_group(PlanGroupInput { name: "  ".into(), color: String::new(), system: false, sort: 0 }),
@@ -373,11 +409,14 @@ mod tests {
     ));
   }
 
+  /// 计划不能把自己设成父计划；父计划是别的计划、或这次没改父计划时可以通过。
   #[test]
   fn rejects_self_parent() {
+    // 父计划 ID 去掉空白后与自身相同。
     let patch = prepare_patch(PlanPatch { parent_id: Some(" same ".into()), ..PlanPatch::default() }).expect("patch");
     assert!(matches!(reject_self_parent("same", &patch), Err(PlanError::ParentInvalid)));
 
+    // 父计划是别的计划，或补丁里没有父计划字段。
     let other = PlanPatch { parent_id: Some("other".into()), ..PlanPatch::default() };
     assert!(reject_self_parent("same", &other).is_ok());
     assert!(reject_self_parent("same", &PlanPatch::default()).is_ok());

@@ -169,9 +169,16 @@ export type PlanGroupPatch = {
   sort?: number;
 };
 
-/** 列出未删除的计划 */
-export function planList() {
-  return invokeCommand<Plan[]>('plan_list');
+/** 列出计划的条件。都可省略。from 含，to 不含。 */
+export type PlanQuery = {
+  from?: number;
+  to?: number;
+  groupId?: string;
+};
+
+/** 列出未删除的计划。不传条件时返回全部。 */
+export function planList(query?: PlanQuery) {
+  return invokeCommand<Plan[]>('plan_list', query ? { query } : undefined);
 }
 
 /** 读取一条计划 */

@@ -1,62 +1,19 @@
 //! 计划、清单、步骤、重复、提醒和评论。成员、标签、地点和媒体由各自模块写入。
 
-use rusqlite::{Connection, OptionalExtension, params, types::ToSql};
+use rusqlite::{Connection, OptionalExtension, params};
 
 use super::constants::{
   PLAN_COMMENT_TABLE, PLAN_GROUP_TABLE, PLAN_REMINDER_TABLE, PLAN_REPEAT_TABLE, PLAN_STEP_TABLE, PLAN_TABLE,
   SCHEMA_VERSION, SCHEMA_VERSION_KEY,
 };
 use super::dto::{
-  Plan, PlanComment, PlanGroup, PlanGroupInput, PlanGroupPatch, PlanInput, PlanPatch, PlanReminder, PlanReminderInput,
-  PlanRepeat, PlanRepeatInput, PlanStep, PlanStepInput,
+  Plan, PlanComment, PlanGroup, PlanGroupInput, PlanGroupPatch, PlanInput, PlanPatch, PlanQuery, PlanReminder,
+  PlanReminderInput, PlanRepeat, PlanRepeatInput, PlanStep, PlanStepInput,
 };
 use super::error::PlanError;
 use crate::owner::Owner;
 use crate::utils::id::new_uuid_v4;
 use crate::utils::time::now_unix_ms;
-
-fn db_fail(context: &str, err: rusqlite::Error) -> PlanError {
-  tauri_plugin_log::log::error!("{context}: {err}");
-  PlanError::Internal
-}
-
-fn is_constraint(err: &rusqlite::Error) -> bool {
-  matches!(err, rusqlite::Error::SqliteFailure(e, _) if e.code == rusqlite::ErrorCode::ConstraintViolation)
-}
-
-const COLUMNS: &str = "id, title, body, status, priority, scheduled_at, due_at, completed_at, result, locked, highlight, group_id, parent_id, all_day, archived, sort, time_zone, created_at, updated_at";
-
-fn map_plan(row: &rusqlite::Row<'_>) -> rusqlite::Result<Plan> {
-  Ok(Plan {
-    id: row.get(0)?,
-    title: row.get(1)?,
-    body: row.get(2)?,
-    status: row.get(3)?,
-    priority: row.get(4)?,
-    scheduled_at: row.get(5)?,
-    due_at: row.get(6)?,
-    completed_at: row.get(7)?,
-    result: row.get(8)?,
-    locked: row.get(9)?,
-    highlight: row.get(10)?,
-    group_id: row.get(11)?,
-    parent_id: row.get(12)?,
-    all_day: row.get(13)?,
-    archived: row.get(14)?,
-    sort: row.get(15)?,
-    time_zone: row.get(16)?,
-    steps: Vec::new(),
-    member_ids: Vec::new(),
-    tag_ids: Vec::new(),
-    place_ids: Vec::new(),
-    repeat: None,
-    reminders: Vec::new(),
-    media: Vec::new(),
-    comments: Vec::new(),
-    created_at: row.get(17)?,
-    updated_at: row.get(18)?,
-  })
-}
 
 /// 建计划相关的表。时间都是 Unix 毫秒。布尔用 `0` / `1`。
 /// 查询只返回 `deleted_at` 为空的行。版本保持 1。
@@ -263,6 +220,21 @@ pub(super) fn ensure_schema(conn: &Connection) -> Result<(), PlanError> {
   Ok(())
 }
 
+fn db_fail(context: &str, err: rusqlite::Error) -> PlanError {
+  tauri_plugin_log::log::error!("{context}: {err}");
+  PlanError::Internal
+}
+
+/// 这次写入是否被 SQLite 的约束拦住。
+///
+/// 写入违反表规则时会失败，常见的有主键或唯一索引重复、`NOT NULL`、外键和 `CHECK`。
+/// rusqlite 把这类失败记成 `ErrorCode::ConstraintViolation`。
+/// 清单创建和改名用它识别重名：`plan_group_name` 要求未删除的清单名称唯一，撞上就映射成 `NameTaken`。
+fn is_constraint(err: &rusqlite::Error) -> bool {
+  matches!(err, rusqlite::Error::SqliteFailure(e, _) if e.code == rusqlite::ErrorCode::ConstraintViolation)
+}
+
+/// 给 `owner` 用，错误保持 `rusqlite::Error`。
 pub(super) fn exists(conn: &Connection, id: &str) -> Result<bool, rusqlite::Error> {
   let found: Option<i64> = conn
     .query_row("SELECT 1 FROM plan WHERE id = ?1 AND deleted_at IS NULL", [id], |row| {
@@ -272,6 +244,7 @@ pub(super) fn exists(conn: &Connection, id: &str) -> Result<bool, rusqlite::Erro
   Ok(found.is_some())
 }
 
+/// 同一条查询，错误收成 `PlanError`，给本模块用。
 pub(super) fn plan_exists(conn: &Connection, id: &str) -> Result<bool, PlanError> {
   exists(conn, id).map_err(|e| db_fail("plan exists", e))
 }
@@ -293,16 +266,17 @@ pub(super) fn parent_of(conn: &Connection, id: &str) -> Result<Option<Option<Str
     .map_err(|e| db_fail("plan parent", e))
 }
 
-pub(super) fn list(conn: &Connection) -> Result<Vec<Plan>, PlanError> {
-  query(conn, None, None, None)
+pub(super) fn list(conn: &Connection, filter: &PlanQuery) -> Result<Vec<Plan>, PlanError> {
+  query(conn, None, filter.from, filter.to, filter.group_id.as_deref())
 }
 
 pub(super) fn list_between(conn: &Connection, from: Option<i64>, to: Option<i64>) -> Result<Vec<Plan>, PlanError> {
-  query(conn, None, from, to)
+  query(conn, None, from, to, None)
 }
 
 pub(super) fn get(conn: &Connection, id: &str) -> Result<Plan, PlanError> {
-  let mut plan = one(conn, id)?;
+  let mut items = query(conn, Some(id), None, None, None)?;
+  let mut plan = items.pop().ok_or(PlanError::NotFound)?;
   plan.comments = comments_for(conn, id)?;
   Ok(plan)
 }
@@ -340,7 +314,7 @@ pub(super) fn create(conn: &Connection, input: &PlanInput) -> Result<Plan, PlanE
   replace_steps(&tx, &id, &input.steps)?;
   replace_refs(&tx, &id, Some(&input.member_ids), Some(&input.tag_ids), Some(&input.place_ids))?;
   if let Some(repeat) = &input.repeat {
-    write_repeat(&tx, &id, repeat, now)?;
+    replace_repeat(&tx, &id, repeat, now)?;
   }
   replace_reminders(&tx, &id, &input.reminders, now)?;
   tx.commit().map_err(|e| db_fail("plan create commit", e))?;
@@ -350,7 +324,50 @@ pub(super) fn create(conn: &Connection, input: &PlanInput) -> Result<Plan, PlanE
 pub(super) fn update(conn: &Connection, id: &str, patch: &PlanPatch) -> Result<Plan, PlanError> {
   let now = now_unix_ms();
   let tx = conn.unchecked_transaction().map_err(|e| db_fail("plan update tx", e))?;
-  let n = apply_patch(&tx, id, patch, now)?;
+  let sql = format!(
+    "UPDATE {PLAN_TABLE}
+     SET title = COALESCE(?1, title),
+         body = COALESCE(?2, body),
+         status = COALESCE(?3, status),
+         priority = COALESCE(?4, priority),
+         scheduled_at = COALESCE(?5, scheduled_at),
+         due_at = COALESCE(?6, due_at),
+         result = COALESCE(?7, result),
+         locked = COALESCE(?8, locked),
+         highlight = COALESCE(?9, highlight),
+         group_id = COALESCE(?10, group_id),
+         parent_id = COALESCE(?11, parent_id),
+         all_day = COALESCE(?12, all_day),
+         archived = COALESCE(?13, archived),
+         sort = COALESCE(?14, sort),
+         time_zone = COALESCE(?15, time_zone),
+         updated_at = ?16
+     WHERE id = ?17 AND deleted_at IS NULL"
+  );
+  let n = tx
+    .execute(
+      &sql,
+      params![
+        patch.title,
+        patch.body,
+        patch.status,
+        patch.priority,
+        patch.scheduled_at,
+        patch.due_at,
+        patch.result,
+        patch.locked,
+        patch.highlight,
+        patch.group_id,
+        patch.parent_id,
+        patch.all_day,
+        patch.archived,
+        patch.sort,
+        patch.time_zone,
+        now,
+        id
+      ],
+    )
+    .map_err(|e| db_fail("plan update", e))?;
   if n == 0 {
     return Err(PlanError::NotFound);
   }
@@ -365,7 +382,7 @@ pub(super) fn update(conn: &Connection, id: &str, patch: &PlanPatch) -> Result<P
     patch.place_ids.as_deref(),
   )?;
   if let Some(repeat) = &patch.repeat {
-    write_repeat(&tx, id, repeat, now)?;
+    replace_repeat(&tx, id, repeat, now)?;
   }
   if let Some(reminders) = &patch.reminders {
     replace_reminders(&tx, id, reminders, now)?;
@@ -425,7 +442,19 @@ pub(super) fn group_list(conn: &Connection) -> Result<Vec<PlanGroup>, PlanError>
      FROM {PLAN_GROUP_TABLE} WHERE deleted_at IS NULL ORDER BY sort, name"
   );
   let mut stmt = conn.prepare(&sql).map_err(|e| db_fail("plan group list", e))?;
-  let rows = stmt.query_map([], map_group).map_err(|e| db_fail("plan group list", e))?;
+  let rows = stmt
+    .query_map([], |row| {
+      Ok(PlanGroup {
+        id: row.get(0)?,
+        name: row.get(1)?,
+        color: row.get(2)?,
+        system: row.get(3)?,
+        sort: row.get(4)?,
+        created_at: row.get(5)?,
+        updated_at: row.get(6)?,
+      })
+    })
+    .map_err(|e| db_fail("plan group list", e))?;
   rows.collect::<Result<Vec<_>, _>>().map_err(|e| db_fail("plan group list", e))
 }
 
@@ -434,10 +463,22 @@ pub(super) fn group_get(conn: &Connection, id: &str) -> Result<PlanGroup, PlanEr
     "SELECT id, name, color, system, sort, created_at, updated_at
      FROM {PLAN_GROUP_TABLE} WHERE id = ?1 AND deleted_at IS NULL"
   );
-  conn.query_row(&sql, [id], map_group).map_err(|e| match e {
-    rusqlite::Error::QueryReturnedNoRows => PlanError::NotFound,
-    other => db_fail("plan group get", other),
-  })
+  conn
+    .query_row(&sql, [id], |row| {
+      Ok(PlanGroup {
+        id: row.get(0)?,
+        name: row.get(1)?,
+        color: row.get(2)?,
+        system: row.get(3)?,
+        sort: row.get(4)?,
+        created_at: row.get(5)?,
+        updated_at: row.get(6)?,
+      })
+    })
+    .map_err(|e| match e {
+      rusqlite::Error::QueryReturnedNoRows => PlanError::NotFound,
+      other => db_fail("plan group get", other),
+    })
 }
 
 pub(super) fn group_create(conn: &Connection, input: &PlanGroupInput) -> Result<PlanGroup, PlanError> {
@@ -455,24 +496,15 @@ pub(super) fn group_create(conn: &Connection, input: &PlanGroupInput) -> Result<
 
 pub(super) fn group_update(conn: &Connection, id: &str, patch: &PlanGroupPatch) -> Result<PlanGroup, PlanError> {
   let now = now_unix_ms();
-  let mut sets = Sets::default();
-  if let Some(name) = &patch.name {
-    sets.set("name", name.clone());
-  }
-  if let Some(color) = &patch.color {
-    sets.set("color", color.clone());
-  }
-  if let Some(sort) = patch.sort {
-    sets.set("sort", sort);
-  }
-  sets.set("updated_at", now);
   let sql = format!(
-    "UPDATE {PLAN_GROUP_TABLE} SET {} WHERE id = ?{} AND deleted_at IS NULL",
-    sets.sql.join(", "),
-    sets.values.len() + 1
+    "UPDATE {PLAN_GROUP_TABLE}
+     SET name = COALESCE(?1, name),
+         color = COALESCE(?2, color),
+         sort = COALESCE(?3, sort),
+         updated_at = ?4
+     WHERE id = ?5 AND deleted_at IS NULL"
   );
-  sets.values.push(Box::new(id.to_string()));
-  let n = exec(conn, &sql, &sets.values).map_err(|e| {
+  let n = conn.execute(&sql, params![patch.name, patch.color, patch.sort, now, id]).map_err(|e| {
     if is_constraint(&e) { PlanError::NameTaken } else { db_fail("plan group update", e) }
   })?;
   if n == 0 {
@@ -527,39 +559,69 @@ pub(super) fn comment_delete(conn: &Connection, id: &str) -> Result<(), PlanErro
   Ok(())
 }
 
-fn one(conn: &Connection, id: &str) -> Result<Plan, PlanError> {
-  let mut items = query(conn, Some(id), None, None)?;
-  items.pop().ok_or(PlanError::NotFound)
-}
-
-fn query(conn: &Connection, id: Option<&str>, from: Option<i64>, to: Option<i64>) -> Result<Vec<Plan>, PlanError> {
+fn query(
+  conn: &Connection,
+  id: Option<&str>,
+  from: Option<i64>,
+  to: Option<i64>,
+  group_id: Option<&str>,
+) -> Result<Vec<Plan>, PlanError> {
   let sql = format!(
-    "SELECT {COLUMNS} FROM {PLAN_TABLE}
+    "SELECT id, title, body, status, priority, scheduled_at, due_at, completed_at, result, locked, highlight, group_id, parent_id, all_day, archived, sort, time_zone, created_at, updated_at
+     FROM {PLAN_TABLE}
      WHERE deleted_at IS NULL
        AND (?1 IS NULL OR id = ?1)
        AND (?2 IS NULL OR COALESCE(scheduled_at, created_at) >= ?2)
        AND (?3 IS NULL OR COALESCE(scheduled_at, created_at) < ?3)
+       AND (?4 IS NULL OR group_id = ?4)
      ORDER BY COALESCE(scheduled_at, created_at)"
   );
   let mut stmt = conn.prepare(&sql).map_err(|e| db_fail("plan list", e))?;
-  let rows = stmt.query_map(params![id, from, to], map_plan).map_err(|e| db_fail("plan list", e))?;
+  let rows = stmt
+    .query_map(params![id, from, to, group_id], |row| {
+      Ok(Plan {
+        id: row.get(0)?,
+        title: row.get(1)?,
+        body: row.get(2)?,
+        status: row.get(3)?,
+        priority: row.get(4)?,
+        scheduled_at: row.get(5)?,
+        due_at: row.get(6)?,
+        completed_at: row.get(7)?,
+        result: row.get(8)?,
+        locked: row.get(9)?,
+        highlight: row.get(10)?,
+        group_id: row.get(11)?,
+        parent_id: row.get(12)?,
+        all_day: row.get(13)?,
+        archived: row.get(14)?,
+        sort: row.get(15)?,
+        time_zone: row.get(16)?,
+        steps: Vec::new(),
+        member_ids: Vec::new(),
+        tag_ids: Vec::new(),
+        place_ids: Vec::new(),
+        repeat: None,
+        reminders: Vec::new(),
+        media: Vec::new(),
+        comments: Vec::new(),
+        created_at: row.get(17)?,
+        updated_at: row.get(18)?,
+      })
+    })
+    .map_err(|e| db_fail("plan list", e))?;
   let mut items = rows.collect::<Result<Vec<_>, _>>().map_err(|e| db_fail("plan list", e))?;
+  let owner = Owner::Plan.as_str();
   for item in &mut items {
-    fill(conn, item)?;
+    item.steps = steps_for(conn, &item.id)?;
+    item.repeat = repeat_for(conn, &item.id)?;
+    item.reminders = reminders_for(conn, &item.id)?;
+    item.member_ids = crate::member::list_ids(conn, owner, &item.id).map_err(|_| PlanError::Internal)?;
+    item.tag_ids = crate::tag::list_ids(conn, owner, &item.id).map_err(|_| PlanError::Internal)?;
+    item.place_ids = crate::place::list_ids(conn, owner, &item.id).map_err(|_| PlanError::Internal)?;
+    item.media = crate::media::list_for(conn, owner, &item.id).map_err(|_| PlanError::Internal)?;
   }
   Ok(items)
-}
-
-fn fill(conn: &Connection, plan: &mut Plan) -> Result<(), PlanError> {
-  plan.steps = steps_for(conn, &plan.id)?;
-  plan.repeat = repeat_for(conn, &plan.id)?;
-  plan.reminders = reminders_for(conn, &plan.id)?;
-  let owner = Owner::Plan.as_str();
-  plan.member_ids = crate::member::list_ids(conn, owner, &plan.id).map_err(|_| PlanError::Internal)?;
-  plan.tag_ids = crate::tag::list_ids(conn, owner, &plan.id).map_err(|_| PlanError::Internal)?;
-  plan.place_ids = crate::place::list_ids(conn, owner, &plan.id).map_err(|_| PlanError::Internal)?;
-  plan.media = crate::media::list_for(conn, owner, &plan.id).map_err(|_| PlanError::Internal)?;
-  Ok(())
 }
 
 fn steps_for(conn: &Connection, plan_id: &str) -> Result<Vec<PlanStep>, PlanError> {
@@ -634,18 +696,6 @@ fn comment_get(conn: &Connection, id: &str) -> Result<PlanComment, PlanError> {
     })
 }
 
-fn map_group(row: &rusqlite::Row<'_>) -> rusqlite::Result<PlanGroup> {
-  Ok(PlanGroup {
-    id: row.get(0)?,
-    name: row.get(1)?,
-    color: row.get(2)?,
-    system: row.get(3)?,
-    sort: row.get(4)?,
-    created_at: row.get(5)?,
-    updated_at: row.get(6)?,
-  })
-}
-
 fn replace_steps(conn: &Connection, plan_id: &str, steps: &[PlanStepInput]) -> Result<(), PlanError> {
   let sql = format!("DELETE FROM {PLAN_STEP_TABLE} WHERE plan_id = ?1");
   conn.execute(&sql, [plan_id]).map_err(|e| db_fail("plan steps", e))?;
@@ -678,7 +728,7 @@ fn replace_reminders(
   Ok(())
 }
 
-fn write_repeat(conn: &Connection, plan_id: &str, repeat: &PlanRepeatInput, now: i64) -> Result<(), PlanError> {
+fn replace_repeat(conn: &Connection, plan_id: &str, repeat: &PlanRepeatInput, now: i64) -> Result<(), PlanError> {
   let sql = format!("DELETE FROM {PLAN_REPEAT_TABLE} WHERE plan_id = ?1");
   conn.execute(&sql, [plan_id]).map_err(|e| db_fail("plan repeat", e))?;
   let sql = format!(
@@ -721,81 +771,6 @@ fn clear_refs(conn: &Connection, id: &str) -> Result<(), PlanError> {
   crate::place::clear(conn, owner, id).map_err(|_| PlanError::Internal)?;
   crate::media::clear(conn, owner, id).map_err(|_| PlanError::Internal)?;
   Ok(())
-}
-
-fn apply_patch(conn: &Connection, id: &str, patch: &PlanPatch, now: i64) -> Result<usize, PlanError> {
-  let mut sets = Sets::default();
-  if let Some(title) = &patch.title {
-    sets.set("title", title.clone());
-  }
-  if let Some(body) = &patch.body {
-    sets.set("body", body.clone());
-  }
-  if let Some(status) = &patch.status {
-    sets.set("status", status.clone());
-  }
-  if let Some(priority) = patch.priority {
-    sets.set("priority", priority);
-  }
-  if let Some(scheduled_at) = patch.scheduled_at {
-    sets.set("scheduled_at", scheduled_at);
-  }
-  if let Some(due_at) = patch.due_at {
-    sets.set("due_at", due_at);
-  }
-  if let Some(result) = &patch.result {
-    sets.set("result", result.clone());
-  }
-  if let Some(locked) = patch.locked {
-    sets.set("locked", locked);
-  }
-  if let Some(highlight) = patch.highlight {
-    sets.set("highlight", highlight);
-  }
-  if let Some(group_id) = &patch.group_id {
-    sets.set("group_id", group_id.clone());
-  }
-  if let Some(parent_id) = &patch.parent_id {
-    sets.set("parent_id", parent_id.clone());
-  }
-  if let Some(all_day) = patch.all_day {
-    sets.set("all_day", all_day);
-  }
-  if let Some(archived) = patch.archived {
-    sets.set("archived", archived);
-  }
-  if let Some(sort) = patch.sort {
-    sets.set("sort", sort);
-  }
-  if let Some(time_zone) = &patch.time_zone {
-    sets.set("time_zone", time_zone.clone());
-  }
-  sets.set("updated_at", now);
-  let sql = format!(
-    "UPDATE {PLAN_TABLE} SET {} WHERE id = ?{} AND deleted_at IS NULL",
-    sets.sql.join(", "),
-    sets.values.len() + 1
-  );
-  sets.values.push(Box::new(id.to_string()));
-  exec(conn, &sql, &sets.values).map_err(|e| db_fail("plan update", e))
-}
-
-#[derive(Default)]
-struct Sets {
-  sql: Vec<String>,
-  values: Vec<Box<dyn ToSql>>,
-}
-
-impl Sets {
-  fn set<T: ToSql + 'static>(&mut self, column: &str, value: T) {
-    self.values.push(Box::new(value));
-    self.sql.push(format!("{column} = ?{}", self.values.len()));
-  }
-}
-
-fn exec(conn: &Connection, sql: &str, values: &[Box<dyn ToSql>]) -> Result<usize, rusqlite::Error> {
-  let refs: Vec<&dyn ToSql> = values.iter().map(|value| value.as_ref()).collect();
-  conn.execute(sql, refs.as_slice())
 }
 
 fn ref_err<E: std::fmt::Display>(err: E) -> PlanError {

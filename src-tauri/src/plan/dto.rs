@@ -3,15 +3,17 @@ use serde::{Deserialize, Serialize};
 use crate::media::dto::Media;
 use crate::plan::constants::{REPEAT_KINDS, STATUS_DRAFT};
 
+/// 默认计划状态 草稿
 fn default_status() -> String {
   STATUS_DRAFT.to_string()
 }
 
+/// 默认重复间隔 1
 fn default_interval() -> i64 {
   1
 }
 
-/// 计划步骤
+/// 计划步骤(返回时包含 ID)
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlanStep {
@@ -22,14 +24,14 @@ pub struct PlanStep {
 }
 
 /// 写入步骤
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlanStepInput {
   pub title: String,
   pub done: bool,
 }
 
-/// 重复规则
+/// 重复规则(返回时包含 ID)
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlanRepeat {
@@ -41,7 +43,7 @@ pub struct PlanRepeat {
 }
 
 /// 写入重复规则
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlanRepeatInput {
   pub kind: String,
@@ -53,7 +55,7 @@ pub struct PlanRepeatInput {
   pub until_at: Option<i64>,
 }
 
-/// 提醒
+/// 提醒(返回时包含 ID)
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlanReminder {
@@ -66,7 +68,7 @@ pub struct PlanReminder {
 }
 
 /// 写入提醒
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlanReminderInput {
   pub remind_at: i64,
@@ -74,7 +76,7 @@ pub struct PlanReminderInput {
   pub note: String,
 }
 
-/// 评论
+/// 评论(返回时包含 ID)
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlanComment {
@@ -84,7 +86,7 @@ pub struct PlanComment {
   pub updated_at: i64,
 }
 
-/// 一条计划
+/// 一条计划(返回时包含 ID)
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Plan {
@@ -117,8 +119,18 @@ pub struct Plan {
   pub updated_at: i64,
 }
 
-/// 新建计划。标题必填，其余省略时用默认值。
-#[derive(Debug, Deserialize)]
+/// 列出计划的条件。都可省略，省略即不限制。
+/// `from` 含、`to` 不含，比较安排时间；没有安排时间则用创建时间。
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct PlanQuery {
+  pub from: Option<i64>,
+  pub to: Option<i64>,
+  pub group_id: Option<String>,
+}
+
+/// 新建计划。标题必填，其余都可省略，省略时用默认值。
+#[derive(Debug, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlanInput {
   pub title: String,
@@ -164,36 +176,8 @@ pub struct PlanInput {
   pub reminders: Vec<PlanReminderInput>,
 }
 
-impl Default for PlanInput {
-  fn default() -> Self {
-    Self {
-      title: String::new(),
-      body: String::new(),
-      status: default_status(),
-      priority: 0,
-      scheduled_at: None,
-      due_at: None,
-      result: String::new(),
-      locked: false,
-      highlight: false,
-      group_id: None,
-      parent_id: None,
-      all_day: false,
-      archived: false,
-      sort: 0,
-      time_zone: String::new(),
-      steps: Vec::new(),
-      member_ids: Vec::new(),
-      tag_ids: Vec::new(),
-      place_ids: Vec::new(),
-      repeat: None,
-      reminders: Vec::new(),
-    }
-  }
-}
-
 /// 更新计划。没传的字段和 JSON `null` 都保持原值。
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct PlanPatch {
   pub title: Option<String>,
@@ -221,27 +205,7 @@ pub struct PlanPatch {
 
 impl PlanPatch {
   pub(super) fn is_empty(&self) -> bool {
-    self.title.is_none()
-      && self.body.is_none()
-      && self.status.is_none()
-      && self.priority.is_none()
-      && self.scheduled_at.is_none()
-      && self.due_at.is_none()
-      && self.result.is_none()
-      && self.locked.is_none()
-      && self.highlight.is_none()
-      && self.group_id.is_none()
-      && self.parent_id.is_none()
-      && self.all_day.is_none()
-      && self.archived.is_none()
-      && self.sort.is_none()
-      && self.time_zone.is_none()
-      && self.steps.is_none()
-      && self.member_ids.is_none()
-      && self.tag_ids.is_none()
-      && self.place_ids.is_none()
-      && self.repeat.is_none()
-      && self.reminders.is_none()
+    self == &Self::default()
   }
 }
 
@@ -272,7 +236,7 @@ pub struct PlanGroupInput {
 }
 
 /// 更新清单。没传的字段和 JSON `null` 都保持原值。
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct PlanGroupPatch {
   pub name: Option<String>,
@@ -282,10 +246,11 @@ pub struct PlanGroupPatch {
 
 impl PlanGroupPatch {
   pub(super) fn is_empty(&self) -> bool {
-    self.name.is_none() && self.color.is_none() && self.sort.is_none()
+    self == &Self::default()
   }
 }
 
+/// 重复规则是否有效
 pub(super) fn repeat_kind_ok(kind: &str) -> bool {
   REPEAT_KINDS.contains(&kind)
 }
