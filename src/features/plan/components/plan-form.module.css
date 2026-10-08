@@ -135,8 +135,8 @@
   gap: var(--space-1);
   align-items: center;
   font-weight: 600;
-  color: var(--plan-foreground);
-  background: var(--plan);
+  color: var(--primary-foreground);
+  background: var(--primary);
 }
 
 .primary:disabled,

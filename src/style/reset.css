@@ -39,6 +39,13 @@ textarea {
   color: inherit;
 }
 
+code,
+kbd,
+pre,
+samp {
+  font-family: var(--font-mono);
+}
+
 button {
   cursor: pointer;
   background: none;

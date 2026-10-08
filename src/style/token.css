@@ -1,24 +1,24 @@
 /* 1rem 等于浏览器根字号，默认 16px。下面的 px 按 16px 换算。 */
 :root {
-  /* 表面与文字 */
-  --background: oklch(97.28% 0.0057 264.53);
-  --foreground: oklch(20.48% 0.0061 271.11);
+  /* 表面与文字。晴空：页面 #F6F9FC，侧栏 #E7EEF6，卡片白，主色 #635BFF。 */
+  --background: oklch(98.07% 0.0051 247.9);
+  --foreground: oklch(25.99% 0.0604 251.3);
   --card: oklch(100% 0 none);
   --card-foreground: var(--foreground);
   /* popover、accent、input 分别沿用 card、muted、border。 */
   --popover: var(--card);
   --popover-foreground: var(--foreground);
-  --primary: oklch(54.71% 0.2506 270.88);
+  --primary: oklch(57.84% 0.2346 278.3);
   --primary-foreground: oklch(100% 0 none);
-  --secondary: oklch(95.43% 0.0074 260.73);
+  --secondary: oklch(94.61% 0.0131 251.6);
   --secondary-foreground: var(--foreground);
-  --muted: oklch(95.78% 0.0058 264.53);
-  --muted-foreground: oklch(52% 0.0234 264.36);
+  --muted: oklch(96.18% 0.0086 247.9);
+  --muted-foreground: oklch(43.8% 0.0373 248.7);
   --accent: var(--muted);
   --accent-foreground: var(--foreground);
-  --destructive: oklch(54% 0.15 25);
+  --destructive: oklch(58.02% 0.2214 19.4);
   --destructive-foreground: var(--primary-foreground);
-  --border: oklch(92.71% 0.0075 260.73);
+  --border: oklch(92.89% 0.0097 252.8);
   --input: var(--border);
   --ring: oklch(from var(--primary) l c h / 45%);
   --sidebar: var(--secondary);
@@ -32,20 +32,20 @@
   --overlay: oklch(from var(--foreground) l c h / 42%);
 
   /* 业务色。实色用于文字和图标；浅底用于标签；前景色用于实色按钮上的字。 */
-  --plan: oklch(50% 0.09 175);
-  --plan-soft: oklch(96.5% 0.018 175);
+  --plan: oklch(46% 0.11 175);
+  --plan-soft: oklch(95.5% 0.028 175);
   --plan-foreground: var(--primary-foreground);
-  --journal: oklch(50% 0.11 78);
-  --journal-soft: oklch(96.5% 0.025 78);
+  --journal: oklch(46% 0.11 78);
+  --journal-soft: oklch(95.5% 0.028 78);
   --journal-foreground: var(--primary-foreground);
-  --growth: oklch(52% 0.125 42);
-  --growth-soft: oklch(96% 0.025 42);
+  --growth: oklch(46% 0.11 42);
+  --growth-soft: oklch(95.5% 0.028 42);
   --growth-foreground: var(--primary-foreground);
-  --library: oklch(50% 0.1 250);
-  --library-soft: oklch(96.5% 0.02 250);
+  --library: oklch(46% 0.11 250);
+  --library-soft: oklch(95.5% 0.028 250);
   --library-foreground: var(--primary-foreground);
-  --toolbox: oklch(50% 0.12 305);
-  --toolbox-soft: oklch(96.5% 0.025 305);
+  --toolbox: oklch(46% 0.11 305);
+  --toolbox-soft: oklch(95.5% 0.028 305);
   --toolbox-foreground: var(--primary-foreground);
 
   /* 圆角：6 / 8 / 10 / 14 px */
@@ -56,8 +56,8 @@
   --radius-xl: calc(var(--radius) + 0.25rem);
   --radius-pill: 999px;
 
-  --font-sans: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", "IBM Plex Sans", sans-serif;
-  --font-mono: "IBM Plex Mono", "Noto Sans Mono", ui-monospace, monospace;
+  --font-sans: "LXGW WenKai Lite", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-mono: "LXGW WenKai Mono Lite", ui-monospace, monospace;
 
   /* 字号：10 / 12 / 14 / 16 / 18 / 20 / 24 / 30 / 36 px */
   --font-size-base: 1rem;
@@ -83,7 +83,7 @@
   --space-10: calc(var(--space) * 16);
   --space-12: calc(var(--space) * 20);
 
-  /* 布局。measure 672px、site-width 1088px、bar-h 72px、shell-pad 24px 未使用。 */
+  /* 布局。measure 672px、site-width 1088px、header-h 56px、bar-h 72px、shell-pad 24px 未使用。 */
   --measure: 42rem;
   --site-width: 68rem;
   --header-h: 3.5rem;
@@ -122,32 +122,33 @@
 }
 
 html.dark {
-  --background: oklch(17.68% 0.007 258.37);
-  --foreground: oklch(95.15% 0.0046 258.32);
-  --card: oklch(23.45% 0.0124 264.3);
-  --primary: oklch(56% 0.16 272);
-  --secondary: oklch(22% 0.01 264);
-  --muted: oklch(25.88% 0.0127 258.37);
-  --muted-foreground: oklch(71.29% 0.0197 258.36);
-  --destructive: oklch(74% 0.14 25);
-  --destructive-foreground: oklch(22% 0.03 25);
-  --border: oklch(29.21% 0.014 261.7);
+  --background: oklch(25.99% 0.0604 251.3);
+  --foreground: oklch(96.78% 0.0086 247.9);
+  --card: oklch(30.92% 0.0644 248.7);
+  --primary: oklch(67.85% 0.1754 282.9);
+  --primary-foreground: oklch(25.99% 0.0604 251.3);
+  --secondary: oklch(19.19% 0.039 251.1);
+  --muted: oklch(32.22% 0.0666 250.6);
+  --muted-foreground: oklch(67.52% 0.0318 248.3);
+  --destructive: oklch(69.68% 0.1978 12.9);
+  --destructive-foreground: oklch(25.99% 0.0604 251.3);
+  --border: oklch(40.37% 0.0704 254.5);
   --overlay: oklch(0% 0 none / 58%);
 
-  --plan: oklch(76% 0.09 175);
-  --plan-soft: oklch(30% 0.03 175);
+  --plan: oklch(78% 0.1 175);
+  --plan-soft: oklch(32% 0.03 175);
   --plan-foreground: oklch(22% 0.03 175);
-  --journal: oklch(78% 0.11 78);
-  --journal-soft: oklch(32% 0.04 78);
+  --journal: oklch(78% 0.1 78);
+  --journal-soft: oklch(32% 0.03 78);
   --journal-foreground: oklch(22% 0.03 78);
-  --growth: oklch(76% 0.11 42);
-  --growth-soft: oklch(32% 0.04 42);
+  --growth: oklch(78% 0.1 42);
+  --growth-soft: oklch(32% 0.03 42);
   --growth-foreground: oklch(22% 0.03 42);
-  --library: oklch(76% 0.09 250);
-  --library-soft: oklch(30% 0.03 250);
+  --library: oklch(78% 0.1 250);
+  --library-soft: oklch(32% 0.03 250);
   --library-foreground: oklch(22% 0.03 250);
-  --toolbox: oklch(76% 0.11 305);
-  --toolbox-soft: oklch(30% 0.035 305);
+  --toolbox: oklch(78% 0.1 305);
+  --toolbox-soft: oklch(32% 0.03 305);
   --toolbox-foreground: oklch(22% 0.03 305);
 
   color-scheme: dark;

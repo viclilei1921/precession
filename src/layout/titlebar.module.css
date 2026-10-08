@@ -1,10 +1,11 @@
 .title-bar {
+  position: relative;
   display: flex;
   align-items: center;
-  justify-content: space-between;
   width: 100%;
-  height: 1.75rem;
-  background: var(--card);
+  height: 2.75rem;
+  background: var(--background);
+  border-bottom: 1px solid var(--border);
 }
 
 .title-bar-mobile {
@@ -13,38 +14,31 @@
   height: var(--inset-top);
 }
 
-.macos {
-  display: grid;
-  align-items: center;
-  transition: height linear 200ms;
-}
-
 .macos.fullscreen {
   height: 0;
   overflow: hidden;
+  border-bottom: 0;
 }
 
-.drag {
+.brand {
   display: flex;
+  flex: none;
+  gap: var(--space-2);
   align-items: center;
-  min-width: 0;
+  width: var(--sidebar-w);
   height: 100%;
-  padding-left: var(--space-4);
+  padding-left: var(--space-5);
 }
 
-.macos .drag {
-  grid-area: 1 / 1;
-  justify-content: center;
-  padding-right: 5rem;
+.macos .brand {
   padding-left: 5rem;
 }
 
-.traffic[data-tauri-drag-region] {
-  grid-area: 1 / 1;
-  justify-self: start;
-  width: 5rem;
-  height: 100%;
-  app-region: no-drag;
+.mark {
+  display: block;
+  flex: none;
+  width: 0.875rem;
+  height: 0.875rem;
 }
 
 .title {
@@ -53,8 +47,78 @@
   line-height: 1;
 }
 
+.toolbar {
+  display: flex;
+  flex: 1;
+  gap: var(--space-3);
+  align-items: center;
+  min-width: 0;
+  height: 100%;
+  padding-right: var(--space-3);
+  padding-left: var(--space-5);
+}
+
+.macos .toolbar {
+  padding-right: var(--space-5);
+}
+
+.search,
+.capture {
+  display: inline-flex;
+  flex: none;
+  gap: var(--space-2);
+  align-items: center;
+  height: 2rem;
+  padding: 0 var(--space-3);
+  font-size: var(--text-sm);
+  app-region: no-drag;
+}
+
+.search {
+  flex: 1 1 auto;
+  width: 16rem;
+  min-width: 0;
+  max-width: 16rem;
+  color: var(--muted-foreground);
+  text-align: left;
+  background: var(--muted);
+  border-radius: var(--radius-md);
+}
+
+.search-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kbd {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+.capture {
+  margin-left: auto;
+  font-weight: 600;
+  color: var(--primary-foreground);
+  background: var(--primary);
+  border-radius: var(--radius-md);
+}
+
+.traffic[data-tauri-drag-region] {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 5rem;
+  height: 100%;
+  app-region: no-drag;
+}
+
 .controls {
   display: flex;
+  flex: none;
   align-items: center;
   height: 100%;
   app-region: no-drag;
@@ -64,7 +128,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.5rem;
+  width: 2.75rem;
   height: 100%;
   padding: 0;
   cursor: pointer;
@@ -83,8 +147,29 @@
 
 .icon {
   display: block;
+  flex: none;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+
+.button .icon {
   width: var(--icon-xs);
   height: var(--icon-xs);
+}
+
+.desktop {
+  background: var(--sidebar);
+  border-bottom: 0;
+}
+
+.desktop .brand {
+  border-right: 1px solid var(--sidebar-border);
+}
+
+.desktop .toolbar,
+.desktop .controls {
+  background: var(--background);
+  border-bottom: 1px solid var(--border);
 }
 
 :global([data-tauri-drag-region]) {

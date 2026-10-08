@@ -36,6 +36,7 @@
     "editor.formatOnSave": true
   },
   "json.format.enable": false,
+  "json.schemaDownload.enable": true,
   "js/ts.format.enabled": false,
   "rust-analyzer.linkedProjects": [
     "src-tauri/Cargo.toml"
@@ -106,6 +107,7 @@
     "libx",
     "LOCALAPPDATA",
     "Luma",
+    "LXGW",
     "mediarecindex",
     "Mobi",
     "MSVC",

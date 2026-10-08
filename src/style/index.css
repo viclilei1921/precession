@@ -1,10 +1,28 @@
 @import "./token.css";
 @import "./reset.css";
 
+@font-face {
+  font-family: "LXGW WenKai Lite";
+  src: url("/font/LXGWWenKaiLite-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  /* 约 3 秒内不画后备字体，避免先闪出系统字体再换成文楷。超时或文件失败后仍用后备字体。 */
+  font-display: block;
+}
+
+@font-face {
+  font-family: "LXGW WenKai Mono Lite";
+  src: url("/font/LXGWWenKaiMonoLite-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 html,
 body {
   padding: 0;
   margin: 0;
+  font-family: var(--font-sans);
 }
 
 html[data-touch-ui="true"] {

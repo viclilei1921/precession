@@ -16,12 +16,6 @@
   border-right: 1px solid var(--sidebar-border);
 }
 
-.brand {
-  padding: var(--space-1) var(--space-3);
-  margin: 0;
-  font-weight: 800;
-}
-
 .group {
   display: grid;
   gap: var(--space-1);
@@ -100,49 +94,6 @@
   min-height: 0;
 }
 
-.top-bar {
-  display: flex;
-  gap: var(--space-3);
-  align-items: center;
-  height: var(--header-h);
-  padding: 0 var(--space-5);
-  background: var(--card);
-  border-bottom: 1px solid var(--border);
-}
-
-.search {
-  display: inline-flex;
-  flex: 1;
-  gap: var(--space-2);
-  align-items: center;
-  max-width: 16rem;
-  padding: var(--space-2) var(--space-3);
-  color: var(--muted-foreground);
-  text-align: left;
-  cursor: pointer;
-  background: var(--muted);
-  border: 0;
-  border-radius: var(--radius-md);
-}
-
-.capture,
-.fab {
-  color: var(--plan-foreground);
-  cursor: pointer;
-  background: var(--plan);
-  border: 0;
-}
-
-.capture {
-  display: inline-flex;
-  gap: var(--space-2);
-  align-items: center;
-  padding: var(--space-2) var(--space-3);
-  margin-left: auto;
-  font-weight: 600;
-  border-radius: var(--radius-md);
-}
-
 .icon {
   flex: none;
   width: var(--icon-sm);
@@ -193,6 +144,10 @@
   width: var(--tap);
   height: var(--tap);
   margin: 0 auto;
+  color: var(--primary-foreground);
+  cursor: pointer;
+  background: var(--primary);
+  border: 0;
   border-radius: var(--radius-pill);
 }
 

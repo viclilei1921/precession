@@ -46,8 +46,8 @@
 .primary {
   margin-left: auto;
   font-weight: 600;
-  color: var(--plan-foreground);
-  background: var(--plan);
+  color: var(--primary-foreground);
+  background: var(--primary);
   border-radius: var(--radius-md);
 }
 

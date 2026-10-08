@@ -53,9 +53,9 @@
 .primary {
   margin-left: auto;
   font-weight: 600;
-  color: var(--plan-foreground);
+  color: var(--primary-foreground);
   text-decoration: none;
-  background: var(--plan);
+  background: var(--primary);
 }
 
 .ghost,
