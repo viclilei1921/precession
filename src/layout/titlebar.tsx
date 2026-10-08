@@ -86,7 +86,7 @@ export function TitleBar() {
   }, [macos, visible]);
 
   if (!visible) {
-    return null;
+    return <header className={styles.titleBarMobile}></header>;
   }
 
   return (

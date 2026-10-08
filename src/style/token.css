@@ -100,8 +100,6 @@
   --icon-lg: 1.25rem;
   --transition: 140ms ease;
 
-  --gutter: max(1rem, env(safe-area-inset-left, 0px));
-  --gutter-end: max(1rem, env(safe-area-inset-right, 0px));
   --inset-top: env(safe-area-inset-top, 0px);
   --inset-right: env(safe-area-inset-right, 0px);
   --inset-bottom: env(safe-area-inset-bottom, 0px);

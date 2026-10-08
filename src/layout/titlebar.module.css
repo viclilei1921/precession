@@ -7,9 +7,16 @@
   background: var(--card);
 }
 
+.title-bar-mobile {
+  display: flex;
+  width: 100%;
+  height: var(--inset-top);
+}
+
 .macos {
   display: grid;
   align-items: center;
+  transition: height linear 200ms;
 }
 
 .macos.fullscreen {
