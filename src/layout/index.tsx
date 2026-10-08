@@ -1,44 +1,45 @@
 import { useEffect, useLayoutEffect, useState } from 'react';
 import { isMobile } from '@/bridge';
+import { useTitleBarActions } from '@/store/titlebar';
 import { CaptureDialog } from './capture';
 import { CommandPalette } from './command';
 import { DesktopLayout } from './desktop';
 import { MobileLayout } from './mobile';
-import { useTitleBarActions } from './titlebar-actions';
 
 export function Layout() {
   const [mobile] = useState(isMobile());
-  const [captureOpen, setCaptureOpen] = useState(false);
-  const [commandOpen, setCommandOpen] = useState(false);
-  const { setActions } = useTitleBarActions();
+  const captureOpen = useTitleBarActions((state) => state.captureOpen);
+  const commandOpen = useTitleBarActions((state) => state.commandOpen);
+  const setActive = useTitleBarActions((state) => state.setActive);
+  const openCapture = useTitleBarActions((state) => state.openCapture);
+  const closeCapture = useTitleBarActions((state) => state.closeCapture);
+  const openCommand = useTitleBarActions((state) => state.openCommand);
+  const closeCommand = useTitleBarActions((state) => state.closeCommand);
 
   useLayoutEffect(() => {
     if (mobile) {
       return;
     }
-    setActions({
-      onCapture: () => setCaptureOpen(true),
-      onCommand: () => setCommandOpen(true)
-    });
-    return () => setActions(null);
-  }, [mobile, setActions]);
+    setActive(true);
+    return () => setActive(false);
+  }, [mobile, setActive]);
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault();
-        setCommandOpen(true);
+        openCommand();
       }
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [openCommand]);
 
   return (
     <>
-      {mobile ? <MobileLayout onCapture={() => setCaptureOpen(true)} /> : <DesktopLayout />}
-      <CaptureDialog open={captureOpen} onClose={() => setCaptureOpen(false)} />
-      <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} />
+      {mobile ? <MobileLayout onCapture={openCapture} /> : <DesktopLayout />}
+      <CaptureDialog open={captureOpen} onClose={closeCapture} />
+      <CommandPalette open={commandOpen} onClose={closeCommand} />
     </>
   );
 }

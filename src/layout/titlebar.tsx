@@ -11,8 +11,8 @@ import {
   windowOnResized,
   windowToggleMaximize
 } from '@/bridge';
+import { useTitleBarActions } from '@/store/titlebar';
 import styles from './titlebar.module.css';
-import { useTitleBarActions } from './titlebar-actions';
 
 function TitleMark() {
   return (
@@ -27,7 +27,9 @@ function TitleMark() {
 }
 
 export function TitleBar() {
-  const { actions } = useTitleBarActions();
+  const active = useTitleBarActions((state) => state.active);
+  const openCapture = useTitleBarActions((state) => state.openCapture);
+  const openCommand = useTitleBarActions((state) => state.openCommand);
   // 是否显示标题栏 非移动端显示
   const [visible] = useState(() => !isMobile());
   const [macos] = useState(() => isMacos());
@@ -108,7 +110,7 @@ export function TitleBar() {
       className={clsx(styles.titleBar, {
         [styles.macos]: macos,
         [styles.fullscreen]: fullscreen,
-        [styles.desktop]: actions
+        [styles.desktop]: active
       })}
       data-tauri-drag-region
     >
@@ -120,14 +122,14 @@ export function TitleBar() {
       </div>
       {macos ? <div className={styles.traffic} data-tauri-drag-region="false" /> : null}
       <div className={styles.toolbar} data-tauri-drag-region>
-        {actions ? (
+        {active ? (
           <>
-            <button type="button" className={styles.search} onClick={actions.onCommand}>
+            <button type="button" className={styles.search} onClick={openCommand}>
               <MagnifyingGlassIcon className={styles.icon} weight="regular" />
               <span className={styles.searchLabel}>搜索全部记录</span>
               <span className={styles.kbd}>{macos ? '⌘K' : 'Ctrl K'}</span>
             </button>
-            <button type="button" className={styles.capture} onClick={actions.onCapture}>
+            <button type="button" className={styles.capture} onClick={openCapture}>
               <PlusIcon className={styles.icon} weight="regular" />
               记一笔
             </button>

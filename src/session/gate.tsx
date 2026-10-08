@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react';
 import { useEffect } from 'react';
 import { errorMessage } from '@/shared/lib/error';
+import { useSession } from '@/store/session';
 import { CreateView } from './create';
 import styles from './gate.module.css';
-import { useSession } from './store';
 import { UnlockView } from './unlock';
 
 type SessionGateProps = {

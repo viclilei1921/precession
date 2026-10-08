@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { dbDisableDeviceUnlock, dbEnableDeviceUnlock } from '@/bridge/db';
 import { errorMessage } from '@/shared/lib/error';
+import { useSession } from '@/store/session';
 import styles from './session.module.css';
-import { useSession } from './store';
 
 export function DeviceUnlock() {
   const deviceUnlock = useSession((state) => state.status?.deviceUnlock ?? false);

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { DbStatus } from '@/bridge/db';
 import { dbLock, dbStatus } from '@/bridge/db';
-import { queryClient } from './query-client';
+import { queryClient } from '@/session/query-client';
 
 type SessionStore = {
   status: DbStatus | null;
