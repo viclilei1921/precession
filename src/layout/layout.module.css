@@ -127,7 +127,7 @@
 
 .capture,
 .fab {
-  color: var(--primary-foreground);
+  color: var(--plan-foreground);
   cursor: pointer;
   background: var(--plan);
   border: 0;

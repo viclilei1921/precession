@@ -1,4 +1,4 @@
-.bar {
+.title-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -7,12 +7,12 @@
   background: var(--card);
 }
 
-.bar[data-macos] {
+.macos {
   display: grid;
   align-items: center;
 }
 
-.bar[data-macos][data-fullscreen] {
+.macos.fullscreen {
   height: 0;
   overflow: hidden;
 }
@@ -25,7 +25,7 @@
   padding-left: var(--space-4);
 }
 
-.bar[data-macos] .drag {
+.macos .drag {
   grid-area: 1 / 1;
   justify-content: center;
   padding-right: 5rem;
@@ -70,7 +70,7 @@
 }
 
 .close:hover {
-  color: var(--primary-foreground);
+  color: var(--destructive-foreground);
   background: var(--destructive);
 }
 

@@ -53,7 +53,7 @@
 .primary {
   margin-left: auto;
   font-weight: 600;
-  color: var(--primary-foreground);
+  color: var(--plan-foreground);
   text-decoration: none;
   background: var(--plan);
 }
@@ -220,7 +220,7 @@
 
 .chip[data-on="true"] {
   font-weight: 700;
-  color: var(--primary-foreground);
+  color: var(--background);
   background: var(--foreground);
   border-color: var(--foreground);
 }

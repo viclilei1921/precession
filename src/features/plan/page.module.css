@@ -46,7 +46,7 @@
 .primary {
   margin-left: auto;
   font-weight: 600;
-  color: var(--primary-foreground);
+  color: var(--plan-foreground);
   background: var(--plan);
   border-radius: var(--radius-md);
 }
@@ -209,7 +209,7 @@
 
 .day[data-selected="true"] {
   font-weight: 700;
-  color: var(--primary-foreground);
+  color: var(--plan-foreground);
   background: var(--plan);
 }
 
@@ -219,7 +219,7 @@
   height: 0.75rem;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 0.625rem;
+  font-size: var(--text-2xs);
   line-height: 0.75rem;
   white-space: nowrap;
 }
@@ -248,7 +248,7 @@
 }
 
 .day[data-selected="true"] .dot {
-  background: var(--primary-foreground);
+  background: var(--plan-foreground);
 }
 
 .linkCard {

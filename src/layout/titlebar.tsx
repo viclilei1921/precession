@@ -1,4 +1,5 @@
 import { CopySimpleIcon, MinusIcon, SquareIcon, XIcon } from '@phosphor-icons/react';
+import clsx from 'clsx';
 import { useEffect, useState } from 'react';
 import {
   isMacos,
@@ -13,6 +14,7 @@ import {
 import styles from './titlebar.module.css';
 
 export function TitleBar() {
+  // 是否显示标题栏 非移动端显示
   const [visible] = useState(() => !isMobile());
   const [macos] = useState(() => isMacos());
   const [maximized, setMaximized] = useState(false);
@@ -89,9 +91,10 @@ export function TitleBar() {
 
   return (
     <header
-      className={styles.bar}
-      data-fullscreen={fullscreen || undefined}
-      data-macos={macos || undefined}
+      className={clsx(styles.titleBar, {
+        [styles.macos]: macos,
+        [styles.fullscreen]: fullscreen
+      })}
       data-tauri-drag-region
     >
       <div className={styles.drag} data-tauri-drag-region>

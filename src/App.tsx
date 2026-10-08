@@ -8,15 +8,15 @@ import styles from './app.module.css';
 
 export default function App() {
   return (
-    <>
+    <div className={styles.app}>
       <TitleBar />
-      <div className={styles.body}>
+      <main className={styles.main}>
         <SessionGate>
           <QueryClientProvider client={queryClient}>
             <RouterProvider router={router} />
           </QueryClientProvider>
         </SessionGate>
-      </div>
-    </>
+      </main>
+    </div>
   );
 }
