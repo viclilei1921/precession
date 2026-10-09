@@ -1,12 +1,12 @@
-import type { ReactNode } from 'react';
-import { MemberPanel } from '@/shared/data/member/panel';
-import styles from '@/shared/ui/record.module.css';
+import { MemberPanel } from '@/components/member-panel';
+import styles from '@/components/record.module.css';
+import { useMembers } from '@/query/member/use-members';
+import { errorMessage } from '@/utils/error';
+import { DeviceUnlock } from './device-unlock';
 
-type SettingsPageProps = {
-  deviceUnlock?: ReactNode;
-};
+export function SettingsPage() {
+  const members = useMembers();
 
-export function SettingsPage({ deviceUnlock }: SettingsPageProps) {
   return (
     <section className={styles.page}>
       <header className={styles.head}>
@@ -15,11 +15,17 @@ export function SettingsPage({ deviceUnlock }: SettingsPageProps) {
       </header>
       <div className={styles.card}>
         <h2 className={styles.cardTitle}>数据与安全</h2>
-        {deviceUnlock}
+        <DeviceUnlock />
       </div>
       <div className={styles.card}>
         <h2 className={styles.cardTitle}>成员</h2>
-        <MemberPanel />
+        <MemberPanel
+          members={members.members}
+          listError={members.error ? errorMessage(members.error) : ''}
+          isPending={members.isPending}
+          onSave={members.save}
+          onDelete={members.remove}
+        />
       </div>
     </section>
   );

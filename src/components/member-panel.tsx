@@ -1,27 +1,34 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import type { Member } from '@/bridge/member';
-import { memberCreate, memberDelete, memberUpdate } from '@/bridge/member';
-import { ageLabel, fromDateInputValue, toDateInputValue } from '@/shared/lib/day';
-import { errorMessage } from '@/shared/lib/error';
-import { Dialog } from '@/shared/ui/dialog';
-import styles from '@/shared/ui/record.module.css';
-import { memberListQuery, refreshMembers } from './query';
+import type { Member, MemberInput } from '@/bridge/member';
+import { ageLabel, fromDateInputValue, toDateInputValue } from '@/utils/day';
+import { errorMessage } from '@/utils/error';
+import { Dialog } from './dialog';
+import styles from './record.module.css';
 
 type MemberPanelProps = {
+  members: Member[];
+  listError: string;
+  isPending: boolean;
   selectedId?: string | null;
   onSelect?: (id: string) => void;
+  onSave: (member: Member | null, input: MemberInput) => Promise<Member>;
+  onDelete: (id: string) => Promise<void>;
 };
 
-export function MemberPanel({ selectedId, onSelect }: MemberPanelProps) {
-  const queryClient = useQueryClient();
-  const membersQuery = useQuery(memberListQuery);
-  const members = membersQuery.data ?? [];
+export function MemberPanel({
+  members,
+  listError,
+  isPending,
+  selectedId,
+  onSelect,
+  onSave,
+  onDelete
+}: MemberPanelProps) {
   const [editing, setEditing] = useState<Member | 'new' | null>(null);
 
   return (
     <div className={styles.stack}>
-      {membersQuery.error ? <p className={styles.error}>{errorMessage(membersQuery.error)}</p> : null}
+      {listError ? <p className={styles.error}>{listError}</p> : null}
       <div className={styles.chips}>
         {members.map((member) => (
           <button
@@ -58,15 +65,16 @@ export function MemberPanel({ selectedId, onSelect }: MemberPanelProps) {
           </button>
         ) : null}
       </div>
-      {members.length === 0 && !membersQuery.isPending ? (
+      {members.length === 0 && !isPending ? (
         <p className={styles.empty}>还没有成员。先为自己或家人建一份档案。</p>
       ) : null}
       {editing !== null ? (
         <MemberDialog
           member={editing === 'new' ? null : editing}
           onClose={() => setEditing(null)}
-          onSaved={async (member) => {
-            await refreshMembers(queryClient);
+          onSave={onSave}
+          onDelete={onDelete}
+          onSaved={(member) => {
             onSelect?.(member.id);
             setEditing(null);
           }}
@@ -79,43 +87,55 @@ export function MemberPanel({ selectedId, onSelect }: MemberPanelProps) {
 function MemberDialog({
   member,
   onClose,
+  onSave,
+  onDelete,
   onSaved
 }: {
   member: Member | null;
   onClose: () => void;
-  onSaved: (member: Member) => Promise<void>;
+  onSave: (member: Member | null, input: MemberInput) => Promise<Member>;
+  onDelete: (id: string) => Promise<void>;
+  onSaved: (member: Member) => void;
 }) {
-  const queryClient = useQueryClient();
   const [name, setName] = useState(member?.name ?? '');
   const [relation, setRelation] = useState(member?.relation ?? '');
   const [gender, setGender] = useState(member?.gender ?? '');
   const [birthday, setBirthday] = useState(toDateInputValue(member?.birthday ?? null));
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const save = useMutation({
-    mutationFn: () => {
-      const input = {
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState('');
+
+  async function submit() {
+    setPending(true);
+    setError('');
+    try {
+      const saved = await onSave(member, {
         name,
         relation,
         gender,
         birthday: fromDateInputValue(birthday)
-      };
-      return member ? memberUpdate(member.id, input) : memberCreate(input);
-    },
-    onSuccess: (saved) => onSaved(saved)
-  });
-  const remove = useMutation({
-    mutationFn: () => {
-      if (!member) {
-        return Promise.reject(new Error('成员不存在'));
-      }
-      return memberDelete(member.id);
-    },
-    onSuccess: async () => {
-      await refreshMembers(queryClient);
-      onClose();
+      });
+      onSaved(saved);
+    } catch (err) {
+      setError(errorMessage(err));
+      setPending(false);
     }
-  });
-  const pending = save.isPending || remove.isPending;
+  }
+
+  async function remove() {
+    if (!member) {
+      return;
+    }
+    setPending(true);
+    setError('');
+    try {
+      await onDelete(member.id);
+      onClose();
+    } catch (err) {
+      setError(errorMessage(err));
+      setPending(false);
+    }
+  }
 
   return (
     <Dialog title={member ? '编辑成员' : '添加成员'} onClose={onClose}>
@@ -123,7 +143,7 @@ function MemberDialog({
         className={styles.stack}
         onSubmit={(event) => {
           event.preventDefault();
-          save.mutate();
+          void submit();
         }}
       >
         <label className={styles.field}>
@@ -148,8 +168,7 @@ function MemberDialog({
           生日
           <input type="date" value={birthday} onChange={(event) => setBirthday(event.target.value)} />
         </label>
-        {save.error ? <p className={styles.error}>{errorMessage(save.error)}</p> : null}
-        {remove.error ? <p className={styles.error}>{errorMessage(remove.error)}</p> : null}
+        {error ? <p className={styles.error}>{error}</p> : null}
         <div className={styles.actions}>
           {member ? (
             <button
@@ -161,7 +180,7 @@ function MemberDialog({
                   setConfirmDelete(true);
                   return;
                 }
-                remove.mutate();
+                void remove();
               }}
             >
               {confirmDelete ? '确认删除' : '删除'}

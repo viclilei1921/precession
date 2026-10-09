@@ -1,5 +1,5 @@
 import type { Plan } from '@/bridge/plan';
-import { addLocalDays, formatClock, isSameLocalDay, startOfLocalDay, startOfLocalWeek } from '@/shared/lib/day';
+import { addLocalDays, formatClock, isSameLocalDay, startOfLocalDay, startOfLocalWeek } from '@/utils/day';
 
 export type PlanGroups = {
   overdue: Plan[];

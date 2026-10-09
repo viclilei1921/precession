@@ -11,7 +11,6 @@ import { SettingsPage } from '@/features/settings/page';
 import { TodayPage } from '@/features/today/page';
 import { ToolboxPage } from '@/features/toolbox/page';
 import { Layout } from '@/layout';
-import { DeviceUnlock } from '@/session/device-unlock';
 import { PATH } from './path';
 
 const rootRoute = createRootRoute({
@@ -149,14 +148,10 @@ const yearRoute = createRoute({
   component: YearPage
 });
 
-function SettingsRoute() {
-  return <SettingsPage deviceUnlock={<DeviceUnlock />} />;
-}
-
 const settingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: PATH.settings,
-  component: SettingsRoute
+  component: SettingsPage
 });
 
 const routeTree = rootRoute.addChildren([

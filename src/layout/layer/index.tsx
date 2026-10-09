@@ -1,20 +1,20 @@
 import type { ReactNode } from 'react';
 import { useEffect } from 'react';
-import { errorMessage } from '@/shared/lib/error';
-import { useSession } from '@/store/session';
+import { useLayer } from '@/store/layer';
+import { errorMessage } from '@/utils/error';
 import { CreateView } from './create';
 import styles from './gate.module.css';
 import { UnlockView } from './unlock';
 
-type SessionGateProps = {
+type LayerProps = {
   children: ReactNode;
 };
 
-export function SessionGate({ children }: SessionGateProps) {
-  const status = useSession((state) => state.status);
-  const bootError = useSession((state) => state.bootError);
-  const refresh = useSession((state) => state.refresh);
-  const failBoot = useSession((state) => state.failBoot);
+export function Layer({ children }: LayerProps) {
+  const status = useLayer((state) => state.status);
+  const bootError = useLayer((state) => state.bootError);
+  const refresh = useLayer((state) => state.refresh);
+  const failBoot = useLayer((state) => state.failBoot);
 
   useEffect(() => {
     let cancelled = false;

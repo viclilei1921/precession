@@ -1,20 +1,23 @@
-import { PlusIcon } from '@phosphor-icons/react';
+import type { Icon } from '@phosphor-icons/react';
+import { BookmarkSimpleIcon, BookOpenIcon, CheckCircleIcon, PlusIcon } from '@phosphor-icons/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import type { Book, BookStatus } from '@/bridge/library';
 import { bookCreate, bookDelete, bookUpdate } from '@/bridge/library';
+import { Dialog } from '@/components/dialog';
+import styles from '@/components/record.module.css';
+import { usePageSearch } from '@/layout/page-search';
+import { bookListQuery, refreshLibrary } from '@/query/library/query';
 import { PATH } from '@/router/path';
-import { bookListQuery, refreshLibrary } from '@/shared/data/library/query';
-import { fromDateInputValue, toDateInputValue } from '@/shared/lib/day';
-import { errorMessage } from '@/shared/lib/error';
-import { Dialog } from '@/shared/ui/dialog';
-import styles from '@/shared/ui/record.module.css';
+import { fromDateInputValue, toDateInputValue } from '@/utils/day';
+import { errorMessage } from '@/utils/error';
+import { matchesQuery } from '@/utils/search';
 
-const statuses: { status: BookStatus; label: string }[] = [
-  { status: 'want', label: '想读' },
-  { status: 'reading', label: '在读' },
-  { status: 'finished', label: '读完' }
+const statuses: { status: BookStatus; label: string; Icon: Icon }[] = [
+  { status: 'want', label: '想读', Icon: BookmarkSimpleIcon },
+  { status: 'reading', label: '在读', Icon: BookOpenIcon },
+  { status: 'finished', label: '读完', Icon: CheckCircleIcon }
 ];
 
 export function LibraryPage() {
@@ -23,7 +26,10 @@ export function LibraryPage() {
   const booksQuery = useQuery(bookListQuery);
   const [status, setStatus] = useState<BookStatus>('reading');
   const [editing, setEditing] = useState<Book | 'new' | null>(null);
-  const books = (booksQuery.data ?? []).filter((book) => book.status === status);
+  const query = usePageSearch('搜索书库');
+  const books = (booksQuery.data ?? []).filter(
+    (book) => book.status === status && matchesQuery(query, book.title, book.author)
+  );
 
   useEffect(() => {
     if (!search.create) {
@@ -47,6 +53,7 @@ export function LibraryPage() {
               data-on={status === item.status ? 'true' : undefined}
               onClick={() => setStatus(item.status)}
             >
+              <item.Icon className={styles.icon} weight="regular" />
               {item.label}
             </button>
           ))}
@@ -59,7 +66,9 @@ export function LibraryPage() {
       {booksQuery.error ? <p className={styles.error}>{errorMessage(booksQuery.error)}</p> : null}
       <div className={styles.card}>
         {booksQuery.isPending ? <p className={styles.note}>正在读取…</p> : null}
-        {!booksQuery.isPending && books.length === 0 ? <p className={styles.empty}>这个书架还是空的。</p> : null}
+        {!booksQuery.isPending && books.length === 0 ? (
+          <p className={styles.empty}>{query.trim() ? '没有匹配的书。' : '这个书架还是空的。'}</p>
+        ) : null}
         {books.map((book) => (
           <button
             key={book.id}

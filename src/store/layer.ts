@@ -1,9 +1,9 @@
 import { create } from 'zustand';
 import type { DbStatus } from '@/bridge/db';
 import { dbLock, dbStatus } from '@/bridge/db';
-import { queryClient } from '@/session/query-client';
+import { queryClient } from '@/query/client';
 
-type SessionStore = {
+type LayerStore = {
   status: DbStatus | null;
   bootError: string;
   refresh: () => Promise<DbStatus>;
@@ -11,7 +11,7 @@ type SessionStore = {
   failBoot: (message: string) => void;
 };
 
-export const useSession = create<SessionStore>((set) => ({
+export const useLayer = create<LayerStore>((set) => ({
   status: null,
   bootError: '',
   failBoot: (bootError) => set({ bootError }),

@@ -19,16 +19,19 @@ import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { Plan } from '@/bridge/plan';
 import type { TimelineItem, TimelineKind } from '@/bridge/timeline';
+import { CompleteDialog } from '@/components/complete-dialog';
+import { PlanCheck } from '@/components/plan-check';
+import { usePageSearch } from '@/layout/page-search';
+import { calendarCaption, calendarRangeQuery } from '@/query/calendar/query';
+import { useCompletePlan } from '@/query/plan/complete';
+import { planMeta, todayCompletion, todayPlanPanel } from '@/query/plan/group';
+import { planListQuery } from '@/query/plan/query';
+import { taskListQuery } from '@/query/task/query';
+import { timelineListQuery } from '@/query/timeline/query';
 import { PATH } from '@/router/path';
-import { calendarCaption, calendarRangeQuery } from '@/shared/data/calendar/query';
-import { CompleteDialog } from '@/shared/data/plan/complete-dialog';
-import { planMeta, todayCompletion, todayPlanPanel } from '@/shared/data/plan/group';
-import { PlanCheck } from '@/shared/data/plan/plan-check';
-import { planListQuery } from '@/shared/data/plan/query';
-import { taskListQuery } from '@/shared/data/task/query';
-import { timelineListQuery } from '@/shared/data/timeline/query';
-import { addLocalDays, formatDayHeading, formatFeedClock, startOfLocalDay, toDateInputValue } from '@/shared/lib/day';
-import { errorMessage } from '@/shared/lib/error';
+import { addLocalDays, formatDayHeading, formatFeedClock, startOfLocalDay, toDateInputValue } from '@/utils/day';
+import { errorMessage } from '@/utils/error';
+import { matchesQuery } from '@/utils/search';
 import styles from './page.module.css';
 
 const kindMeta: Record<TimelineKind, { label: string; tone: string; Icon: typeof ListChecksIcon }> = {
@@ -56,12 +59,16 @@ export function TodayPage() {
   const todayKey = toDateInputValue(todayStart);
   const calendarQuery = useQuery(calendarRangeQuery(todayKey, todayKey));
   const [completing, setCompleting] = useState<Plan | null>(null);
+  const query = usePageSearch('搜索今天');
+  const complete = useCompletePlan(() => setCompleting(null));
 
   const plans = plansQuery.data ?? [];
   const feed = feedQuery.data ?? [];
+  const visibleFeed = feed.filter((item) => matchesQuery(query, item.title, item.body));
   const completion = todayCompletion(plans, todayStart);
   const completionRate = completion.total === 0 ? 0 : Math.round((completion.done / completion.total) * 100);
   const panel = todayPlanPanel(plans, todayStart);
+  const visiblePanel = panel.filter((plan) => matchesQuery(query, plan.title, plan.result));
   const overdue = panel.filter(
     (plan) => plan.status !== 'done' && plan.scheduledAt != null && plan.scheduledAt < todayStart
   ).length;
@@ -166,8 +173,10 @@ export function TodayPage() {
             <span className={styles.extra}>按时间混排</span>
           </h2>
           {feedQuery.isPending ? <p className={styles.note}>正在读取…</p> : null}
-          {!feedQuery.isPending && feed.length === 0 ? <p className={styles.empty}>今天还没有新的记录。</p> : null}
-          {feed.map((item) => (
+          {!feedQuery.isPending && visibleFeed.length === 0 ? (
+            <p className={styles.empty}>{query.trim() ? '没有匹配的记录。' : '今天还没有新的记录。'}</p>
+          ) : null}
+          {visibleFeed.map((item) => (
             <FeedRow key={`${item.kind}-${item.id}`} item={item} />
           ))}
         </article>
@@ -178,8 +187,10 @@ export function TodayPage() {
             {overdue > 0 ? <span className={styles.extra}>{overdue} 项逾期</span> : null}
           </h2>
           {plansQuery.isPending ? <p className={styles.note}>正在读取…</p> : null}
-          {!plansQuery.isPending && panel.length === 0 ? <p className={styles.empty}>今天还没有计划。</p> : null}
-          {panel.map((plan) => (
+          {!plansQuery.isPending && visiblePanel.length === 0 ? (
+            <p className={styles.empty}>{query.trim() ? '没有匹配的计划。' : '今天还没有计划。'}</p>
+          ) : null}
+          {visiblePanel.map((plan) => (
             <PlanCheck
               key={plan.id}
               plan={plan}
@@ -190,7 +201,17 @@ export function TodayPage() {
           ))}
         </article>
       </div>
-      <CompleteDialog plan={completing} onClose={() => setCompleting(null)} />
+      <CompleteDialog
+        plan={completing}
+        pending={complete.pending}
+        error={complete.error ? errorMessage(complete.error) : ''}
+        onSubmit={(result) => {
+          if (completing) {
+            complete.submit(completing.id, result);
+          }
+        }}
+        onClose={() => setCompleting(null)}
+      />
     </section>
   );
 }

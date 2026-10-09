@@ -34,7 +34,7 @@
   padding-left: 5rem;
 }
 
-.mark {
+.brandIcon {
   display: block;
   flex: none;
   width: 0.875rem;
@@ -80,23 +80,22 @@
   min-width: 0;
   max-width: 16rem;
   color: var(--muted-foreground);
-  text-align: left;
   background: var(--muted);
   border-radius: var(--radius-md);
 }
 
-.search-label {
+.searchInput {
+  flex: 1;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  padding: 0;
+  color: var(--foreground);
+  outline: none;
+  background: transparent;
+  border: 0;
 }
 
-.kbd {
-  margin-left: auto;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  white-space: nowrap;
+.searchInput::placeholder {
+  color: var(--muted-foreground);
 }
 
 .capture {

@@ -2,10 +2,10 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import type { JournalEntry, JournalEntryInput, JournalKind } from '@/bridge/journal';
 import { journalEntryCreate, journalEntryDelete, journalEntryUpdate } from '@/bridge/journal';
-import { refreshJournal } from '@/shared/data/journal/query';
-import { fromDateInputValue, startOfLocalDay, toDateInputValue } from '@/shared/lib/day';
-import { errorMessage } from '@/shared/lib/error';
-import styles from '@/shared/ui/record.module.css';
+import styles from '@/components/record.module.css';
+import { refreshJournal } from '@/query/journal/query';
+import { fromDateInputValue, startOfLocalDay, toDateInputValue } from '@/utils/day';
+import { errorMessage } from '@/utils/error';
 
 const kindLabel: Record<JournalKind, string> = {
   diary: '日记',

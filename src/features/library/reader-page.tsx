@@ -1,14 +1,15 @@
+import { CaretLeftIcon } from '@phosphor-icons/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { BookNote, BookNoteKind } from '@/bridge/library';
 import { bookNoteCreate, bookNoteDelete, bookNoteUpdate } from '@/bridge/library';
+import { Dialog } from '@/components/dialog';
+import styles from '@/components/record.module.css';
+import { bookNoteListQuery, bookQuery, refreshLibrary } from '@/query/library/query';
 import { PATH } from '@/router/path';
-import { bookNoteListQuery, bookQuery, refreshLibrary } from '@/shared/data/library/query';
-import { formatMonthDay, fromDateInputValue, startOfLocalDay, toDateInputValue } from '@/shared/lib/day';
-import { errorMessage } from '@/shared/lib/error';
-import { Dialog } from '@/shared/ui/dialog';
-import styles from '@/shared/ui/record.module.css';
+import { formatMonthDay, fromDateInputValue, startOfLocalDay, toDateInputValue } from '@/utils/day';
+import { errorMessage } from '@/utils/error';
 import { BookDialog } from './page';
 
 export function ReaderPage() {
@@ -29,6 +30,7 @@ export function ReaderPage() {
           {book ? [book.author, statusLabel(book.status)].filter(Boolean).join(' · ') : '划线和批注会留在这本书上。'}
         </p>
         <button type="button" className={styles.ghost} onClick={() => void navigate({ to: PATH.library })}>
+          <CaretLeftIcon className={styles.icon} weight="regular" />
           返回书架
         </button>
         {book ? (

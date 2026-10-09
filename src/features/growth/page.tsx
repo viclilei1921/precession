@@ -1,23 +1,26 @@
-import { CameraIcon, FlagIcon, PlusIcon } from '@phosphor-icons/react';
+import { CameraIcon, FlagIcon, PlusIcon, SquaresFourIcon } from '@phosphor-icons/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import type { GrowthEntry, GrowthKind } from '@/bridge/growth';
 import { growthEntryCreate, growthEntryDelete, growthEntryUpdate } from '@/bridge/growth';
+import { Dialog } from '@/components/dialog';
+import { MemberPanel } from '@/components/member-panel';
+import styles from '@/components/record.module.css';
+import { usePageSearch } from '@/layout/page-search';
+import { growthListQuery, refreshGrowth } from '@/query/growth/query';
+import { useMembers } from '@/query/member/use-members';
 import { PATH } from '@/router/path';
-import { growthListQuery, refreshGrowth } from '@/shared/data/growth/query';
-import { MemberPanel } from '@/shared/data/member/panel';
-import { memberListQuery } from '@/shared/data/member/query';
-import { ageLabel, formatMonthDay, fromDateInputValue, startOfLocalDay, toDateInputValue } from '@/shared/lib/day';
-import { errorMessage } from '@/shared/lib/error';
-import { Dialog } from '@/shared/ui/dialog';
-import styles from '@/shared/ui/record.module.css';
+import { ageLabel, formatMonthDay, fromDateInputValue, startOfLocalDay, toDateInputValue } from '@/utils/day';
+import { errorMessage } from '@/utils/error';
+import { matchesQuery } from '@/utils/search';
 
 export function GrowthPage() {
   const navigate = useNavigate();
   const search = useSearch({ from: '/growth' });
-  const membersQuery = useQuery(memberListQuery);
-  const members = membersQuery.data ?? [];
+  const membersState = useMembers();
+  const members = membersState.members;
+  const query = usePageSearch('搜索成长');
   const [memberId, setMemberId] = useState<string | null>(null);
   const [kind, setKind] = useState<GrowthKind | 'all'>('all');
   const [editing, setEditing] = useState<GrowthEntry | 'new' | null>(null);
@@ -26,7 +29,9 @@ export function GrowthPage() {
     ...growthListQuery(selected ?? undefined, kind === 'all' ? undefined : kind),
     enabled: selected != null
   });
-  const entries = [...(listQuery.data ?? [])].sort((left, right) => right.occurredAt - left.occurredAt);
+  const entries = [...(listQuery.data ?? [])]
+    .filter((entry) => matchesQuery(query, entry.title, entry.body))
+    .sort((left, right) => right.occurredAt - left.occurredAt);
   const member = members.find((item) => item.id === selected) ?? null;
 
   useEffect(() => {
@@ -53,6 +58,7 @@ export function GrowthPage() {
             data-on={kind === 'all' ? 'true' : undefined}
             onClick={() => setKind('all')}
           >
+            <SquaresFourIcon className={styles.icon} weight="regular" />
             全部
           </button>
           <button
@@ -79,7 +85,15 @@ export function GrowthPage() {
           记一笔
         </button>
       </header>
-      <MemberPanel selectedId={selected} onSelect={setMemberId} />
+      <MemberPanel
+        members={members}
+        listError={membersState.error ? errorMessage(membersState.error) : ''}
+        isPending={membersState.isPending}
+        selectedId={selected}
+        onSelect={setMemberId}
+        onSave={membersState.save}
+        onDelete={membersState.remove}
+      />
       {member ? (
         <p className={styles.note}>
           {member.relation ? `${member.relation} · ` : ''}
@@ -91,7 +105,7 @@ export function GrowthPage() {
         {selected == null ? <p className={styles.empty}>先添加一位成员，再记里程碑和瞬间。</p> : null}
         {selected != null && listQuery.isPending ? <p className={styles.note}>正在读取…</p> : null}
         {selected != null && !listQuery.isPending && entries.length === 0 ? (
-          <p className={styles.empty}>这条轨迹还是空的。</p>
+          <p className={styles.empty}>{query.trim() ? '没有匹配的记录。' : '这条轨迹还是空的。'}</p>
         ) : null}
         {entries.map((entry) => (
           <button key={entry.id} type="button" className={styles.row} onClick={() => setEditing(entry)}>

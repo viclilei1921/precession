@@ -7,7 +7,7 @@ import {
   isSameLocalDay,
   startOfLocalDay,
   toDateInputValue
-} from '@/shared/lib/day';
+} from '@/utils/day';
 import styles from '../page.module.css';
 
 const WEEKDAYS = ['一', '二', '三', '四', '五', '六', '日'];

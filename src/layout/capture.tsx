@@ -1,17 +1,27 @@
+import type { Icon } from '@phosphor-icons/react';
+import {
+  CameraIcon,
+  FlagIcon,
+  LightningIcon,
+  ListChecksIcon,
+  NotebookIcon,
+  PencilLineIcon,
+  QuotesIcon
+} from '@phosphor-icons/react';
 import { useNavigate } from '@tanstack/react-router';
 import { PATH } from '@/router/path';
 import styles from './layout.module.css';
 import { Overlay } from './overlay';
 
-const captureTypes = [
-  { label: '日记', to: PATH.journal },
-  { label: '灵感', to: PATH.journal },
-  { label: '写作', to: PATH.journal },
-  { label: '计划', to: PATH.plan },
-  { label: '里程碑', to: PATH.growth },
-  { label: '瞬间', to: PATH.growth },
-  { label: '书摘', to: PATH.library }
-] as const;
+const captureTypes: { label: string; Icon: Icon }[] = [
+  { label: '日记', Icon: NotebookIcon },
+  { label: '灵感', Icon: LightningIcon },
+  { label: '写作', Icon: PencilLineIcon },
+  { label: '计划', Icon: ListChecksIcon },
+  { label: '里程碑', Icon: FlagIcon },
+  { label: '瞬间', Icon: CameraIcon },
+  { label: '书摘', Icon: QuotesIcon }
+];
 
 type CaptureDialogProps = {
   open: boolean;
@@ -47,9 +57,10 @@ export function CaptureDialog({ open, onClose }: CaptureDialogProps) {
                   });
                   return;
                 }
-                void navigate({ to: item.to });
+                void navigate({ to: PATH.library });
               }}
             >
+              <item.Icon className={styles.icon} weight="regular" />
               {item.label}
             </button>
           </li>

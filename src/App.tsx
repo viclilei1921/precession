@@ -1,9 +1,9 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider } from '@tanstack/react-router';
+import { Layer } from '@/layout/layer';
 import { TitleBar } from '@/layout/titlebar';
+import { queryClient } from '@/query/client';
 import { router } from '@/router';
-import { SessionGate } from '@/session/gate';
-import { queryClient } from '@/session/query-client';
 import styles from './app.module.css';
 
 export default function App() {
@@ -11,11 +11,11 @@ export default function App() {
     <div className={styles.app}>
       <TitleBar />
       <main className={styles.main}>
-        <SessionGate>
+        <Layer>
           <QueryClientProvider client={queryClient}>
             <RouterProvider router={router} />
           </QueryClientProvider>
-        </SessionGate>
+        </Layer>
       </main>
     </div>
   );

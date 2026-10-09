@@ -1,6 +1,6 @@
 import { Link, Outlet } from '@tanstack/react-router';
+import { LockButton } from '@/layout/layer/lock-button';
 import { itemsOn, sidebarGroups } from '@/router/items';
-import { LockButton } from '@/session/lock-button';
 import styles from './layout.module.css';
 
 export function DesktopLayout() {
@@ -20,6 +20,7 @@ export function DesktopLayout() {
                   className={styles.link}
                   activeOptions={{ exact: false }}
                 >
+                  <item.icon className={styles.icon} weight="regular" />
                   {item.label}
                 </Link>
               ))}

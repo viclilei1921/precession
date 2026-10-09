@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { dbCreate } from '@/bridge/db';
-import { errorMessage } from '@/shared/lib/error';
+import { errorMessage } from '@/utils/error';
 import styles from './gate.module.css';
 
 type CreateViewProps = {

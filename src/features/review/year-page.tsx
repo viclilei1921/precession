@@ -3,12 +3,12 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { TimelineKind } from '@/bridge/timeline';
+import styles from '@/components/record.module.css';
+import { bookListQuery } from '@/query/library/query';
+import { timelineListQuery } from '@/query/timeline/query';
 import { PATH } from '@/router/path';
-import { bookListQuery } from '@/shared/data/library/query';
-import { timelineListQuery } from '@/shared/data/timeline/query';
-import { addLocalYears, formatMonthDay, startOfLocalYear } from '@/shared/lib/day';
-import { errorMessage } from '@/shared/lib/error';
-import styles from '@/shared/ui/record.module.css';
+import { addLocalYears, formatMonthDay, startOfLocalYear } from '@/utils/day';
+import { errorMessage } from '@/utils/error';
 
 const kindLabel: Record<TimelineKind, string> = {
   plan: '计划',
@@ -60,7 +60,8 @@ export function YearPage() {
             <CaretRightIcon className={styles.icon} weight="regular" />
           </button>
         </div>
-        <Link to={PATH.review} className={styles.primary}>
+        <Link to={PATH.review} className={styles.ghost}>
+          <CaretLeftIcon className={styles.icon} weight="regular" />
           返回回顾
         </Link>
       </header>

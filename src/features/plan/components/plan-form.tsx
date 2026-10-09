@@ -3,9 +3,9 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import type { Plan, PlanInput, PlanPatch, PlanStatus } from '@/bridge/plan';
 import { planCreate, planDelete, planUpdate } from '@/bridge/plan';
-import { refreshPlanViews } from '@/shared/data/plan/query';
-import { fromDateInputValue, startOfLocalDay, toDateInputValue } from '@/shared/lib/day';
-import { errorMessage } from '@/shared/lib/error';
+import { refreshPlanViews } from '@/query/plan/query';
+import { fromDateInputValue, startOfLocalDay, toDateInputValue } from '@/utils/day';
+import { errorMessage } from '@/utils/error';
 import styles from './plan-form.module.css';
 
 const PRIORITIES = [

@@ -3,12 +3,14 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import type { JournalKind } from '@/bridge/journal';
+import { Dialog } from '@/components/dialog';
+import styles from '@/components/record.module.css';
+import { usePageSearch } from '@/layout/page-search';
+import { journalListQuery } from '@/query/journal/query';
 import { PATH } from '@/router/path';
-import { journalListQuery } from '@/shared/data/journal/query';
-import { formatMonthDay } from '@/shared/lib/day';
-import { errorMessage } from '@/shared/lib/error';
-import { Dialog } from '@/shared/ui/dialog';
-import styles from '@/shared/ui/record.module.css';
+import { formatMonthDay } from '@/utils/day';
+import { errorMessage } from '@/utils/error';
+import { matchesQuery } from '@/utils/search';
 import { JournalEditor } from './editor';
 
 const kinds: { kind: JournalKind; label: string; Icon: typeof NotebookIcon }[] = [
@@ -23,7 +25,10 @@ export function JournalPage() {
   const [kind, setKind] = useState<JournalKind>(search.kind ?? 'diary');
   const [creating, setCreating] = useState(false);
   const listQuery = useQuery(journalListQuery(kind));
-  const entries = [...(listQuery.data ?? [])].sort((left, right) => right.occurredAt - left.occurredAt);
+  const query = usePageSearch('搜索手记');
+  const entries = [...(listQuery.data ?? [])]
+    .filter((entry) => matchesQuery(query, entry.title, entry.body))
+    .sort((left, right) => right.occurredAt - left.occurredAt);
 
   useEffect(() => {
     if (search.kind) {
@@ -64,7 +69,9 @@ export function JournalPage() {
       {listQuery.error ? <p className={styles.error}>{errorMessage(listQuery.error)}</p> : null}
       <div className={styles.card}>
         {listQuery.isPending ? <p className={styles.note}>正在读取…</p> : null}
-        {!listQuery.isPending && entries.length === 0 ? <p className={styles.empty}>这里还没有记录。</p> : null}
+        {!listQuery.isPending && entries.length === 0 ? (
+          <p className={styles.empty}>{query.trim() ? '没有匹配的手记。' : '这里还没有记录。'}</p>
+        ) : null}
         {entries.map((entry) => (
           <button
             key={entry.id}

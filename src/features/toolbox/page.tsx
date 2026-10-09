@@ -1,10 +1,13 @@
+import { LockIcon, LockOpenIcon } from '@phosphor-icons/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import type { Task } from '@/bridge/task';
 import { onTaskQueueUpdated, taskCancel, taskEnqueue } from '@/bridge/task';
-import { taskListQuery } from '@/shared/data/task/query';
-import { errorMessage } from '@/shared/lib/error';
-import styles from '@/shared/ui/record.module.css';
+import styles from '@/components/record.module.css';
+import { usePageSearch } from '@/layout/page-search';
+import { taskListQuery } from '@/query/task/query';
+import { errorMessage } from '@/utils/error';
+import { matchesQuery } from '@/utils/search';
 
 const kindLabel: Record<Task['kind'], string> = {
   encryptFile: '加密文件',
@@ -31,6 +34,10 @@ const statusLabel: Record<Task['status'], string> = {
 export function ToolboxPage() {
   const queryClient = useQueryClient();
   const tasksQuery = useQuery(taskListQuery);
+  const query = usePageSearch('搜索任务');
+  const tasks = (tasksQuery.data ?? []).filter((task) =>
+    matchesQuery(query, kindLabel[task.kind], statusLabel[task.status], task.message)
+  );
   const [mode, setMode] = useState<'encryptFile' | 'decryptFile'>('encryptFile');
   const [input, setInput] = useState('');
   const [output, setOutput] = useState('');
@@ -89,6 +96,7 @@ export function ToolboxPage() {
             data-on={mode === 'encryptFile' ? 'true' : undefined}
             onClick={() => setMode('encryptFile')}
           >
+            <LockIcon className={styles.icon} weight="regular" />
             加密
           </button>
           <button
@@ -97,6 +105,7 @@ export function ToolboxPage() {
             data-on={mode === 'decryptFile' ? 'true' : undefined}
             onClick={() => setMode('decryptFile')}
           >
+            <LockOpenIcon className={styles.icon} weight="regular" />
             解密
           </button>
         </div>
@@ -120,8 +129,10 @@ export function ToolboxPage() {
       <div className={styles.card}>
         <h2 className={styles.cardTitle}>队列</h2>
         {tasksQuery.isPending ? <p className={styles.note}>正在读取…</p> : null}
-        {(tasksQuery.data ?? []).length === 0 ? <p className={styles.empty}>现在没有任务。</p> : null}
-        {(tasksQuery.data ?? []).map((task) => (
+        {!tasksQuery.isPending && tasks.length === 0 ? (
+          <p className={styles.empty}>{query.trim() ? '没有匹配的任务。' : '现在没有任务。'}</p>
+        ) : null}
+        {tasks.map((task) => (
           <div key={task.id} className={styles.row}>
             <span className={styles.rowTitle}>
               {kindLabel[task.kind]} · {statusLabel[task.status]} · {Math.round(task.progress)}%

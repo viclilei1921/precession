@@ -1,3 +1,4 @@
+import { CaretLeftIcon } from '@phosphor-icons/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { useState } from 'react';
@@ -14,11 +15,11 @@ import {
   journalLinkList
 } from '@/bridge/journal';
 import { bookNoteGet, bookNoteList } from '@/bridge/library';
+import styles from '@/components/record.module.css';
+import { journalEntryQuery, refreshJournal } from '@/query/journal/query';
+import { bookListQuery } from '@/query/library/query';
 import { PATH } from '@/router/path';
-import { journalEntryQuery, refreshJournal } from '@/shared/data/journal/query';
-import { bookListQuery } from '@/shared/data/library/query';
-import { errorMessage } from '@/shared/lib/error';
-import styles from '@/shared/ui/record.module.css';
+import { errorMessage } from '@/utils/error';
 import { JournalEditor } from './editor';
 
 export function JournalEntryPage() {
@@ -46,6 +47,7 @@ export function JournalEntryPage() {
       <header className={styles.head}>
         <h1 className={styles.title}>编辑手记</h1>
         <button type="button" className={styles.ghost} onClick={() => void navigate({ to: PATH.journal })}>
+          <CaretLeftIcon className={styles.icon} weight="regular" />
           返回列表
         </button>
       </header>

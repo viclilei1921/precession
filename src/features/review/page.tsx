@@ -1,24 +1,40 @@
-import { CaretLeftIcon, CaretRightIcon } from '@phosphor-icons/react';
+import type { Icon } from '@phosphor-icons/react';
+import {
+  BooksIcon,
+  CameraIcon,
+  CaretLeftIcon,
+  CaretRightIcon,
+  FlagIcon,
+  LightningIcon,
+  ListChecksIcon,
+  NotebookIcon,
+  NoteIcon,
+  PencilLineIcon,
+  QuotesIcon,
+  SquaresFourIcon
+} from '@phosphor-icons/react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { TimelineKind } from '@/bridge/timeline';
+import styles from '@/components/record.module.css';
+import { usePageSearch } from '@/layout/page-search';
+import { timelineListQuery } from '@/query/timeline/query';
 import { PATH } from '@/router/path';
-import { timelineListQuery } from '@/shared/data/timeline/query';
-import { addLocalMonths, formatFeedClock, formatMonth, formatMonthDay, startOfLocalMonth } from '@/shared/lib/day';
-import { errorMessage } from '@/shared/lib/error';
-import styles from '@/shared/ui/record.module.css';
+import { addLocalMonths, formatFeedClock, formatMonth, formatMonthDay, startOfLocalMonth } from '@/utils/day';
+import { errorMessage } from '@/utils/error';
+import { matchesQuery } from '@/utils/search';
 
-const filters: { kind: TimelineKind | 'all'; label: string }[] = [
-  { kind: 'all', label: '全部' },
-  { kind: 'plan', label: '计划' },
-  { kind: 'diary', label: '日记' },
-  { kind: 'spark', label: '灵感' },
-  { kind: 'writing', label: '写作' },
-  { kind: 'milestone', label: '里程碑' },
-  { kind: 'moment', label: '瞬间' },
-  { kind: 'excerpt', label: '书摘' },
-  { kind: 'note', label: '笔记' }
+const filters: { kind: TimelineKind | 'all'; label: string; Icon: Icon }[] = [
+  { kind: 'all', label: '全部', Icon: SquaresFourIcon },
+  { kind: 'plan', label: '计划', Icon: ListChecksIcon },
+  { kind: 'diary', label: '日记', Icon: NotebookIcon },
+  { kind: 'spark', label: '灵感', Icon: LightningIcon },
+  { kind: 'writing', label: '写作', Icon: PencilLineIcon },
+  { kind: 'milestone', label: '里程碑', Icon: FlagIcon },
+  { kind: 'moment', label: '瞬间', Icon: CameraIcon },
+  { kind: 'excerpt', label: '书摘', Icon: QuotesIcon },
+  { kind: 'note', label: '笔记', Icon: NoteIcon }
 ];
 
 const kindLabel: Record<TimelineKind, string> = {
@@ -39,7 +55,10 @@ export function ReviewPage() {
   const from = month;
   const to = addLocalMonths(month, 1);
   const listQuery = useQuery(timelineListQuery(from, to, kind === 'all' ? undefined : [kind]));
-  const items = listQuery.data ?? [];
+  const query = usePageSearch('搜索回顾');
+  const items = (listQuery.data ?? []).filter((item) =>
+    matchesQuery(query, item.title, item.body, kindLabel[item.kind])
+  );
 
   return (
     <section className={styles.page}>
@@ -66,6 +85,7 @@ export function ReviewPage() {
           </button>
         </div>
         <Link to={PATH.yearBook} className={styles.primary}>
+          <BooksIcon className={styles.icon} weight="regular" />
           年度之书
         </Link>
       </header>
@@ -78,6 +98,7 @@ export function ReviewPage() {
             data-on={kind === item.kind ? 'true' : undefined}
             onClick={() => setKind(item.kind)}
           >
+            <item.Icon className={styles.icon} weight="regular" />
             {item.label}
           </button>
         ))}
@@ -85,7 +106,9 @@ export function ReviewPage() {
       {listQuery.error ? <p className={styles.error}>{errorMessage(listQuery.error)}</p> : null}
       <div className={styles.card}>
         {listQuery.isPending ? <p className={styles.note}>正在读取…</p> : null}
-        {!listQuery.isPending && items.length === 0 ? <p className={styles.empty}>这个月还没有记录。</p> : null}
+        {!listQuery.isPending && items.length === 0 ? (
+          <p className={styles.empty}>{query.trim() ? '没有匹配的记录。' : '这个月还没有记录。'}</p>
+        ) : null}
         {items.map((item) => (
           <button
             key={`${item.kind}-${item.id}`}

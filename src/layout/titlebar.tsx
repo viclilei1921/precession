@@ -1,6 +1,6 @@
 import { CopySimpleIcon, MagnifyingGlassIcon, MinusIcon, PlusIcon, SquareIcon, XIcon } from '@phosphor-icons/react';
 import clsx from 'clsx';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   isMacos,
   isMobile,
@@ -11,25 +11,18 @@ import {
   windowOnResized,
   windowToggleMaximize
 } from '@/bridge';
+import { Icon } from '@/components/icon';
 import { useTitleBarActions } from '@/store/titlebar';
 import styles from './titlebar.module.css';
-
-function TitleMark() {
-  return (
-    <svg className={styles.mark} viewBox="0 0 390 390" aria-hidden="true" data-tauri-drag-region>
-      <polygon points="195,0 292.5,97.5 195,195 97.5,97.5" fill="#FFE270" />
-      <polygon points="390,195 292.5,292.5 195,195 292.5,97.5" fill="#D8CDE3" />
-      <polygon points="195,390 97.5,292.5 195,195 292.5,292.5" fill="#89A9C2" />
-      <polygon points="0,195 97.5,97.5 195,195 97.5,292.5" fill="#9CC8B5" />
-      <rect x="168" y="168" width="55" height="55" fill="#F8F9FA" />
-    </svg>
-  );
-}
 
 export function TitleBar() {
   const active = useTitleBarActions((state) => state.active);
   const openCapture = useTitleBarActions((state) => state.openCapture);
-  const openCommand = useTitleBarActions((state) => state.openCommand);
+  const query = useTitleBarActions((state) => state.query);
+  const placeholder = useTitleBarActions((state) => state.placeholder);
+  const setQuery = useTitleBarActions((state) => state.setQuery);
+  const focusTick = useTitleBarActions((state) => state.focusTick);
+  const searchRef = useRef<HTMLInputElement>(null);
   // 是否显示标题栏 非移动端显示
   const [visible] = useState(() => !isMobile());
   const [macos] = useState(() => isMacos());
@@ -101,6 +94,12 @@ export function TitleBar() {
     };
   }, [macos, visible]);
 
+  useEffect(() => {
+    if (focusTick > 0) {
+      searchRef.current?.focus();
+    }
+  }, [focusTick]);
+
   if (!visible) {
     return <header className={styles.titleBarMobile}></header>;
   }
@@ -115,7 +114,7 @@ export function TitleBar() {
       data-tauri-drag-region
     >
       <div className={styles.brand} data-tauri-drag-region>
-        <TitleMark />
+        <Icon className={styles.brandIcon} />
         <span className={styles.title} data-tauri-drag-region>
           Precession
         </span>
@@ -124,11 +123,19 @@ export function TitleBar() {
       <div className={styles.toolbar} data-tauri-drag-region>
         {active ? (
           <>
-            <button type="button" className={styles.search} onClick={openCommand}>
-              <MagnifyingGlassIcon className={styles.icon} weight="regular" />
-              <span className={styles.searchLabel}>搜索全部记录</span>
-              <span className={styles.kbd}>{macos ? '⌘K' : 'Ctrl K'}</span>
-            </button>
+            {placeholder ? (
+              <label className={styles.search}>
+                <MagnifyingGlassIcon className={styles.icon} weight="regular" />
+                <input
+                  ref={searchRef}
+                  className={styles.searchInput}
+                  value={query}
+                  placeholder={placeholder}
+                  aria-label={placeholder}
+                  onChange={(event) => setQuery(event.currentTarget.value)}
+                />
+              </label>
+            ) : null}
             <button type="button" className={styles.capture} onClick={openCapture}>
               <PlusIcon className={styles.icon} weight="regular" />
               记一笔

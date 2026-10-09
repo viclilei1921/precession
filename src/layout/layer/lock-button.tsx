@@ -1,10 +1,11 @@
+import { LockIcon } from '@phosphor-icons/react';
 import { useState } from 'react';
-import { errorMessage } from '@/shared/lib/error';
-import { useSession } from '@/store/session';
-import styles from './session.module.css';
+import { useLayer } from '@/store/layer';
+import { errorMessage } from '@/utils/error';
+import styles from './lock-button.module.css';
 
 export function LockButton() {
-  const lock = useSession((state) => state.lock);
+  const lock = useLayer((state) => state.lock);
   const [locking, setLocking] = useState(false);
   const [error, setError] = useState('');
 
@@ -22,7 +23,8 @@ export function LockButton() {
   return (
     <div className={styles.lock}>
       {error ? <p className={styles.error}>{error}</p> : null}
-      <button type="button" disabled={locking} onClick={() => void lockArchive()}>
+      <button type="button" className={styles.button} disabled={locking} onClick={() => void lockArchive()}>
+        <LockIcon className={styles.icon} weight="regular" />
         {locking ? '正在锁定…' : '锁定'}
       </button>
     </div>

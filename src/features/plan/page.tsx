@@ -4,22 +4,19 @@ import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import type { Plan } from '@/bridge/plan';
 import { planUpdate } from '@/bridge/plan';
-import { calendarCaption, calendarRangeQuery } from '@/shared/data/calendar/query';
-import { CompleteDialog } from '@/shared/data/plan/complete-dialog';
-import { groupTodo, markedDays, planMeta, plansOnDay, weekCompletion } from '@/shared/data/plan/group';
-import { toPlanPatch } from '@/shared/data/plan/input';
-import { PlanCheck } from '@/shared/data/plan/plan-check';
-import { planListQuery, refreshPlanViews } from '@/shared/data/plan/query';
-import {
-  formatMonthDay,
-  fromDateInputValue,
-  startOfLocalDay,
-  startOfLocalMonth,
-  toDateInputValue
-} from '@/shared/lib/day';
-import { errorMessage } from '@/shared/lib/error';
+import { CompleteDialog } from '@/components/complete-dialog';
+import { PlanCheck } from '@/components/plan-check';
+import { usePageSearch } from '@/layout/page-search';
+import { calendarCaption, calendarRangeQuery } from '@/query/calendar/query';
+import { useCompletePlan } from '@/query/plan/complete';
+import { groupTodo, markedDays, planMeta, plansOnDay, weekCompletion } from '@/query/plan/group';
+import { planListQuery, refreshPlanViews } from '@/query/plan/query';
+import { formatMonthDay, fromDateInputValue, startOfLocalDay, startOfLocalMonth, toDateInputValue } from '@/utils/day';
+import { errorMessage } from '@/utils/error';
+import { matchesQuery } from '@/utils/search';
 import { MonthBoard, monthGridBounds } from './components/month-board';
 import { PlanForm } from './components/plan-form';
+import { toPlanPatch } from './input';
 import styles from './page.module.css';
 
 type PlanView = 'todo' | 'inbox' | 'calendar';
@@ -79,12 +76,17 @@ export function PlanPage() {
     setView('calendar');
   }
 
-  const groups = groupTodo(plans, todayStart);
-  const inbox = plans.filter((plan) => plan.status === 'inbox').sort((left, right) => right.createdAt - left.createdAt);
+  const query = usePageSearch('搜索计划');
+  const complete = useCompletePlan(() => setCompleting(null));
+  const listed = plans.filter((plan) => matchesQuery(query, plan.title, plan.result));
+  const groups = groupTodo(listed, todayStart);
+  const inbox = listed
+    .filter((plan) => plan.status === 'inbox')
+    .sort((left, right) => right.createdAt - left.createdAt);
   const week = weekCompletion(plans, todayStart);
   const weekRate = week.total === 0 ? 0 : Math.round((week.done / week.total) * 100);
   const marks = markedDays(plans);
-  const dayPlans = plansOnDay(plans, selectedDay);
+  const dayPlans = plansOnDay(listed, selectedDay);
   const selectedCaption = calendarCaption(calendarDays.find((day) => day.date === toDateInputValue(selectedDay)));
   const editingPlan = editing === 'new' ? null : editing;
 
@@ -137,7 +139,9 @@ export function PlanPage() {
         <div className={styles.split}>
           <div className={styles.card}>
             {groups.overdue.length + groups.today.length + groups.tomorrow.length + groups.later.length === 0 ? (
-              <p className={styles.empty}>没有待办。新建一条，或从收集箱排期。</p>
+              <p className={styles.empty}>
+                {query.trim() ? '没有匹配的计划。' : '没有待办。新建一条，或从收集箱排期。'}
+              </p>
             ) : (
               <>
                 <PlanGroup
@@ -202,7 +206,11 @@ export function PlanPage() {
 
       {view === 'inbox' ? (
         <div className={styles.card}>
-          {inbox.length === 0 ? <p className={styles.empty}>收集箱是空的。先随手记下，之后再排期。</p> : null}
+          {inbox.length === 0 ? (
+            <p className={styles.empty}>
+              {query.trim() ? '没有匹配的计划。' : '收集箱是空的。先随手记下，之后再排期。'}
+            </p>
+          ) : null}
           {inbox.map((plan) => (
             <div key={plan.id} className={styles.inboxRow}>
               <button type="button" className={styles.inboxTitle} onClick={() => setEditing(plan)}>
@@ -246,7 +254,9 @@ export function PlanPage() {
           <div className={styles.card}>
             <h2 className={styles.cardTitle}>{formatMonthDay(selectedDay)}</h2>
             {selectedCaption ? <p className={styles.note}>{selectedCaption}</p> : null}
-            {dayPlans.length === 0 ? <p className={styles.empty}>这一天没有计划。</p> : null}
+            {dayPlans.length === 0 ? (
+              <p className={styles.empty}>{query.trim() ? '没有匹配的计划。' : '这一天没有计划。'}</p>
+            ) : null}
             {dayPlans.map((plan) => (
               <PlanCheck
                 key={plan.id}
@@ -263,7 +273,17 @@ export function PlanPage() {
       {editing !== null ? (
         <PlanForm key={editing === 'new' ? 'new' : editing.id} plan={editingPlan} onClose={() => setEditing(null)} />
       ) : null}
-      <CompleteDialog plan={completing} onClose={() => setCompleting(null)} />
+      <CompleteDialog
+        plan={completing}
+        pending={complete.pending}
+        error={complete.error ? errorMessage(complete.error) : ''}
+        onSubmit={(result) => {
+          if (completing) {
+            complete.submit(completing.id, result);
+          }
+        }}
+        onClose={() => setCompleting(null)}
+      />
     </section>
   );
 }

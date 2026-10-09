@@ -1,37 +1,40 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import type { Plan } from '@/bridge/plan';
-import { planComplete } from '@/bridge/plan';
-import { errorMessage } from '@/shared/lib/error';
 import styles from './complete-dialog.module.css';
-import { refreshPlanViews } from './query';
 
 type CompleteDialogProps = {
   plan: Plan | null;
+  pending: boolean;
+  error: string;
+  onSubmit: (result: string) => void;
   onClose: () => void;
 };
 
-export function CompleteDialog({ plan, onClose }: CompleteDialogProps) {
+export function CompleteDialog({ plan, pending, error, onSubmit, onClose }: CompleteDialogProps) {
   if (!plan) {
     return null;
   }
-  return <CompletePanel plan={plan} onClose={onClose} />;
+  return <CompletePanel plan={plan} pending={pending} error={error} onSubmit={onSubmit} onClose={onClose} />;
 }
 
-function CompletePanel({ plan, onClose }: { plan: Plan; onClose: () => void }) {
+function CompletePanel({
+  plan,
+  pending,
+  error,
+  onSubmit,
+  onClose
+}: {
+  plan: Plan;
+  pending: boolean;
+  error: string;
+  onSubmit: (result: string) => void;
+  onClose: () => void;
+}) {
   const panelRef = useRef<HTMLDivElement>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
   const [result, setResult] = useState('');
-  const queryClient = useQueryClient();
-  const mutation = useMutation({
-    mutationFn: (value: string) => planComplete(plan.id, value),
-    onSuccess: async () => {
-      await refreshPlanViews(queryClient);
-      onCloseRef.current();
-    }
-  });
 
   useEffect(() => {
     returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -60,17 +63,12 @@ function CompletePanel({ plan, onClose }: { plan: Plan; onClose: () => void }) {
           结果
           <textarea value={result} placeholder="可以补一句结果" onChange={(event) => setResult(event.target.value)} />
         </label>
-        {mutation.error ? <p className={styles.error}>{errorMessage(mutation.error)}</p> : null}
+        {error ? <p className={styles.error}>{error}</p> : null}
         <div className={styles.actions}>
-          <button type="button" className={styles.ghost} disabled={mutation.isPending} onClick={onClose}>
+          <button type="button" className={styles.ghost} disabled={pending} onClick={onClose}>
             取消
           </button>
-          <button
-            type="button"
-            className={styles.primary}
-            disabled={mutation.isPending}
-            onClick={() => mutation.mutate(result.trim())}
-          >
+          <button type="button" className={styles.primary} disabled={pending} onClick={() => onSubmit(result.trim())}>
             完成
           </button>
         </div>
