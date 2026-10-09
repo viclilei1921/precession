@@ -1,11 +1,11 @@
 import { LockIcon } from '@phosphor-icons/react';
 import { useState } from 'react';
-import { useLayer } from '@/store/layer';
+import { useLayerStore } from '@/store/layer';
 import { errorMessage } from '@/utils/error';
 import styles from './lock-button.module.css';
 
 export function LockButton() {
-  const lock = useLayer((state) => state.lock);
+  const lock = useLayerStore((state) => state.lock);
   const [locking, setLocking] = useState(false);
   const [error, setError] = useState('');
 

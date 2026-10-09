@@ -2,6 +2,7 @@ type IconProps = {
   className?: string;
 };
 
+/** 品牌图标 */
 export function Icon({ className }: IconProps) {
   return (
     <svg className={className} viewBox="0 0 390 390" aria-hidden="true">

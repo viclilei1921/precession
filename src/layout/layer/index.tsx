@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { useEffect } from 'react';
-import { useLayer } from '@/store/layer';
+import { useShallow } from 'zustand/react/shallow';
+import { useLayerStore } from '@/store/layer';
 import { errorMessage } from '@/utils/error';
 import { CreateView } from './create';
 import styles from './gate.module.css';
@@ -11,10 +12,14 @@ type LayerProps = {
 };
 
 export function Layer({ children }: LayerProps) {
-  const status = useLayer((state) => state.status);
-  const bootError = useLayer((state) => state.bootError);
-  const refresh = useLayer((state) => state.refresh);
-  const failBoot = useLayer((state) => state.failBoot);
+  const { status, bootError, refresh, failBoot } = useLayerStore(
+    useShallow((state) => ({
+      status: state.status,
+      bootError: state.bootError,
+      refresh: state.refresh,
+      failBoot: state.failBoot
+    }))
+  );
 
   useEffect(() => {
     let cancelled = false;

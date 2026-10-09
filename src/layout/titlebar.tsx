@@ -1,6 +1,7 @@
 import { CopySimpleIcon, MagnifyingGlassIcon, MinusIcon, PlusIcon, SquareIcon, XIcon } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { useEffect, useRef, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import {
   isMacos,
   isMobile,
@@ -12,16 +13,20 @@ import {
   windowToggleMaximize
 } from '@/bridge';
 import { Icon } from '@/components/icon';
-import { useTitleBarActions } from '@/store/titlebar';
+import { useTitleBarStore } from '@/store/titlebar';
 import styles from './titlebar.module.css';
 
 export function TitleBar() {
-  const active = useTitleBarActions((state) => state.active);
-  const openCapture = useTitleBarActions((state) => state.openCapture);
-  const query = useTitleBarActions((state) => state.query);
-  const placeholder = useTitleBarActions((state) => state.placeholder);
-  const setQuery = useTitleBarActions((state) => state.setQuery);
-  const focusTick = useTitleBarActions((state) => state.focusTick);
+  const { active, openCapture, query, placeholder, setQuery, focusTick } = useTitleBarStore(
+    useShallow((state) => ({
+      active: state.active,
+      openCapture: state.openCapture,
+      query: state.query,
+      placeholder: state.placeholder,
+      setQuery: state.setQuery,
+      focusTick: state.focusTick
+    }))
+  );
   const searchRef = useRef<HTMLInputElement>(null);
   // 是否显示标题栏 非移动端显示
   const [visible] = useState(() => !isMobile());

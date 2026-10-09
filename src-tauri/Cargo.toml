@@ -15,7 +15,7 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2.12", features = ["tray-icon"] }
-tauri-plugin-log = "2.10.0"
+tauri-plugin-log = "2.10"
 tauri-plugin-shell = "2"
 tauri-plugin-os = "2"
 
@@ -42,7 +42,7 @@ encoding_rs = "0.8"
 mime_guess = "2"
 regex = "1"
 roxmltree = "0.21"
-zip = { version = "8", default-features = false, features = ["deflate"] }
+zip = { version = "9", default-features = false, features = ["deflate"] }
 
 # --- 视频 / 图片转码（侧车：ffmpeg、avifenc、cjxl）---
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp", "bmp", "tiff"] }

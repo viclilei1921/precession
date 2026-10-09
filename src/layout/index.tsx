@@ -1,17 +1,22 @@
 import { useEffect, useLayoutEffect, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { isMobile } from '@/bridge';
-import { useTitleBarActions } from '@/store/titlebar';
+import { useTitleBarStore } from '@/store/titlebar';
 import { CaptureDialog } from './capture';
 import { DesktopLayout } from './desktop';
 import { MobileLayout } from './mobile';
 
 export function Layout() {
   const [mobile] = useState(isMobile());
-  const captureOpen = useTitleBarActions((state) => state.captureOpen);
-  const setActive = useTitleBarActions((state) => state.setActive);
-  const openCapture = useTitleBarActions((state) => state.openCapture);
-  const closeCapture = useTitleBarActions((state) => state.closeCapture);
-  const requestFocus = useTitleBarActions((state) => state.requestFocus);
+  const { captureOpen, setActive, openCapture, closeCapture, requestFocus } = useTitleBarStore(
+    useShallow((state) => ({
+      captureOpen: state.captureOpen,
+      setActive: state.setActive,
+      openCapture: state.openCapture,
+      closeCapture: state.closeCapture,
+      requestFocus: state.requestFocus
+    }))
+  );
 
   useLayoutEffect(() => {
     if (mobile) {

@@ -1,11 +1,15 @@
 import { useEffect } from 'react';
-import { useTitleBarActions } from '@/store/titlebar';
+import { useTitleBarStore } from '@/store/titlebar';
 
 export function usePageSearch(placeholder: string) {
-  const query = useTitleBarActions((state) => state.query);
-  const registerSearch = useTitleBarActions((state) => state.registerSearch);
+  const query = useTitleBarStore((state) => state.query);
+  const openSearch = useTitleBarStore((state) => state.openSearch);
+  const closeSearch = useTitleBarStore((state) => state.closeSearch);
 
-  useEffect(() => registerSearch(placeholder), [placeholder, registerSearch]);
+  useEffect(() => {
+    openSearch(placeholder);
+    return () => closeSearch();
+  }, [placeholder, openSearch, closeSearch]);
 
   return query;
 }
