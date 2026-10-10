@@ -10,6 +10,11 @@ export function windowToggleMaximize() {
   return getCurrentWindow().toggleMaximize();
 }
 
+/** 全屏窗口 */
+export function windowToggleFullScreen(fullscreen: boolean) {
+  return getCurrentWindow().setFullscreen(fullscreen);
+}
+
 /** 关闭窗口 */
 export function windowClose() {
   return getCurrentWindow().close();

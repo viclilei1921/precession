@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
-import { useEffect } from 'react';
-import { useShallow } from 'zustand/react/shallow';
-import { useLayerStore } from '@/store/layer';
+import { useEffect, useState } from 'react';
+import { dbStatus } from '@/bridge/db';
+import { useAppStore } from '@/store/app';
 import { errorMessage } from '@/utils/error';
 import { CreateView } from './create';
 import styles from './gate.module.css';
@@ -12,26 +12,35 @@ type LayerProps = {
 };
 
 export function Layer({ children }: LayerProps) {
-  const { status, bootError, refresh, failBoot } = useLayerStore(
-    useShallow((state) => ({
-      status: state.status,
-      bootError: state.bootError,
-      refresh: state.refresh,
-      failBoot: state.failBoot
-    }))
-  );
+  const status = useAppStore((state) => state.dbStatus);
+  const setDbStatus = useAppStore((state) => state.setDbStatus);
+  const [bootError, setBootError] = useState('');
+
+  async function refresh() {
+    const next = await dbStatus();
+    setDbStatus(next);
+    setBootError('');
+    return next;
+  }
 
   useEffect(() => {
     let cancelled = false;
-    refresh().catch((error: unknown) => {
-      if (!cancelled) {
-        failBoot(errorMessage(error));
-      }
-    });
+    dbStatus()
+      .then((next) => {
+        if (!cancelled) {
+          setDbStatus(next);
+          setBootError('');
+        }
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setBootError(errorMessage(error));
+        }
+      });
     return () => {
       cancelled = true;
     };
-  }, [refresh, failBoot]);
+  }, [setDbStatus]);
 
   if (bootError) {
     return (

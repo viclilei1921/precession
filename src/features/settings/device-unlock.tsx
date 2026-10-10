@@ -1,12 +1,16 @@
 import { useState } from 'react';
-import { dbDisableDeviceUnlock, dbEnableDeviceUnlock } from '@/bridge/db';
-import { useLayerStore } from '@/store/layer';
+import { dbDisableDeviceUnlock, dbEnableDeviceUnlock, dbStatus } from '@/bridge/db';
+import { useAppStore } from '@/store/app';
 import { errorMessage } from '@/utils/error';
 import styles from './device-unlock.module.css';
 
 export function DeviceUnlock() {
-  const deviceUnlock = useLayerStore((state) => state.status?.deviceUnlock ?? false);
-  const refresh = useLayerStore((state) => state.refresh);
+  const deviceUnlock = useAppStore((state) => state.dbStatus?.deviceUnlock ?? false);
+  const setDbStatus = useAppStore((state) => state.setDbStatus);
+
+  async function refresh() {
+    setDbStatus(await dbStatus());
+  }
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');

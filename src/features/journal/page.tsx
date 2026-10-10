@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import type { JournalKind } from '@/bridge/journal';
 import { Dialog } from '@/components/dialog';
 import styles from '@/components/record.module.css';
-import { usePageSearch } from '@/layout/page-search';
+import { usePageSearch } from '@/layout/titleBar/searchHook';
 import { journalListQuery } from '@/query/journal/query';
 import { PATH } from '@/router/path';
 import { formatMonthDay } from '@/utils/day';

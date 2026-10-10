@@ -21,7 +21,7 @@ import type { Plan } from '@/bridge/plan';
 import type { TimelineItem, TimelineKind } from '@/bridge/timeline';
 import { CompleteDialog } from '@/components/complete-dialog';
 import { PlanCheck } from '@/components/plan-check';
-import { usePageSearch } from '@/layout/page-search';
+import { usePageSearch } from '@/layout/titleBar/searchHook';
 import { calendarCaption, calendarRangeQuery } from '@/query/calendar/query';
 import { useCompletePlan } from '@/query/plan/complete';
 import { planMeta, todayCompletion, todayPlanPanel } from '@/query/plan/group';

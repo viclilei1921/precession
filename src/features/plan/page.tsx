@@ -6,7 +6,7 @@ import type { Plan } from '@/bridge/plan';
 import { planUpdate } from '@/bridge/plan';
 import { CompleteDialog } from '@/components/complete-dialog';
 import { PlanCheck } from '@/components/plan-check';
-import { usePageSearch } from '@/layout/page-search';
+import { usePageSearch } from '@/layout/titleBar/searchHook';
 import { calendarCaption, calendarRangeQuery } from '@/query/calendar/query';
 import { useCompletePlan } from '@/query/plan/complete';
 import { groupTodo, markedDays, planMeta, plansOnDay, weekCompletion } from '@/query/plan/group';

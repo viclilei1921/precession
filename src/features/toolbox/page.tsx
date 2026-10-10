@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import type { Task } from '@/bridge/task';
 import { onTaskQueueUpdated, taskCancel, taskEnqueue } from '@/bridge/task';
 import styles from '@/components/record.module.css';
-import { usePageSearch } from '@/layout/page-search';
+import { usePageSearch } from '@/layout/titleBar/searchHook';
 import { taskListQuery } from '@/query/task/query';
 import { errorMessage } from '@/utils/error';
 import { matchesQuery } from '@/utils/search';

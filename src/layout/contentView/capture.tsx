@@ -9,9 +9,23 @@ import {
   QuotesIcon
 } from '@phosphor-icons/react';
 import { useNavigate } from '@tanstack/react-router';
+import { create } from 'zustand';
 import { PATH } from '@/router/path';
-import styles from './layout.module.css';
+import styles from './index.module.css';
 import { Overlay } from './overlay';
+
+type CaptureState = {
+  open: boolean;
+  openCapture: () => void;
+  closeCapture: () => void;
+};
+
+/** 记一笔浮层开关。标题栏和移动端底栏共用。 */
+export const useCaptureStore = create<CaptureState>((set) => ({
+  open: false,
+  openCapture: () => set({ open: true }),
+  closeCapture: () => set({ open: false })
+}));
 
 const captureTypes: { label: string; Icon: Icon }[] = [
   { label: '日记', Icon: NotebookIcon },

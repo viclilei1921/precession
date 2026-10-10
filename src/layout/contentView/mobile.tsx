@@ -3,9 +3,9 @@ import { Link, Outlet, useRouterState } from '@tanstack/react-router';
 import { LockButton } from '@/layout/layer/lock-button';
 import { itemsOn } from '@/router/items';
 import { PATH } from '@/router/path';
-import styles from './layout.module.css';
+import styles from './index.module.css';
 
-type MobileLayoutProps = {
+type MobileContentProps = {
   onCapture: () => void;
 };
 
@@ -24,7 +24,8 @@ function currentTab(pathname: string): TabId {
   return 'today';
 }
 
-export function MobileLayout({ onCapture }: MobileLayoutProps) {
+/** 移动端内容区：分段导航、当前页面和底栏 */
+export function MobileContent({ onCapture }: MobileContentProps) {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const tab = currentTab(pathname);
   const segments = tab === 'record' ? itemsOn('record') : tab === 'mine' ? itemsOn('mine') : [];

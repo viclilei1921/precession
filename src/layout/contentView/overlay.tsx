@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { useEffect, useRef } from 'react';
-import { isMobile } from '@/bridge';
-import styles from './layout.module.css';
+import { useAppStore } from '@/store/app';
+import styles from './index.module.css';
 
 type OverlayProps = {
   open: boolean;
@@ -10,7 +10,9 @@ type OverlayProps = {
   children: ReactNode;
 };
 
+/** 记一笔等浮层。桌面是对话框，移动端是底部抽屉。 */
 export function Overlay({ open, title, onClose, children }: OverlayProps) {
+  const mobile = useAppStore((state) => state.isMobile());
   const panelRef = useRef<HTMLDivElement>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
 
@@ -38,7 +40,7 @@ export function Overlay({ open, title, onClose, children }: OverlayProps) {
     return null;
   }
 
-  const placement = isMobile() ? styles.sheet : styles.dialog;
+  const placement = mobile ? styles.sheet : styles.dialog;
 
   return (
     <div className={styles.backdrop}>

@@ -18,7 +18,7 @@ import { Link, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { TimelineKind } from '@/bridge/timeline';
 import styles from '@/components/record.module.css';
-import { usePageSearch } from '@/layout/page-search';
+import { usePageSearch } from '@/layout/titleBar/searchHook';
 import { timelineListQuery } from '@/query/timeline/query';
 import { PATH } from '@/router/path';
 import { addLocalMonths, formatFeedClock, formatMonth, formatMonthDay, startOfLocalMonth } from '@/utils/day';

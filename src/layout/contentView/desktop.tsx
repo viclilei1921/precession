@@ -1,9 +1,10 @@
 import { Link, Outlet } from '@tanstack/react-router';
 import { LockButton } from '@/layout/layer/lock-button';
 import { itemsOn, sidebarGroups } from '@/router/items';
-import styles from './layout.module.css';
+import styles from './index.module.css';
 
-export function DesktopLayout() {
+/** 桌面端内容区：侧栏导航和当前页面 */
+export function DesktopContent() {
   return (
     <div className={styles.desktop}>
       <aside className={styles.nav}>

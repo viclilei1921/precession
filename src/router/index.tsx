@@ -10,11 +10,11 @@ import { YearPage } from '@/features/review/year-page';
 import { SettingsPage } from '@/features/settings/page';
 import { TodayPage } from '@/features/today/page';
 import { ToolboxPage } from '@/features/toolbox/page';
-import { Layout } from '@/layout';
+import { ContentFrame } from '@/layout/contentView/frame';
 import { PATH } from './path';
 
 const rootRoute = createRootRoute({
-  component: Layout
+  component: ContentFrame
 });
 
 const indexRoute = createRoute({

@@ -1,21 +1,17 @@
-import { QueryClientProvider } from '@tanstack/react-query';
-import { RouterProvider } from '@tanstack/react-router';
-import { Layer } from '@/layout/layer';
-import { TitleBar } from '@/layout/titlebar';
-import { queryClient } from '@/query/client';
-import { router } from '@/router';
+import { TitleBar } from '@/layout/titleBar/index';
+import { useAppStore } from '@/store/app';
 import styles from './app.module.css';
+import { ContentView } from './layout/contentView';
+import { LockView } from './layout/lockView';
 
 export default function App() {
+  const unlockedDb = useAppStore((state) => state.dbStatus?.unlocked);
+
   return (
     <div className={styles.app}>
       <TitleBar />
       <main className={styles.main}>
-        <Layer>
-          <QueryClientProvider client={queryClient}>
-            <RouterProvider router={router} />
-          </QueryClientProvider>
-        </Layer>
+        {unlockedDb ? <ContentView /> : <LockView />}
       </main>
     </div>
   );

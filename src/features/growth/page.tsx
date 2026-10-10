@@ -7,7 +7,7 @@ import { growthEntryCreate, growthEntryDelete, growthEntryUpdate } from '@/bridg
 import { Dialog } from '@/components/dialog';
 import { MemberPanel } from '@/components/member-panel';
 import styles from '@/components/record.module.css';
-import { usePageSearch } from '@/layout/page-search';
+import { usePageSearch } from '@/layout/titleBar/searchHook';
 import { growthListQuery, refreshGrowth } from '@/query/growth/query';
 import { useMembers } from '@/query/member/use-members';
 import { PATH } from '@/router/path';

@@ -1,11 +1,13 @@
 import { LockIcon } from '@phosphor-icons/react';
 import { useState } from 'react';
-import { useLayerStore } from '@/store/layer';
+import { dbLock, dbStatus } from '@/bridge/db';
+import { queryClient } from '@/query/client';
+import { useAppStore } from '@/store/app';
 import { errorMessage } from '@/utils/error';
 import styles from './lock-button.module.css';
 
 export function LockButton() {
-  const lock = useLayerStore((state) => state.lock);
+  const setDbStatus = useAppStore((state) => state.setDbStatus);
   const [locking, setLocking] = useState(false);
   const [error, setError] = useState('');
 
@@ -13,7 +15,9 @@ export function LockButton() {
     setLocking(true);
     setError('');
     try {
-      await lock();
+      await dbLock();
+      queryClient.clear();
+      setDbStatus(await dbStatus());
     } catch (err) {
       setError(errorMessage(err));
       setLocking(false);

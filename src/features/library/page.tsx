@@ -7,7 +7,7 @@ import type { Book, BookStatus } from '@/bridge/library';
 import { bookCreate, bookDelete, bookUpdate } from '@/bridge/library';
 import { Dialog } from '@/components/dialog';
 import styles from '@/components/record.module.css';
-import { usePageSearch } from '@/layout/page-search';
+import { usePageSearch } from '@/layout/titleBar/searchHook';
 import { bookListQuery, refreshLibrary } from '@/query/library/query';
 import { PATH } from '@/router/path';
 import { fromDateInputValue, toDateInputValue } from '@/utils/day';
