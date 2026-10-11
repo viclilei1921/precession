@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { dbCreate } from '@/bridge/db';
 import { errorMessage } from '@/utils/error';
-import styles from './gate.module.css';
+import styles from './index.module.css';
 
 type CreateViewProps = {
   onDone: () => Promise<unknown>;
@@ -29,7 +29,7 @@ export function CreateView({ onDone }: CreateViewProps) {
   }
 
   return (
-    <main className={styles.gate}>
+    <div className={styles.gate}>
       <h1>设置档案密码</h1>
       <p className={styles.muted}>第一次打开需要设置密码。密码至少 8 位。</p>
       <form
@@ -64,6 +64,6 @@ export function CreateView({ onDone }: CreateViewProps) {
           {busy ? '正在创建…' : '创建档案'}
         </button>
       </form>
-    </main>
+    </div>
   );
 }

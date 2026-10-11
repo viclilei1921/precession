@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { dbDisableDeviceUnlock, dbUnlock, dbUnlockDevice } from '@/bridge/db';
 import { errorMessage } from '@/utils/error';
-import styles from './gate.module.css';
+import styles from './index.module.css';
 
 type UnlockViewProps = {
   deviceUnlock: boolean;
@@ -69,7 +69,7 @@ export function UnlockView({ deviceUnlock, userLocked, onDone }: UnlockViewProps
   }
 
   return (
-    <main className={styles.gate}>
+    <div className={styles.gate}>
       <h1>解锁档案</h1>
       <p className={styles.muted}>
         {showPassword
@@ -146,6 +146,6 @@ export function UnlockView({ deviceUnlock, userLocked, onDone }: UnlockViewProps
           ) : null}
         </form>
       ) : null}
-    </main>
+    </div>
   );
 }

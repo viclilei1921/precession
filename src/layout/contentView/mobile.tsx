@@ -1,9 +1,9 @@
 import { BookOpenIcon, PencilSimpleIcon, PlusIcon, SunIcon, UserIcon } from '@phosphor-icons/react';
 import { Link, Outlet, useRouterState } from '@tanstack/react-router';
-import { LockButton } from '@/layout/layer/lock-button';
 import { itemsOn } from '@/router/items';
 import { PATH } from '@/router/path';
 import styles from './index.module.css';
+import { LockButton } from './lock-button';
 
 type MobileContentProps = {
   onCapture: () => void;

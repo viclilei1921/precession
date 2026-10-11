@@ -1,7 +1,7 @@
 import { Link, Outlet } from '@tanstack/react-router';
-import { LockButton } from '@/layout/layer/lock-button';
 import { itemsOn, sidebarGroups } from '@/router/items';
 import styles from './index.module.css';
+import { LockButton } from './lock-button';
 
 /** 桌面端内容区：侧栏导航和当前页面 */
 export function DesktopContent() {
