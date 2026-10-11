@@ -42,6 +42,20 @@ pub fn run() {
   #[cfg(target_os = "android")]
   let builder = builder.plugin(precession_device_slot::init());
 
+  // 页面加载完再关一次。启动时滚动视图可能还没建好，只关那一次盖不住回弹。
+  #[cfg(target_os = "macos")]
+  let builder = builder.on_page_load(|webview, payload| {
+    if payload.event() != tauri::webview::PageLoadEvent::Finished {
+      return;
+    }
+    if let Err(error) = webview.with_webview(|inner| unsafe {
+      let view: &objc2_web_kit::WKWebView = &*inner.inner().cast();
+      disable_elastic_overscroll(view);
+    }) {
+      tauri_plugin_log::log::error!("disable webview elastic overscroll failed: {error}");
+    }
+  });
+
   let builder = builder.setup(|app| {
     // 获取应用数据目录
     // app_data_dir() 返回Roaming目录，不适合存放数据库文件
@@ -201,6 +215,8 @@ pub fn run() {
     // 全屏时按钮由系统收进屏幕顶栏，这里不要改。
     #[cfg(target_os = "macos")]
     if let tauri::WindowEvent::Resized(_) = event {
+      // 缩放时系统会把回弹开关复位，再关掉。
+      disable_main_elastic_overscroll(window);
       if window.is_fullscreen().ok() == Some(true) {
         return;
       }
@@ -217,9 +233,9 @@ pub fn run() {
   });
 }
 
-/// 标题栏高度，和前端 `1.75rem` 一致。红绿灯中线和标题中线对齐。
+/// 标题栏高度，和前端 `.title-bar` 的 `2.75rem` 一致（根字号 16px 时为 44px）。红绿灯中线和标题中线对齐。
 #[cfg(target_os = "macos")]
-const TITLEBAR_HEIGHT: f64 = 28.0;
+const TITLEBAR_HEIGHT: f64 = 44.0;
 
 #[cfg(target_os = "macos")]
 fn align_main_traffic_lights(window: &tauri::Window) {
@@ -263,9 +279,53 @@ fn align_traffic_lights(window: &objc2_app_kit::NSWindow) {
   }
 }
 
-/// 关掉 webview 里所有滚动视图的弹性回弹。WKWebView 的滚动视图是子视图，不是公开属性。
 #[cfg(target_os = "macos")]
-fn disable_elastic_overscroll(view: &objc2_app_kit::NSView) {
+fn disable_main_elastic_overscroll(window: &tauri::Window) {
+  let Some(webview) = window.get_webview_window(window.label()) else {
+    return;
+  };
+  let _ = webview.with_webview(|webview| unsafe {
+    let view: &objc2_web_kit::WKWebView = &*webview.inner().cast();
+    disable_elastic_overscroll(view);
+  });
+}
+
+/// 关掉页面回弹，避免触控板把窗口拖出空白。
+/// macOS 的 WKWebView 没有公开 scrollView，页面回弹要走 `_setRubberBandingEnabled:`。
+#[cfg(target_os = "macos")]
+fn disable_elastic_overscroll(view: &objc2_web_kit::WKWebView) {
+  use std::sync::Once;
+
+  use objc2::msg_send;
+  use objc2::runtime::{Bool, NSObjectProtocol};
+  use objc2::sel;
+
+  let rubber_banding = sel!(_setRubberBandingEnabled:);
+  if view.respondsToSelector(rubber_banding) {
+    // `_WKRectEdge` 的 0 表示四边都不回弹。
+    let _: () = unsafe { msg_send![view, _setRubberBandingEnabled: 0usize] };
+  } else {
+    static WARNED: Once = Once::new();
+    WARNED.call_once(|| {
+      tauri_plugin_log::log::warn!("WKWebView _setRubberBandingEnabled: unavailable");
+    });
+  }
+
+  let bounce_y = sel!(_setAlwaysBounceVertical:);
+  if view.respondsToSelector(bounce_y) {
+    let _: () = unsafe { msg_send![view, _setAlwaysBounceVertical: Bool::NO] };
+  }
+  let bounce_x = sel!(_setAlwaysBounceHorizontal:);
+  if view.respondsToSelector(bounce_x) {
+    let _: () = unsafe { msg_send![view, _setAlwaysBounceHorizontal: Bool::NO] };
+  }
+
+  disable_scroll_view_elasticity(view);
+}
+
+/// 关掉视图树上 NSScrollView 的弹性。页面回弹不一定走这里，能找到就一起关掉。
+#[cfg(target_os = "macos")]
+fn disable_scroll_view_elasticity(view: &objc2_app_kit::NSView) {
   use objc2_app_kit::{NSScrollElasticity, NSScrollView};
 
   if let Some(scroll) = view.downcast_ref::<NSScrollView>() {
@@ -276,6 +336,6 @@ fn disable_elastic_overscroll(view: &objc2_app_kit::NSView) {
   let subviews = view.subviews();
   for index in 0..subviews.count() {
     let child = subviews.objectAtIndex(index);
-    disable_elastic_overscroll(&child);
+    disable_scroll_view_elasticity(&child);
   }
 }
