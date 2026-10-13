@@ -18,12 +18,14 @@ export function TitleBarMac({ fullscreen }: TitleBarMacProps) {
       })}
       data-tauri-drag-region
     >
-      <div className={styles.brand}>
-        <Icon className={styles.brandIcon} />
-        <span className={styles.title}>Precession</span>
+      <div className={styles.brand} data-tauri-drag-region>
+        <Icon className={styles.brandIcon} data-tauri-drag-region />
+        <span className={styles.title} data-tauri-drag-region>
+          Precession
+        </span>
       </div>
       <div className={styles.traffic} data-tauri-drag-region="false" />
-      <div className={styles.toolbar}>
+      <div className={styles.toolbar} data-tauri-drag-region>
         <TitleBarSearch />
       </div>
     </header>
