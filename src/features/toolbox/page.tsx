@@ -3,8 +3,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import type { Task } from '@/bridge/task';
 import { onTaskQueueUpdated, taskCancel, taskEnqueue } from '@/bridge/task';
+import { PasswordInput } from '@/components/passwordInput';
 import styles from '@/components/record.module.css';
-import { usePageSearch } from '@/layout/titleBar/searchHook';
+import { usePageSearch } from '@/hooks/search';
 import { taskListQuery } from '@/query/task/query';
 import { errorMessage } from '@/utils/error';
 import { matchesQuery } from '@/utils/search';
@@ -117,9 +118,15 @@ export function ToolboxPage() {
           输出路径
           <input value={output} required onChange={(event) => setOutput(event.target.value)} />
         </label>
-        <label className={styles.field}>
+        <label className={styles.field} htmlFor="toolbox-file-password">
           密码
-          <input type="password" value={password} required onChange={(event) => setPassword(event.target.value)} />
+          <PasswordInput
+            id="toolbox-file-password"
+            inputClassName={styles.passwordInput}
+            value={password}
+            required
+            onChange={(event) => setPassword(event.target.value)}
+          />
         </label>
         {enqueue.error ? <p className={styles.error}>{errorMessage(enqueue.error)}</p> : null}
         <button type="submit" className={styles.primary} disabled={enqueue.isPending}>

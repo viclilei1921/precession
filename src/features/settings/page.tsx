@@ -1,4 +1,4 @@
-import { MemberPanel } from '@/components/member-panel';
+import { MemberPanel } from '@/components/memberPanel';
 import styles from '@/components/record.module.css';
 import { useMembers } from '@/query/member/use-members';
 import { errorMessage } from '@/utils/error';

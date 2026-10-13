@@ -1,13 +1,15 @@
 import clsx from 'clsx';
 import { Icon } from '@/components/icon';
-import { TitleBarCapture } from './capture';
 import styles from './index.module.css';
 import { TitleBarSearch } from './search';
 
+/** mac 系统标题栏 Props */
 type TitleBarMacProps = {
+  /** 是否全屏 */
   fullscreen: boolean;
 };
 
+/** mac 系统标题栏 */
 export function TitleBarMac({ fullscreen }: TitleBarMacProps) {
   return (
     <header
@@ -16,16 +18,13 @@ export function TitleBarMac({ fullscreen }: TitleBarMacProps) {
       })}
       data-tauri-drag-region
     >
-      <div className={styles.brand} data-tauri-drag-region>
+      <div className={styles.brand}>
         <Icon className={styles.brandIcon} />
-        <span className={styles.title} data-tauri-drag-region>
-          Precession
-        </span>
+        <span className={styles.title}>Precession</span>
       </div>
       <div className={styles.traffic} data-tauri-drag-region="false" />
-      <div className={styles.toolbar} data-tauri-drag-region>
+      <div className={styles.toolbar}>
         <TitleBarSearch />
-        <TitleBarCapture />
       </div>
     </header>
   );

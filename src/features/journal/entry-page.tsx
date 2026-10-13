@@ -15,6 +15,7 @@ import {
   journalLinkList
 } from '@/bridge/journal';
 import { bookNoteGet, bookNoteList } from '@/bridge/library';
+import { PasswordInput } from '@/components/passwordInput';
 import styles from '@/components/record.module.css';
 import { journalEntryQuery, refreshJournal } from '@/query/journal/query';
 import { bookListQuery } from '@/query/library/query';
@@ -176,9 +177,14 @@ function Seal({ entry }: { entry: JournalEntry }) {
       <h2 className={styles.cardTitle}>正文封存</h2>
       <p className={styles.note}>{entry.locked ? '这篇日记的正文已经单独封存。' : '可以用另一套密码把正文封起来。'}</p>
       {plain ? <p className={styles.note}>{plain}</p> : null}
-      <label className={styles.field}>
+      <label className={styles.field} htmlFor="journal-body-password">
         正文密码
-        <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
+        <PasswordInput
+          id="journal-body-password"
+          inputClassName={styles.passwordInput}
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+        />
       </label>
       <div className={styles.actions}>
         {entry.locked ? (

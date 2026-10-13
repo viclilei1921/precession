@@ -6,6 +6,7 @@ import styles from './index.module.css';
 import { TitleBarMac } from './mac';
 import { TitleBarWindows } from './windows';
 
+/** 标题栏(移动端不显示) */
 export function TitleBar() {
   /** 是否显示标题栏(移动端不显示) */
   const visible = useAppStore((state) => !state.isMobile());

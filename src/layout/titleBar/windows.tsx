@@ -2,26 +2,27 @@ import { CopySimpleIcon, MinusIcon, SquareIcon, XIcon } from '@phosphor-icons/re
 import clsx from 'clsx';
 import { windowClose, windowMinimize, windowToggleMaximize } from '@/bridge';
 import { Icon } from '@/components/icon';
-import { TitleBarCapture } from './capture';
 import styles from './index.module.css';
 import { TitleBarSearch } from './search';
 
+/** windows 系统标题栏 Props */
 type TitleBarWindowsProps = {
+  /** 是否最大化 */
   maximized: boolean;
 };
 
+/** windows 系统标题栏 */
 export function TitleBarWindows({ maximized }: TitleBarWindowsProps) {
   return (
     <header className={styles.titleBar} data-tauri-drag-region>
-      <div className={styles.brand} data-tauri-drag-region>
+      <div className={styles.brand}>
         <Icon className={styles.brandIcon} />
-        <span className={styles.title} data-tauri-drag-region>
+        <span className={styles.title}>
           Precession
         </span>
       </div>
-      <div className={styles.toolbar} data-tauri-drag-region>
+      <div className={styles.toolbar}>
         <TitleBarSearch />
-        <TitleBarCapture />
       </div>
       <div className={styles.controls}>
         <button

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { dbDisableDeviceUnlock, dbEnableDeviceUnlock, dbStatus } from '@/bridge/db';
+import { PasswordInput } from '@/components/passwordInput';
 import { useAppStore } from '@/store/app';
 import { errorMessage } from '@/utils/error';
 import styles from './device-unlock.module.css';
@@ -63,9 +64,8 @@ export function DeviceUnlock() {
           }}
         >
           <label htmlFor="device-password">档案密码</label>
-          <input
+          <PasswordInput
             id="device-password"
-            type="password"
             autoComplete="current-password"
             value={password}
             disabled={busy}

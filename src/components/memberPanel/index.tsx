@@ -2,8 +2,8 @@ import { useState } from 'react';
 import type { Member, MemberInput } from '@/bridge/member';
 import { ageLabel, fromDateInputValue, toDateInputValue } from '@/utils/day';
 import { errorMessage } from '@/utils/error';
-import { Dialog } from './dialog';
-import styles from './record.module.css';
+import { Dialog } from '@/components/dialog';
+import styles from '@/components/record.module.css';
 
 type MemberPanelProps = {
   members: Member[];

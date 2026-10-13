@@ -10,8 +10,11 @@ import { UnlockView } from './unlock';
 export function LockView() {
   const status = useAppStore((state) => state.dbStatus);
   const setDbStatus = useAppStore((state) => state.setDbStatus);
+
+  /** 启动错误 */
   const [bootError, setBootError] = useState('');
 
+  /** 刷新数据库状态 */
   async function refresh() {
     const next = await dbStatus();
     setDbStatus(next);
@@ -21,6 +24,8 @@ export function LockView() {
 
   useEffect(() => {
     let cancelled = false;
+    const { setDbStatus } = useAppStore.getState();
+
     dbStatus()
       .then((next) => {
         if (!cancelled) {
@@ -36,7 +41,7 @@ export function LockView() {
     return () => {
       cancelled = true;
     };
-  }, [setDbStatus]);
+  }, []);
 
   if (bootError) {
     return (

@@ -1,6 +1,6 @@
 import { CheckCircleIcon, CircleIcon } from '@phosphor-icons/react';
 import type { Plan } from '@/bridge/plan';
-import styles from './plan-check.module.css';
+import styles from './index.module.css';
 
 type PlanCheckProps = {
   plan: Plan;

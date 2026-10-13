@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Plan } from '@/bridge/plan';
-import styles from './complete-dialog.module.css';
+import styles from './index.module.css';
 
 type CompleteDialogProps = {
   plan: Plan | null;

@@ -147,7 +147,7 @@
   font-size: var(--text-sm);
 }
 
-.field input,
+.field > input,
 .field textarea,
 .field select {
   width: 100%;
@@ -161,6 +161,10 @@
 .field textarea {
   min-height: 8rem;
   resize: vertical;
+}
+
+.passwordInput {
+  background: var(--background);
 }
 
 .pair {

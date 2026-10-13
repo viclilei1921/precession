@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { useEffect, useRef } from 'react';
-import styles from './dialog.module.css';
+import styles from './index.module.css';
 
 type DialogProps = {
   title: string;

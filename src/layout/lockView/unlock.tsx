@@ -1,20 +1,32 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { dbDisableDeviceUnlock, dbUnlock, dbUnlockDevice } from '@/bridge/db';
+import { PasswordInput } from '@/components/passwordInput';
 import { errorMessage } from '@/utils/error';
 import styles from './index.module.css';
 
+/** 解锁档案 Props */
 type UnlockViewProps = {
+  /** 是否设备解锁 */
   deviceUnlock: boolean;
+  /** 是否用户锁定 */
   userLocked: boolean;
+  /** 完成回调 */
   onDone: () => Promise<unknown>;
 };
 
+/** 解锁档案 */
 export function UnlockView({ deviceUnlock, userLocked, onDone }: UnlockViewProps) {
+  /** 密码 */
   const [password, setPassword] = useState('');
+  /** 错误 */
   const [error, setError] = useState('');
+  /** 是否正在解锁 */
   const [busy, setBusy] = useState(false);
+  /** 是否显示密码 */
   const [showPassword, setShowPassword] = useState(!deviceUnlock);
+  /** 是否尝试过解锁 */
   const attempted = useRef(false);
+  /** 完成回调引用 */
   const onDoneRef = useRef(onDone);
   onDoneRef.current = onDone;
 
@@ -110,9 +122,8 @@ export function UnlockView({ deviceUnlock, userLocked, onDone }: UnlockViewProps
           }}
         >
           <label htmlFor="unlock-password">密码</label>
-          <input
+          <PasswordInput
             id="unlock-password"
-            type="password"
             autoComplete="current-password"
             value={password}
             disabled={busy}

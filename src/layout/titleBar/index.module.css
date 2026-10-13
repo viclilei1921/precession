@@ -34,7 +34,7 @@
   padding-left: 5rem;
 }
 
-.brandIcon {
+.brand-icon {
   display: block;
   flex: none;
   width: 0.875rem;
@@ -84,7 +84,7 @@
   border-radius: var(--radius-md);
 }
 
-.searchInput {
+.search-input {
   flex: 1;
   min-width: 0;
   padding: 0;
@@ -94,7 +94,11 @@
   border: 0;
 }
 
-.searchInput::placeholder {
+.search-input:focus {
+  outline: none;
+}
+
+.search-input::placeholder {
   color: var(--muted-foreground);
 }
 
@@ -154,21 +158,6 @@
 .button .icon {
   width: var(--icon-xs);
   height: var(--icon-xs);
-}
-
-.desktop {
-  background: var(--sidebar);
-  border-bottom: 0;
-}
-
-.desktop .brand {
-  border-right: 1px solid var(--sidebar-border);
-}
-
-.desktop .toolbar,
-.desktop .controls {
-  background: var(--background);
-  border-bottom: 1px solid var(--border);
 }
 
 :global([data-tauri-drag-region]) {
