@@ -1,6 +1,6 @@
 import { EyeIcon, EyeSlashIcon } from '@phosphor-icons/react';
 import clsx from 'clsx';
-import type { ChangeEvent, ComponentProps, InputEvent as ReactInputEvent } from 'react';
+import type { ChangeEvent, ComponentProps, KeyboardEvent, PointerEvent, InputEvent as ReactInputEvent } from 'react';
 import { useState } from 'react';
 import styles from './index.module.css';
 
@@ -17,7 +17,7 @@ type PasswordInputProps = Omit<ComponentProps<'input'>, 'type' | 'className'> & 
   inputClassName?: string;
 };
 
-/** 带小眼睛的密码输入框 */
+/** 按住小眼睛显示密码，松开后隐藏 */
 export function PasswordInput({
   className,
   inputClassName,
@@ -57,6 +57,46 @@ export function PasswordInput({
     onChange?.(event);
   }
 
+  /** 按下时显示。抓住指针，移出按钮再松开也能收回。 */
+  function press(event: PointerEvent<HTMLButtonElement>) {
+    if (disabled || event.button !== 0) {
+      return;
+    }
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // 指针已经结束时抓不住，松手或移出仍会隐藏
+    }
+    event.preventDefault();
+    setVisible(true);
+  }
+
+  function release() {
+    setVisible(false);
+  }
+
+  /** 没抓住指针时，移出按钮就隐藏 */
+  function leave(event: PointerEvent<HTMLButtonElement>) {
+    if (!event.currentTarget.hasPointerCapture(event.pointerId)) {
+      setVisible(false);
+    }
+  }
+
+  /** 键盘按住空格或回车时同样临时显示 */
+  function pressKey(event: KeyboardEvent<HTMLButtonElement>) {
+    if (disabled || event.repeat || (event.key !== ' ' && event.key !== 'Enter')) {
+      return;
+    }
+    event.preventDefault();
+    setVisible(true);
+  }
+
+  function releaseKey(event: KeyboardEvent<HTMLButtonElement>) {
+    if (event.key === ' ' || event.key === 'Enter') {
+      setVisible(false);
+    }
+  }
+
   return (
     <div className={clsx(styles.root, className)}>
       <input
@@ -71,9 +111,16 @@ export function PasswordInput({
         type="button"
         className={styles.toggle}
         disabled={disabled}
-        aria-label={visible ? '隐藏密码' : '显示密码'}
+        aria-label="按住显示密码"
         aria-pressed={visible}
-        onClick={() => setVisible((value) => !value)}
+        onPointerDown={press}
+        onPointerUp={release}
+        onPointerCancel={release}
+        onLostPointerCapture={release}
+        onPointerLeave={leave}
+        onKeyDown={pressKey}
+        onKeyUp={releaseKey}
+        onBlur={release}
       >
         {visible ? (
           <EyeSlashIcon className={styles.icon} weight="regular" />

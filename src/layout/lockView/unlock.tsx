@@ -4,6 +4,11 @@ import { PasswordInput } from '@/components/passwordInput';
 import { errorMessage } from '@/utils/error';
 import styles from './index.module.css';
 
+/** 密码框上的错误。其余错误属于整张表单。 */
+function isPasswordError(message: string) {
+  return message === '密码不正确' || message === '密码不能为空' || message === '密码至少 8 位';
+}
+
 /** 解锁档案 Props */
 type UnlockViewProps = {
   /** 是否设备解锁 */
@@ -98,6 +103,7 @@ export function UnlockView({ deviceUnlock, userLocked, onDone }: UnlockViewProps
       {!showPassword && userLocked ? (
         <form
           className={styles.form}
+          aria-describedby={error ? 'unlock-error' : undefined}
           onSubmit={(event) => {
             event.preventDefault();
             if (!busy) {
@@ -105,7 +111,9 @@ export function UnlockView({ deviceUnlock, userLocked, onDone }: UnlockViewProps
             }
           }}
         >
-          {error ? <p className={styles.error}>{error}</p> : null}
+          <p id="unlock-error" className={styles.fieldError} aria-live="polite">
+            {error}
+          </p>
           <button type="submit" disabled={busy}>
             {busy ? '正在解锁…' : '解锁'}
           </button>
@@ -114,6 +122,7 @@ export function UnlockView({ deviceUnlock, userLocked, onDone }: UnlockViewProps
       {showPassword ? (
         <form
           className={styles.form}
+          aria-describedby={error && !isPasswordError(error) ? 'unlock-error' : undefined}
           onSubmit={(event) => {
             event.preventDefault();
             if (!busy) {
@@ -121,15 +130,24 @@ export function UnlockView({ deviceUnlock, userLocked, onDone }: UnlockViewProps
             }
           }}
         >
-          <label htmlFor="unlock-password">密码</label>
-          <PasswordInput
-            id="unlock-password"
-            autoComplete="current-password"
-            value={password}
-            disabled={busy}
-            onChange={(event) => setPassword(event.currentTarget.value)}
-          />
-          {error ? <p className={styles.error}>{error}</p> : null}
+          <div className={styles.field}>
+            <label htmlFor="unlock-password">密码</label>
+            <PasswordInput
+              id="unlock-password"
+              autoComplete="current-password"
+              value={password}
+              disabled={busy}
+              aria-invalid={isPasswordError(error) ? true : undefined}
+              aria-describedby={isPasswordError(error) ? 'unlock-error' : undefined}
+              onChange={(event) => {
+                setPassword(event.currentTarget.value);
+                setError((current) => (isPasswordError(current) ? '' : current));
+              }}
+            />
+          </div>
+          <p id="unlock-error" className={styles.fieldError} aria-live="polite">
+            {error}
+          </p>
           <button type="submit" disabled={busy}>
             {busy ? '正在解锁…' : '用档案密码解锁'}
           </button>

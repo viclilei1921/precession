@@ -39,7 +39,9 @@
   place-items: center;
   padding: var(--space-1);
   color: var(--muted-foreground);
+  touch-action: none;
   cursor: pointer;
+  user-select: none;
   background: none;
   border: 0;
   transform: translateY(-50%);

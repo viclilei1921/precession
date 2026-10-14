@@ -10,49 +10,92 @@ type CreateViewProps = {
   onDone: () => Promise<unknown>;
 };
 
+/** 创建表单上最近的一条错误 */
+type CreateError = {
+  /** 错误对应哪一项 */
+  field: 'password' | 'confirm' | 'form';
+  /** 错误文案 */
+  message: string;
+};
+
+/** 密码至少 8 位。空密码同样不通过。 */
+function passwordErrorMessage(password: string) {
+  return password.length < 8 ? '密码至少 8 位' : '';
+}
+
+/** 两次输入不一致时的文案 */
+function confirmErrorMessage(password: string, passwordConfirm: string) {
+  return password !== passwordConfirm ? '两次输入的密码不一致' : '';
+}
+
 /** 创建档案 */
 export function CreateView({ onDone }: CreateViewProps) {
   /** 密码 */
   const [password, setPassword] = useState('');
   /** 确认密码 */
   const [passwordConfirm, setPasswordConfirm] = useState('');
-  /** 密码错误 */
-  const [passwordError, setPasswordError] = useState('');
-  /** 确认密码错误 */
-  const [confirmError, setConfirmError] = useState('');
-  /** 与输入无关的错误 */
-  const [formError, setFormError] = useState('');
+  /** 只保留最近一次错误 */
+  const [error, setError] = useState<CreateError | null>(null);
   /** 是否正在创建 */
   const [busy, setBusy] = useState(false);
 
   /** 是否可以提交 */
   const canSubmit = useMemo(() => {
-    return !busy && password && passwordConfirm;
-  }, [password, passwordConfirm, busy]);
+    return !busy && password && passwordConfirm && !error;
+  }, [password, passwordConfirm, busy, error]);
 
-  /** 把创建失败对应到具体输入框 */
+  /** 把创建失败换成当前这一条错误 */
   function applyCreateError(message: string) {
     if (message === '密码至少 8 位' || message === '密码不能为空') {
-      setPasswordError(message);
+      setError({ field: 'password', message });
       return;
     }
     if (message === '两次输入的密码不一致') {
-      setConfirmError(message);
+      setError({ field: 'confirm', message });
       return;
     }
-    setFormError(message);
+    setError({ field: 'form', message });
   }
 
-  /** 提交创建 */
-  async function submit() {
-    const nextPasswordError = password.length < 8 ? '密码至少 8 位' : '';
-    const nextConfirmError = password !== passwordConfirm ? '两次输入的密码不一致' : '';
-    setPasswordError(nextPasswordError);
-    setConfirmError(nextConfirmError);
-    setFormError('');
-    if (nextPasswordError || nextConfirmError) {
+  /** 离开密码框时检查长度 */
+  function blurPassword() {
+    if (busy) {
       return;
     }
+    const message = passwordErrorMessage(password);
+    if (message) {
+      setError({ field: 'password', message });
+      return;
+    }
+    setError((current) => (current?.field === 'password' ? null : current));
+  }
+
+  /** 离开确认框时检查两次是否一致 */
+  function blurConfirm() {
+    if (busy) {
+      return;
+    }
+    const message = confirmErrorMessage(password, passwordConfirm);
+    if (message) {
+      setError({ field: 'confirm', message });
+      return;
+    }
+    setError((current) => (current?.field === 'confirm' ? null : current));
+  }
+
+  /** 提交创建。两次都不通过时只留下密码那一条。 */
+  async function submit() {
+    const nextPasswordError = passwordErrorMessage(password);
+    if (nextPasswordError) {
+      setError({ field: 'password', message: nextPasswordError });
+      return;
+    }
+    const nextConfirmError = confirmErrorMessage(password, passwordConfirm);
+    if (nextConfirmError) {
+      setError({ field: 'confirm', message: nextConfirmError });
+      return;
+    }
+    setError(null);
 
     setBusy(true);
     try {
@@ -73,6 +116,7 @@ export function CreateView({ onDone }: CreateViewProps) {
       <p className={styles.muted}>第一次打开需要设置密码。密码至少 8 位。</p>
       <form
         className={styles.form}
+        aria-describedby={error?.field === 'form' ? 'create-error' : undefined}
         onSubmit={(event) => {
           event.preventDefault();
           if (!busy) {
@@ -87,20 +131,14 @@ export function CreateView({ onDone }: CreateViewProps) {
             autoComplete="new-password"
             value={password}
             disabled={busy}
-            aria-invalid={passwordError ? true : undefined}
-            aria-describedby={passwordError ? 'create-password-error' : undefined}
+            aria-invalid={error?.field === 'password' ? true : undefined}
+            aria-describedby={error?.field === 'password' ? 'create-error' : undefined}
+            onBlur={blurPassword}
             onChange={(event) => {
               setPassword(event.currentTarget.value);
-              setPasswordError('');
-              setConfirmError('');
-              setFormError('');
+              setError(null);
             }}
           />
-          {passwordError ? (
-            <p id="create-password-error" className={styles.fieldError}>
-              {passwordError}
-            </p>
-          ) : null}
         </div>
         <div className={styles.field}>
           <label htmlFor="create-password-confirm">再输入一次</label>
@@ -109,21 +147,18 @@ export function CreateView({ onDone }: CreateViewProps) {
             autoComplete="new-password"
             value={passwordConfirm}
             disabled={busy}
-            aria-invalid={confirmError ? true : undefined}
-            aria-describedby={confirmError ? 'create-password-confirm-error' : undefined}
+            aria-invalid={error?.field === 'confirm' ? true : undefined}
+            aria-describedby={error?.field === 'confirm' ? 'create-error' : undefined}
+            onBlur={blurConfirm}
             onChange={(event) => {
               setPasswordConfirm(event.currentTarget.value);
-              setConfirmError('');
-              setFormError('');
+              setError((current) => (current?.field === 'password' ? current : null));
             }}
           />
-          {confirmError ? (
-            <p id="create-password-confirm-error" className={styles.fieldError}>
-              {confirmError}
-            </p>
-          ) : null}
         </div>
-        {formError ? <p className={styles.fieldError}>{formError}</p> : null}
+        <p id="create-error" className={styles.fieldError} aria-live="polite">
+          {error?.message ?? ''}
+        </p>
         <button type="submit" disabled={!canSubmit}>
           {busy ? '正在创建…' : '创建档案'}
         </button>
