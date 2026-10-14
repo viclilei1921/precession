@@ -1,6 +1,8 @@
 # MSYS2 MinGW64 编译 FFmpeg 裁剪指南
 面向 **Windows 平台**，使用 MSYS2 MinGW64 环境编译 FFmpeg稳定版，最终生成**完全独立、不依赖任何运行库的 ffmpeg.exe**，并可按需精准裁剪功能模块。
 
+macOS 上的对应步骤见 [mac-ffmpeg.md](./mac-ffmpeg.md)。
+
 ---
 
 ## 一、环境准备
@@ -101,15 +103,22 @@ git checkout n9.0.2
   --disable-cuda-llvm \
   --disable-vulkan \
   --disable-mediafoundation \
-  --disable-muxer=bluray,bdpg,image2,image2pipe,gif,png,jpeg2000,bmp,tiff,webp,tga,pgm,ppm,pnm,pcx,sgi,sunrast,xbm,xface,exr \
-  --disable-demuxer=bluray,bdpg,bdsup,bdsub,hdmv,hdmv_es,image2,image2pipe,gif,png,jpeg2000,bmp,tiff,webp,tga,pgm,ppm,pnm,pcx,sgi,sunrast,xbm,xface,exr,jp2 \
-  --disable-encoder=mjpeg,jpegls,png,png_qsv,png_amf,jpeg2000,bmp,tiff,gif,webp,tga,pgm,ppm,pnm,pcx,sgi,sunrast,xbm,xface,exr \
-  --disable-decoder=mjpeg,jpegls,png,jpeg2000,bmp,tiff,gif,webp,tga,pgm,ppm,pnm,pcx,sgi,sunrast,xbm,xface,exr \
+  --disable-muxer=bluray,bdpg,image2,image2pipe,gif,png,apng,jpeg2000,bmp,tiff,webp,tga,pgm,ppm,pnm,pcx,sgi,sunrast,xbm,xface,exr \
+  --disable-demuxer=bluray,bdpg,bdsup,bdsub,hdmv,hdmv_es,image2,image2pipe,gif,png,apng,jpeg2000,bmp,tiff,webp,tga,pgm,ppm,pnm,pcx,sgi,sunrast,xbm,xface,exr,jp2 \
+  --disable-encoder=mjpeg,jpegls,ljpeg,png,apng,png_qsv,png_amf,jpeg2000,bmp,tiff,gif,webp,tga,pgm,ppm,pnm,pcx,sgi,sunrast,xbm,xface,exr \
+  --disable-decoder=mjpeg,jpegls,png,apng,lscr,jpeg2000,bmp,tiff,gif,webp,tga,pgm,ppm,pnm,pcx,sgi,sunrast,xbm,xface,exr \
   --disable-parser=bdpg,bdsup,bdsub,mjpeg,png,jpeg2000 \
   --enable-libass \
   --enable-libfreetype \
   --enable-libfribidi \
+  --enable-libharfbuzz \
   --enable-libsvtav1 \
+  --enable-libx264 \
+  --enable-libx265 \
+  --enable-libvpx \
+  --enable-libmp3lame \
+  --enable-nonfree \
+  --enable-libfdk-aac \
   --enable-gpl \
   --enable-static \
   --disable-shared \
@@ -129,7 +138,8 @@ git checkout n9.0.2
 | 硬件加速 | `--disable-dxva2/d3d11va/nvenc/...` | 禁用所有 Windows 显卡硬件加速接口 |
 | 蓝光移除 | 禁用 bluray 系列 muxer/demuxer/parser | 彻底移除蓝光光盘相关功能 |
 | 图片移除 | 禁用所有图片编解码+容器+解析器 | 移除 JPEG/PNG/GIF 等全量图片格式 |
-| 字幕文字 | `--enable-libass/libfreetype/libfribidi` | 支持字幕烧录、视频文字绘制 |
+| 字幕文字 | `--enable-libass/libfreetype/libfribidi/libharfbuzz` | 支持字幕烧录、视频文字绘制。FFmpeg 9 的 `drawtext` 还需要 harfbuzz |
+| 软件编码 | `--enable-libx264/libx265/libvpx/libsvtav1/libmp3lame/libfdk-aac` `--enable-gpl` `--enable-nonfree` | 打开第一节装好的 H.264、H.265、VP9、AV1、MP3、FDK-AAC。FDK-AAC 需要 nonfree |
 | 静态编译 | `--enable-static --disable-shared` | 编译静态库，不生成动态库 |
 | 链接优化 | `--pkg-config-flags="--static"` | 让 pkg-config 以静态模式查找依赖 |
 | 链接优化 | `--extra-libs="-lstdc++ -lpthread"` | 修复静态链接时 C++ 符号缺失问题 |
@@ -183,8 +193,9 @@ cd /usr/local/ffmpeg-custom/bin
 # 5. 验证字幕和文字绘制功能正常
 ./ffmpeg -filters | grep -E "subtitles|ass|drawtext"
 
-# 6. 验证图片、蓝光已彻底移除（无任何输出即为成功）
-./ffmpeg -codecs | grep -iE "jpeg|png|gif|bluray"
+# 6. 已启用的图片解码/编码应为空。-codecs 会把已关闭的条目也列出来，不能用来判断
+./ffmpeg -decoders | awk '$2 ~ /^(png|apng|gif|mjpeg|mjpegb|ljpeg|jpegls|jpeg2000|smvjpeg)$/'
+./ffmpeg -encoders | awk '$2 ~ /^(png|apng|gif|mjpeg|mjpegb|ljpeg|jpegls|jpeg2000|smvjpeg)$/'
 ```
 
 ---
@@ -218,4 +229,4 @@ explorer /usr/local/ffmpeg-custom/bin/
 ## 七、补充说明
 1. **重新编译**：修改配置后必须先执行 `make distclean` 清理旧产物，再重新 configure 和 make。
 2. **静态编译优势**：最终生成的 `ffmpeg.exe` 是完全独立的程序，不依赖任何 MinGW DLL，可直接拷贝到任意 Windows 电脑运行。
-3. **功能扩展**：如需添加 x265、fdk-aac 等第三方编码库，先通过 pacman 安装对应开发包，再在 configure 中添加 `--enable-libx265`、`--enable-nonfree --enable-libfdk-aac` 等参数即可。
+3. **软件编码器**：H.264、H.265、VP9、AV1、MP3、FDK-AAC 已写进上面的 `./configure`，对应第一节用 pacman 安装的开发包。macOS 使用同一组编码器，见 [mac-ffmpeg.md](./mac-ffmpeg.md)。
