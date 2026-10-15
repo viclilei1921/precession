@@ -235,7 +235,7 @@ pub fn run() {
 
 /// 标题栏高度，和前端 `.title-bar` 的 `2.75rem` 一致（根字号 16px 时为 44px）。红绿灯中线和标题中线对齐。
 #[cfg(target_os = "macos")]
-const TITLEBAR_HEIGHT: f64 = 44.0;
+const TITLEBAR_HEIGHT: f64 = 36.0;
 
 #[cfg(target_os = "macos")]
 fn align_main_traffic_lights(window: &tauri::Window) {
