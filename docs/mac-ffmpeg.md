@@ -33,7 +33,7 @@ xcode-select --install
 依赖库从源码静态安装，不要用 `brew install ffmpeg libass x265 svt-av1`。那些瓶是动态库，链进去之后成品会依赖 `/opt/homebrew/lib` 或 `/usr/local/lib`，换一台机器就无法运行。
 
 ```bash
-brew install cmake meson ninja pkg-config git autoconf automake libtool
+brew install cmake meson ninja pkg-config git
 ```
 
 确认用的是 Xcode 的 clang，而不是 Homebrew 的 llvm：
@@ -78,11 +78,10 @@ mkdir -p "$PREFIX" "$HOME/src/ffmpeg-build"
 | zlib / libpng / brotli | 1.3.1 / 1.6.47 / 1.1.0 | freetype 读字体 |
 | freetype | 2.14.1 | `drawtext`、字幕渲染 |
 | fribidi / harfbuzz | 1.0.16 / 10.1.0 | 双向文字与整形；libass 0.17 需要 harfbuzz |
-| libass | 0.17.4 | 字幕烧录 |
+| libass | 0.17.4 | 字幕烧录。关闭 fontconfig 和 CoreText，字体由 `fontfile=` 传入 |
 | SVT-AV1 | 4.2.0 | AV1 软件编码 |
-| x265 / x264 | 4.2 / stable | H.265、H.264。本仓库 CPU 编码走 `libx265` |
-| libvpx | 1.15.2 | VP8 / VP9 |
-| LAME / FDK-AAC | 3.100 / 2.0.3 | MP3、高质量 AAC。FDK-AAC 需要 `--enable-nonfree` |
+| x265 | 4.2 | H.265。本仓库 CPU 编码走 `libx265` |
+| libvpx | 1.15.2 | 只编 VP9。AAC 用 FFmpeg 内置编码器，不编译 FDK-AAC |
 
 每段命令都假定已经执行过第一节的环境变量，并且从 `~/src/ffmpeg-build` 开始。
 
@@ -168,7 +167,7 @@ make -j"$JOBS" && make install
 cd ..
 ```
 
-### 3. SVT-AV1、x265、x264、libvpx
+### 3. SVT-AV1、x265、libvpx
 
 ```bash
 cd "$HOME/src/ffmpeg-build"
@@ -198,17 +197,11 @@ cmake -S x265/source -B x265/build \
 cmake --build x265/build -j"$JOBS"
 cmake --install x265/build
 
-git clone --depth 1 --branch stable https://code.videolan.org/videolan/x264.git
-cd x264
-./configure --prefix="$PREFIX" --enable-static --disable-shared --enable-pic --disable-cli
-make -j"$JOBS" && make install
-cd ..
-
 curl -fL -o libvpx-1.15.2.tar.gz https://github.com/webmproject/libvpx/archive/refs/tags/v1.15.2.tar.gz
 tar xf libvpx-1.15.2.tar.gz
 cd libvpx-1.15.2
 ./configure --prefix="$PREFIX" --enable-static --disable-shared --enable-pic \
-  --disable-examples --disable-unit-tests \
+  --disable-examples --disable-unit-tests --disable-vp8 \
   --target=arm64-darwin20-gcc
 make -j"$JOBS" && make install
 cd ..
@@ -220,45 +213,7 @@ macOS 的 C++ 标准库是 `libc++`。x265 的 pkg-config 有时写成 `-lstdc++
 sed -i '' 's/-lstdc++/-lc++/g' "$PREFIX/lib/pkgconfig/x265.pc"
 ```
 
-### 4. LAME 与 FDK-AAC
-
-FDK-AAC 的源码包不带 `configure`，需要第一节安装的 autoconf。它的许可证不是 GPL，FFmpeg 必须加 `--enable-nonfree`，与 Windows 配置相同。
-
-```bash
-cd "$HOME/src/ffmpeg-build"
-
-curl -fL -o lame-3.100.tar.gz https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz
-tar xf lame-3.100.tar.gz
-cd lame-3.100
-./configure --prefix="$PREFIX" --enable-static --disable-shared --disable-frontend
-make -j"$JOBS" && make install
-cd ..
-
-# LAME 3.100 不安装 pkg-config 文件，补一份，否则 FFmpeg 找不到 libmp3lame
-cat > "$PREFIX/lib/pkgconfig/libmp3lame.pc" << EOF
-prefix=$PREFIX
-exec_prefix=\${prefix}
-libdir=\${exec_prefix}/lib
-includedir=\${prefix}/include
-
-Name: libmp3lame
-Description: MP3 encoding library
-Version: 3.100
-Libs: -L\${libdir} -lmp3lame
-Libs.private: -lm
-Cflags: -I\${includedir}
-EOF
-
-curl -fL -o fdk-aac-2.0.3.tar.gz https://github.com/mstorsjo/fdk-aac/archive/refs/tags/v2.0.3.tar.gz
-tar xf fdk-aac-2.0.3.tar.gz
-cd fdk-aac-2.0.3
-autoreconf -fiv
-./configure --prefix="$PREFIX" --enable-static --disable-shared
-make -j"$JOBS" && make install
-cd ..
-```
-
-### 5. 确认静态库都在
+### 4. 确认静态库都在
 
 ```bash
 ls "$PREFIX/lib/libass.a" \
@@ -267,12 +222,9 @@ ls "$PREFIX/lib/libass.a" \
    "$PREFIX/lib/libharfbuzz.a" \
    "$PREFIX/lib/libSvtAv1Enc.a" \
    "$PREFIX/lib/libx265.a" \
-   "$PREFIX/lib/libx264.a" \
-   "$PREFIX/lib/libvpx.a" \
-   "$PREFIX/lib/libmp3lame.a" \
-   "$PREFIX/lib/libfdk-aac.a"
+   "$PREFIX/lib/libvpx.a"
 
-pkg-config --static --libs libass freetype2 fribidi SvtAv1Enc x265 x264 vpx libmp3lame fdk-aac
+pkg-config --static --libs libass freetype2 fribidi harfbuzz SvtAv1Enc x265 vpx
 ```
 
 `pkg-config` 的输出里不应出现 `/opt/homebrew` 或 `.dylib`。
@@ -296,19 +248,20 @@ git checkout n9.0.2
 
 ### 1. 裁剪需求说明
 
-与 Windows 指南相同：
+与 Windows 指南相同，从 `--disable-everything` 开始，再按名打开组件：
 
-- 保留主流音视频封装（MP4/MKV/MOV/TS/FLV/MP3/HLS 等）
-- 保留字幕处理、文字绘制
-- 保留主流音视频软件编解码，与 Windows 相同：`libx264`、`libx265`、`libvpx`、`libsvtav1`、`libmp3lame`、`libfdk-aac`
-- 移除蓝光相关功能
-- 移除图片格式编解码
-- 移除网络协议
-- 移除 GPU 硬件加速（macOS 上是 VideoToolbox、AudioToolbox、AVFoundation、CoreImage、Metal）
+- 视频编码：`libx265`、`libsvtav1`、`libvpx-vp9`
+- 音频编码：内置 `aac`。多条音轨只保留一条时用 `-map` 选出，再编成 AAC
+- 字幕：文本字幕可解码。写入 MP4/MOV 时编成 `mov_text`；烧进画面用滤镜 `subtitles`、`ass`
+- 封装写出：MP4、MOV、MPEG-TS
+- 封装读入：MOV（同时覆盖 MP4）、WebM、Matroska（MKV 只读不写）、MPEG-TS、concat，以及外挂字幕 SRT、ASS、WebVTT
+- 协议：`file`、`pipe`
+- 移除 GPU 硬件加速（macOS 上是 VideoToolbox、AudioToolbox、AVFoundation、CoreImage、Metal）、网络协议、图片格式、蓝光、PGS、DVD 字幕
+- 不包含 FLV、HLS、MP3 封装，也不编 H.264、VP8、MP3、FDK-AAC
 
 ### 2. 完整配置命令
 
-在 FFmpeg 源码目录下执行。若当前 shell 没有第一节的环境变量，先回到那一节重新导出。
+在 FFmpeg 源码目录下执行。若当前 shell 没有第一节的环境变量，先回到那一节重新导出。`--disable-everything` 必须放在组件开关最前面。
 
 ```bash
 cd "$HOME/src/ffmpeg-build/ffmpeg"
@@ -317,6 +270,7 @@ cd "$HOME/src/ffmpeg-build/ffmpeg"
   --prefix="$HOME/ffmpeg-custom" \
   --arch=arm64 \
   --cc=clang \
+  --disable-everything \
   --disable-ffplay \
   --disable-ffprobe \
   --disable-doc \
@@ -332,23 +286,30 @@ cd "$HOME/src/ffmpeg-build/ffmpeg"
   --disable-opengl \
   --disable-opencl \
   --disable-vulkan \
-  --disable-muxer=bluray,bdpg,image2,image2pipe,gif,png,apng,jpeg2000,bmp,tiff,webp,tga,pgm,ppm,pnm,pcx,sgi,sunrast,xbm,xface,exr \
-  --disable-demuxer=bluray,bdpg,bdsup,bdsub,hdmv,hdmv_es,image2,image2pipe,gif,png,apng,jpeg2000,bmp,tiff,webp,tga,pgm,ppm,pnm,pcx,sgi,sunrast,xbm,xface,exr,jp2 \
-  --disable-encoder=mjpeg,jpegls,ljpeg,png,apng,png_qsv,png_amf,jpeg2000,bmp,tiff,gif,webp,tga,pgm,ppm,pnm,pcx,sgi,sunrast,xbm,xface,exr \
-  --disable-decoder=mjpeg,jpegls,png,apng,lscr,jpeg2000,bmp,tiff,gif,webp,tga,pgm,ppm,pnm,pcx,sgi,sunrast,xbm,xface,exr \
-  --disable-parser=bdpg,bdsup,bdsub,mjpeg,png,jpeg2000 \
-  --enable-libass \
-  --enable-libfreetype \
-  --enable-libfribidi \
-  --enable-libharfbuzz \
-  --enable-libsvtav1 \
-  --enable-libx264 \
-  --enable-libx265 \
-  --enable-libvpx \
-  --enable-libmp3lame \
-  --enable-nonfree \
-  --enable-libfdk-aac \
+  --disable-vaapi \
+  --enable-ffmpeg \
+  --enable-avutil \
+  --enable-avcodec \
+  --enable-avformat \
+  --enable-avfilter \
+  --enable-swscale \
+  --enable-swresample \
   --enable-gpl \
+  --enable-libx265 \
+  --enable-libsvtav1 \
+  --enable-libvpx \
+  --enable-libfreetype \
+  --enable-libharfbuzz \
+  --enable-libfribidi \
+  --enable-libass \
+  --enable-protocol=file,pipe \
+  --enable-muxer=mp4,mov,mpegts \
+  --enable-demuxer=mov,webm,matroska,mpegts,concat,srt,ass,webvtt \
+  --enable-encoder=libx265,libsvtav1,libvpx_vp9,aac,movtext \
+  --enable-decoder=h264,hevc,vp8,vp9,av1,aac,opus,vorbis,mp3,ass,ssa,subrip,webvtt,movtext,text \
+  --enable-parser=h264,hevc,vp8,vp9,av1,aac,aac_latm,opus,vorbis,mpegaudio \
+  --enable-bsf=h264_mp4toannexb,hevc_mp4toannexb,aac_adtstoasc,extract_extradata,vp9_superframe,av1_metadata,null \
+  --enable-filter=fps,scale,setsar,pad,drawtext,aresample,aformat,concat,format,subtitles,ass \
   --enable-static \
   --disable-shared \
   --pkg-config-flags="--static" \
@@ -358,16 +319,18 @@ cd "$HOME/src/ffmpeg-build/ffmpeg"
   --enable-small
 ```
 
+组件名和 Windows 相同：configure 里写 `libvpx_vp9`、`movtext`。`ffmpeg -encoders` 打印出来的是 `libvpx-vp9`、`mov_text`。写成打印名时，configure 会悄悄丢掉这两项，随后因 `--enable-libvpx` 没有任何编解码器而失败。
+
 ### 3. 与 Windows 配置的对应关系
 
 | 分类 | macOS 参数 | 作用 |
 | --- | --- | --- |
+| 白名单 | `--disable-everything` 后再 `--enable-*` | 与 Windows 相同的封装、编解码、滤镜和协议 |
 | 程序裁剪 | `--disable-ffplay/ffprobe/doc/sdl2` | 不编播放器、分析工具、文档和 SDL |
-| 网络 | `--disable-network` `--disable-securetransport` | 只保留本地文件读写，并关掉 Apple TLS |
-| 硬件加速 | `--disable-videotoolbox/audiotoolbox/avfoundation/coreimage/appkit/metal/opengl/opencl/vulkan` | 对应 Windows 指南里的 DXVA、D3D、NVENC、AMF |
-| 蓝光 / 图片 | 与 Windows 相同的 muxer、demuxer、encoder、decoder、parser 列表 | 去掉蓝光和 JPEG/PNG/GIF 等图片格式 |
-| 字幕文字 | `--enable-libass/libfreetype/libfribidi/libharfbuzz` | 字幕烧录。FFmpeg 9 的 `drawtext` 必须同时有 freetype 和 harfbuzz |
-| 软件编码 | `--enable-libx264/libx265/libvpx/libsvtav1/libmp3lame/libfdk-aac` `--enable-gpl` `--enable-nonfree` | 与 Windows 相同的 H.264、H.265、VP9、AV1、MP3、FDK-AAC |
+| 网络 | `--disable-network` `--disable-securetransport` | 只保留 `file`、`pipe`，并关掉 Apple TLS |
+| 硬件加速 | `--disable-videotoolbox/audiotoolbox/avfoundation/coreimage/appkit/metal/opengl/opencl/vulkan/vaapi` | 对应 Windows 指南里的 DXVA、D3D、NVENC、AMF、VAAPI。产品不再使用 GPU 编码。Intel QSV 需另开 `--enable-libmfx` 或 `--enable-libvpl`，这里不开 |
+| 文字与字幕 | `--enable-libfreetype/libharfbuzz/libfribidi/libass` | `drawtext` 需要 freetype 和 harfbuzz。`subtitles`、`ass` 需要 libass。字体用 `fontfile=` |
+| 软件编码 | `--enable-libx265/libsvtav1/libvpx` `--enable-gpl` | H.265、AV1、VP9。configure 里写 `libvpx_vp9`、`movtext`。AAC 和 `mov_text` 是内置编码器，不使用 `--enable-nonfree` |
 | 静态链接 | `--enable-static --disable-shared` `--pkg-config-flags="--static"` | 第三方库打进二进制 |
 | C++ 运行库 | `--extra-libs="-lc++"` | 静态链接 x265、harfbuzz 时解析 C++ 符号 |
 | 体积 | `--enable-small` | 缩小二进制，换极少一点速度 |
@@ -426,24 +389,33 @@ otool -L ./ffmpeg
 # 3. 封装格式
 ./ffmpeg -formats
 
-# 4. 网络已禁用（只剩 file、pipe 等本地协议）
+# 4. 网络已禁用（只剩 file、pipe）
 ./ffmpeg -protocols
 
 # 5. 硬件加速已移除
 ./ffmpeg -hwaccels
 
-# 6. 字幕和文字绘制
-./ffmpeg -filters | grep -E "subtitles|ass|drawtext"
+# 6. 文字绘制、字幕烧录和转码滤镜。用字段匹配，避免版本信息里的 libswscale 被 scale 误中
+./ffmpeg -filters | awk '$2 ~ /^(drawtext|subtitles|ass|fps|scale|concat)$/'
 
-# 7. 已启用的图片解码/编码应为空。-codecs 会把已关闭的条目也列出来，不能用来判断
+# 7. 软件编码器。这里的 libvpx-vp9、mov_text 是命令行名字
+./ffmpeg -encoders | grep -E "libx265|libsvtav1|libvpx-vp9| aac |mov_text"
+./ffmpeg -decoders | grep mov_text
+
+# 8. 硬件编码器应为空
+./ffmpeg -encoders | awk '$2 ~ /_(nvenc|amf|qsv|videotoolbox|cuvid)$/'
+
+# 9. 已启用的图片解码/编码应为空。-codecs 会把已关闭的条目也列出来，不能用来判断
 ./ffmpeg -decoders | awk '$2 ~ /^(png|apng|gif|mjpeg|mjpegb|ljpeg|jpegls|jpeg2000|smvjpeg)$/'
 ./ffmpeg -encoders | awk '$2 ~ /^(png|apng|gif|mjpeg|mjpegb|ljpeg|jpegls|jpeg2000|smvjpeg)$/'
 
-# 8. 软件编码器在
-./ffmpeg -encoders | grep -E "libx264|libx265|libsvtav1|libvpx|libfdk_aac|libmp3lame"
+# 10. PGS、DVD 字幕和蓝光字幕应为空
+./ffmpeg -decoders | awk '$2 ~ /^(pgssub|dvdsub|dvbsub|hdmv_pgs_subtitle)$/'
 ```
 
 `file` 应显示 `Mach-O 64-bit executable arm64`。`otool -L` 里应只有 `/usr/lib/` 和 `/System/Library/` 下的系统库，例如 `libSystem.B.dylib`、`libc++.1.dylib`。出现 `/opt/homebrew` 或 `/usr/local/opt` 说明某个依赖被动态链接了，回到第二节检查 `PKG_CONFIG_LIBDIR`，然后 `make distclean` 再配置。
+
+裁剪结果与 Windows 相同。`-formats` 里除点名的封装外，还会多出只写的 `adts` 和 `latm`。`-hwaccels` 只有标题、没有方法名。滤镜说明和编码器描述会是 `(null)` 或 `(codec ...)`，因为开了 `--enable-small`。编码器 grep 要同时看到 `libsvtav1`、`libx265`、`libvpx-vp9`、`aac`、`mov_text`，解码器里也要有 `mov_text`。第 8、9、10 条没有输出。
 
 ---
 
@@ -457,7 +429,7 @@ cp "$HOME/ffmpeg-custom/bin/ffmpeg" src-tauri/binaries/ffmpeg-aarch64-apple-darw
 chmod +x src-tauri/binaries/ffmpeg-aarch64-apple-darwin
 ```
 
-本仓库在检测到 Apple GPU 时会调用 `hevc_videotoolbox`。上面的配置按 Windows 指南关掉了硬件编码，这个编码器不会存在。给当前桌面端当侧车时，从 `./configure` 中去掉 `--disable-videotoolbox` 再编一次。VideoToolbox 是系统框架，去掉这一项仍然不会依赖 Homebrew。
+产品不再走 GPU 编码，保持 `./configure` 里的 `--disable-videotoolbox`。VideoToolbox 不会编进这版侧车。
 
 ---
 
@@ -466,5 +438,5 @@ chmod +x src-tauri/binaries/ffmpeg-aarch64-apple-darwin
 1. **重新编译**：改配置后先 `make distclean`，再重新 `./configure` 和 `make`。只改依赖库时，同样要重新配置 FFmpeg，否则会继续用旧的检测结果。
 2. **链接结果**：`otool -L` 只出现系统库时，二进制就可以拷走。不要添加 `--extra-ldflags="-static"`，macOS 上这会让链接直接失败。
 3. **CMake 4**：若 x265 或 SVT-AV1 报 `cmake_minimum_required` 过旧，保留命令里的 `-DCMAKE_POLICY_VERSION_MINIMUM=3.5`。
-4. **软件编码器**：与 Windows 相同，已包含 `libx264`、`libx265`、`libvpx`、`libsvtav1`、`libmp3lame`、`libfdk-aac`。FDK-AAC 让二进制带 `--enable-nonfree`，不能按纯 GPL 再分发。
+4. **软件编码器**：与 Windows 相同，包含 `libx265`、`libsvtav1`、`libvpx-vp9` 和内置 AAC。不使用 `--enable-nonfree`。libvpx 在第二节用 `--disable-vp8` 编译，只提供 VP9。
 5. **新终端**：`PREFIX`、`PKG_CONFIG_PATH`、`PKG_CONFIG_LIBDIR` 只在当前 shell 有效。编译中断后重开终端，先执行第一节第 3 步再继续。
