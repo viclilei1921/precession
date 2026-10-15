@@ -1,12 +1,20 @@
 .lock {
   display: grid;
   gap: var(--space-2);
-  margin-top: auto;
+  justify-items: start;
 }
 
+.hint,
 .error {
   margin: 0;
   font-size: var(--text-sm);
+}
+
+.hint {
+  color: var(--muted-foreground);
+}
+
+.error {
   color: var(--destructive);
 }
 

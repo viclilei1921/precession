@@ -19,8 +19,9 @@ import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { Plan } from '@/bridge/plan';
 import type { TimelineItem, TimelineKind } from '@/bridge/timeline';
-import { CompleteDialog } from '@/components/completeDialog';
-import { PlanCheck } from '@/components/planCheck';
+import { CompleteDialog } from '@/components/complete-dialog';
+import { PlanCheck } from '@/components/plan-check';
+import { Progress } from '@/components/progress';
 import { usePageSearch } from '@/hooks/search';
 import { calendarCaption, calendarRangeQuery } from '@/query/calendar/query';
 import { useCompletePlan } from '@/query/plan/complete';
@@ -138,9 +139,7 @@ export function TodayPage() {
             <small> / {completion.total}</small>
           </span>
           <span className={styles.statLabel}>今日计划完成</span>
-          <div className={styles.progress}>
-            <i style={{ width: `${completionRate}%` }} />
-          </div>
+          <Progress value={completionRate} label="今日计划完成" />
         </article>
         <article className={styles.stat}>
           <NotebookIcon className={styles.statIcon} weight="regular" />

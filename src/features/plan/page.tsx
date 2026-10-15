@@ -4,8 +4,10 @@ import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import type { Plan } from '@/bridge/plan';
 import { planUpdate } from '@/bridge/plan';
-import { CompleteDialog } from '@/components/completeDialog';
-import { PlanCheck } from '@/components/planCheck';
+import { CompleteDialog } from '@/components/complete-dialog';
+import { DateField } from '@/components/date-field';
+import { PlanCheck } from '@/components/plan-check';
+import { Progress } from '@/components/progress';
 import { usePageSearch } from '@/hooks/search';
 import { calendarCaption, calendarRangeQuery } from '@/query/calendar/query';
 import { useCompletePlan } from '@/query/plan/complete';
@@ -192,9 +194,7 @@ export function PlanPage() {
               <span className={styles.statLabel}>
                 本周完成率 · {week.done}/{week.total}
               </span>
-              <div className={styles.progress}>
-                <i style={{ width: `${weekRate}%` }} />
-              </div>
+              <Progress value={weekRate} label="本周完成率" />
             </div>
             <button type="button" className={styles.linkCard} onClick={() => setView('inbox')}>
               <span className={styles.cardTitle}>收集箱</span>
@@ -216,21 +216,17 @@ export function PlanPage() {
               <button type="button" className={styles.inboxTitle} onClick={() => setEditing(plan)}>
                 {plan.title}
               </button>
-              <label className={styles.schedule}>
-                安排到
-                <input
-                  type="date"
-                  aria-label={`把${plan.title}安排到`}
-                  disabled={schedule.isPending}
-                  onChange={(event) => {
-                    const day = fromDateInputValue(event.target.value);
-                    event.target.value = '';
-                    if (day != null) {
-                      schedule.mutate({ plan, day });
-                    }
-                  }}
-                />
-              </label>
+              <DateField
+                label="安排到"
+                value=""
+                disabled={schedule.isPending}
+                onChange={(value) => {
+                  const day = fromDateInputValue(value);
+                  if (day != null) {
+                    schedule.mutate({ plan, day });
+                  }
+                }}
+              />
             </div>
           ))}
         </div>

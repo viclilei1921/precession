@@ -1,31 +1,28 @@
 import type { ReactNode } from 'react';
 import { useEffect, useRef } from 'react';
-import { useAppStore } from '@/store/app';
 import styles from './index.module.css';
 
-type OverlayProps = {
-  open: boolean;
+type ModalProps = {
   title: string;
   onClose: () => void;
   children: ReactNode;
+  wide?: boolean;
 };
 
-/** 记一笔等浮层。桌面是对话框，移动端是底部抽屉。 */
-export function Overlay({ open, title, onClose, children }: OverlayProps) {
-  const mobile = useAppStore((state) => state.isMobile());
+/** 计划用的模态框。桌面居中，移动端贴底。 */
+export function Modal({ title, onClose, children, wide }: ModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
-    if (!open) {
-      return;
-    }
     returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     panelRef.current?.focus();
 
     function onKey(event: KeyboardEvent) {
       if (event.key === 'Escape') {
-        onClose();
+        onCloseRef.current();
       }
     }
 
@@ -34,20 +31,23 @@ export function Overlay({ open, title, onClose, children }: OverlayProps) {
       document.removeEventListener('keydown', onKey);
       returnFocus.current?.focus();
     };
-  }, [open, onClose]);
-
-  if (!open) {
-    return null;
-  }
-
-  const placement = mobile ? styles.sheet : styles.dialog;
+  }, []);
 
   return (
     <div className={styles.backdrop}>
       <button type="button" className={styles.scrim} aria-label="关闭" onClick={onClose} />
-      <div ref={panelRef} className={placement} role="dialog" aria-modal="true" aria-label={title} tabIndex={-1}>
-        <h2 className={styles.overlayTitle}>{title}</h2>
-        {children}
+      <div
+        ref={panelRef}
+        className={wide ? styles.wide : styles.dialog}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        tabIndex={-1}
+      >
+        <div className={styles.panel}>
+          <h2 className={styles.title}>{title}</h2>
+          {children}
+        </div>
       </div>
     </div>
   );

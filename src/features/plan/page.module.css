@@ -126,18 +126,6 @@
   text-align: left;
 }
 
-.schedule {
-  display: grid;
-  gap: 2px;
-  font-size: var(--text-xs);
-  color: var(--muted-foreground);
-}
-
-.schedule input {
-  color: var(--foreground);
-  user-select: text;
-}
-
 .statValue {
   font-size: var(--text-2xl);
   font-weight: 800;
@@ -147,20 +135,6 @@
 .statLabel {
   font-size: var(--text-xs);
   color: var(--muted-foreground);
-}
-
-.progress {
-  height: 0.4rem;
-  overflow: hidden;
-  background: var(--muted);
-  border-radius: var(--radius-pill);
-}
-
-.progress i {
-  display: block;
-  height: 100%;
-  background: var(--plan);
-  border-radius: var(--radius-pill);
 }
 
 .monthBar {

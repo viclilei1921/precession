@@ -12,7 +12,7 @@ import {
 import { PATH } from './path';
 
 /** 一条路由出现在哪些表面上 */
-export type Surface = 'sidebar' | 'tab' | 'record' | 'mine';
+export type Surface = 'sidebar';
 
 export type RouteTone = 'plan' | 'journal' | 'growth' | 'library' | 'toolbox';
 
@@ -39,13 +39,13 @@ export type RouteItem = {
 };
 
 export const routeItems: RouteItem[] = [
-  { id: 'today', label: '今天', to: PATH.today, group: '记录', surfaces: ['sidebar', 'tab'], icon: SunIcon },
+  { id: 'today', label: '今天', to: PATH.today, group: '记录', surfaces: ['sidebar'], icon: SunIcon },
   {
     id: 'plan',
     label: '计划',
     to: PATH.plan,
     group: '记录',
-    surfaces: ['sidebar', 'record'],
+    surfaces: ['sidebar'],
     icon: ListChecksIcon,
     tone: 'plan'
   },
@@ -54,7 +54,7 @@ export const routeItems: RouteItem[] = [
     label: '手记',
     to: PATH.journal,
     group: '记录',
-    surfaces: ['sidebar', 'record'],
+    surfaces: ['sidebar'],
     icon: NotebookIcon,
     tone: 'journal'
   },
@@ -63,7 +63,7 @@ export const routeItems: RouteItem[] = [
     label: '成长',
     to: PATH.growth,
     group: '记录',
-    surfaces: ['sidebar', 'record'],
+    surfaces: ['sidebar'],
     icon: FlagIcon,
     tone: 'growth'
   },
@@ -72,7 +72,7 @@ export const routeItems: RouteItem[] = [
     label: '书库',
     to: PATH.library,
     group: '记录',
-    surfaces: ['sidebar', 'tab'],
+    surfaces: ['sidebar'],
     icon: BookOpenIcon,
     tone: 'library'
   },
@@ -81,7 +81,7 @@ export const routeItems: RouteItem[] = [
     label: '工具箱',
     to: PATH.toolbox,
     group: '整理',
-    surfaces: ['sidebar', 'mine'],
+    surfaces: ['sidebar'],
     icon: ToolboxIcon,
     tone: 'toolbox'
   },
@@ -90,11 +90,21 @@ export const routeItems: RouteItem[] = [
     label: '回顾',
     to: PATH.review,
     group: '整理',
-    surfaces: ['sidebar', 'mine'],
+    surfaces: ['sidebar'],
     icon: ClockCounterClockwiseIcon
   },
-  { id: 'settings', label: '设置', to: PATH.settings, group: '系统', surfaces: ['sidebar', 'mine'], icon: GearIcon }
+  { id: 'settings', label: '设置', to: PATH.settings, group: '系统', surfaces: ['sidebar'], icon: GearIcon }
 ];
+
+const mobileNavOrder = ['plan', 'journal', 'growth', 'library', 'settings'] as const;
+
+/** 移动端底栏，按固定顺序。今天、工具箱、回顾只出现在桌面侧栏。 */
+export function mobileNavItems() {
+  return mobileNavOrder.flatMap((id) => {
+    const item = routeItems.find((entry) => entry.id === id);
+    return item ? [item] : [];
+  });
+}
 
 export const sidebarGroups: RouteGroup[] = ['记录', '整理', '系统'];
 

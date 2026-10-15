@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { dbDisableDeviceUnlock, dbUnlock, dbUnlockDevice } from '@/bridge/db';
-import { PasswordInput } from '@/components/passwordInput';
+import { PasswordInput } from '@/components/password-input';
 import { errorMessage } from '@/utils/error';
 import styles from './index.module.css';
 

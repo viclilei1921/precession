@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import type { Task } from '@/bridge/task';
 import { onTaskQueueUpdated, taskCancel, taskEnqueue } from '@/bridge/task';
-import { PasswordInput } from '@/components/passwordInput';
+import { PasswordInput } from '@/components/password-input';
 import styles from '@/components/record.module.css';
 import { usePageSearch } from '@/hooks/search';
 import { taskListQuery } from '@/query/task/query';

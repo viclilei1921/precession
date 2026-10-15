@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { dbDisableDeviceUnlock, dbEnableDeviceUnlock, dbStatus } from '@/bridge/db';
-import { PasswordInput } from '@/components/passwordInput';
+import { PasswordInput } from '@/components/password-input';
 import { useAppStore } from '@/store/app';
 import { errorMessage } from '@/utils/error';
 import styles from './device-unlock.module.css';
@@ -46,9 +46,7 @@ export function DeviceUnlock() {
   return (
     <section className={styles.device}>
       <h2>设备解锁</h2>
-      <p className={styles.hint}>
-        {deviceUnlock ? '这台设备已启用免密打开。点锁定后需要系统验证。' : '启用后，打开应用不必输入档案密码。'}
-      </p>
+      <p className={styles.hint}>{deviceUnlock ? '这台设备已启用免密打开。' : '启用后，打开应用不必输入档案密码。'}</p>
       {deviceUnlock ? (
         <button type="button" disabled={busy} onClick={() => void disableDevice()}>
           {busy ? '正在关闭…' : '关闭设备解锁'}

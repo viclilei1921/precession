@@ -195,20 +195,6 @@
   gap: var(--space-3);
 }
 
-.progress {
-  height: 0.4rem;
-  overflow: hidden;
-  background: var(--muted);
-  border-radius: var(--radius-pill);
-}
-
-.progress i {
-  display: block;
-  height: 100%;
-  background: var(--library);
-  border-radius: var(--radius-pill);
-}
-
 .chips {
   display: flex;
   flex-wrap: wrap;

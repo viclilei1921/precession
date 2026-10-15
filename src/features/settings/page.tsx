@@ -1,8 +1,8 @@
-import { MemberPanel } from '@/components/memberPanel';
+import { MemberPanel } from '@/components/member-panel';
 import styles from '@/components/record.module.css';
+import { DeviceUnlock, LockArchive } from '@/features/lock';
 import { useMembers } from '@/query/member/use-members';
 import { errorMessage } from '@/utils/error';
-import { DeviceUnlock } from './device-unlock';
 
 export function SettingsPage() {
   const members = useMembers();
@@ -15,6 +15,7 @@ export function SettingsPage() {
       </header>
       <div className={styles.card}>
         <h2 className={styles.cardTitle}>数据与安全</h2>
+        <LockArchive />
         <DeviceUnlock />
       </div>
       <div className={styles.card}>

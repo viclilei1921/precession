@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import type { Member, MemberInput } from '@/bridge/member';
+import { DateField } from '@/components/date-field';
+import styles from '@/components/record.module.css';
 import { ageLabel, fromDateInputValue, toDateInputValue } from '@/utils/day';
 import { errorMessage } from '@/utils/error';
-import { Dialog } from '@/components/dialog';
-import styles from '@/components/record.module.css';
 
 type MemberPanelProps = {
   members: Member[];
@@ -65,11 +65,9 @@ export function MemberPanel({
           </button>
         ) : null}
       </div>
-      {members.length === 0 && !isPending ? (
-        <p className={styles.empty}>还没有成员。先为自己或家人建一份档案。</p>
-      ) : null}
       {editing !== null ? (
-        <MemberDialog
+        <MemberForm
+          key={editing === 'new' ? 'new' : editing.id}
           member={editing === 'new' ? null : editing}
           onClose={() => setEditing(null)}
           onSave={onSave}
@@ -80,11 +78,14 @@ export function MemberPanel({
           }}
         />
       ) : null}
+      {members.length === 0 && !isPending ? (
+        <p className={styles.empty}>还没有成员。先为自己或家人建一份档案。</p>
+      ) : null}
     </div>
   );
 }
 
-function MemberDialog({
+function MemberForm({
   member,
   onClose,
   onSave,
@@ -138,63 +139,59 @@ function MemberDialog({
   }
 
   return (
-    <Dialog title={member ? '编辑成员' : '添加成员'} onClose={onClose}>
-      <form
-        className={styles.stack}
-        onSubmit={(event) => {
-          event.preventDefault();
-          void submit();
-        }}
-      >
+    <form
+      className={styles.stack}
+      onSubmit={(event) => {
+        event.preventDefault();
+        void submit();
+      }}
+    >
+      <h3 className={styles.cardTitle}>{member ? '编辑成员' : '添加成员'}</h3>
+      <label className={styles.field}>
+        名字
+        <input value={name} required onChange={(event) => setName(event.target.value)} />
+      </label>
+      <div className={styles.pair}>
         <label className={styles.field}>
-          名字
-          <input value={name} required onChange={(event) => setName(event.target.value)} />
+          关系
+          <input
+            value={relation}
+            placeholder="自己、孩子、父母"
+            onChange={(event) => setRelation(event.target.value)}
+          />
         </label>
-        <div className={styles.pair}>
-          <label className={styles.field}>
-            关系
-            <input
-              value={relation}
-              placeholder="自己、孩子、父母"
-              onChange={(event) => setRelation(event.target.value)}
-            />
-          </label>
-          <label className={styles.field}>
-            性别
-            <input value={gender} onChange={(event) => setGender(event.target.value)} />
-          </label>
-        </div>
         <label className={styles.field}>
-          生日
-          <input type="date" value={birthday} onChange={(event) => setBirthday(event.target.value)} />
+          性别
+          <input value={gender} onChange={(event) => setGender(event.target.value)} />
         </label>
-        {error ? <p className={styles.error}>{error}</p> : null}
-        <div className={styles.actions}>
-          {member ? (
-            <button
-              type="button"
-              className={styles.danger}
-              disabled={pending}
-              onClick={() => {
-                if (!confirmDelete) {
-                  setConfirmDelete(true);
-                  return;
-                }
-                void remove();
-              }}
-            >
-              {confirmDelete ? '确认删除' : '删除'}
-            </button>
-          ) : null}
-          <span className={styles.spacer} />
-          <button type="button" className={styles.ghost} disabled={pending} onClick={onClose}>
-            取消
+      </div>
+      <DateField label="生日" value={birthday} onChange={setBirthday} />
+      {error ? <p className={styles.error}>{error}</p> : null}
+      <div className={styles.actions}>
+        {member ? (
+          <button
+            type="button"
+            className={styles.danger}
+            disabled={pending}
+            onClick={() => {
+              if (!confirmDelete) {
+                setConfirmDelete(true);
+                return;
+              }
+              void remove();
+            }}
+          >
+            {confirmDelete ? '确认删除' : '删除'}
           </button>
-          <button type="submit" className={styles.primary} disabled={pending}>
-            保存
-          </button>
-        </div>
-      </form>
-    </Dialog>
+        ) : null}
+        <span className={styles.spacer} />
+        <button type="button" className={styles.ghost} disabled={pending} onClick={onClose}>
+          取消
+        </button>
+        <button type="submit" className={styles.primary} disabled={pending}>
+          保存
+        </button>
+      </div>
+    </form>
   );
 }

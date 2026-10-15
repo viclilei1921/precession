@@ -1,13 +1,15 @@
-import { Link, Outlet } from '@tanstack/react-router';
+import { Link } from '@tanstack/react-router';
 import { itemsOn, sidebarGroups } from '@/router/items';
+import { useAppStore } from '@/store/app';
 import styles from './index.module.css';
-import { LockButton } from './lock-button';
 
-/** 桌面端内容区：侧栏导航和当前页面 */
-export function DesktopContent() {
+/** 桌面侧栏。展开和收起由标题栏控制。 */
+export function DesktopAside() {
+  const collapsed = useAppStore((state) => state.sidebarCollapsed);
+
   return (
-    <div className={styles.desktop}>
-      <aside className={styles.nav}>
+    <aside className={styles.nav} data-collapsed={collapsed ? 'true' : undefined}>
+      <div className={styles.body}>
         {sidebarGroups.map((group) => (
           <nav key={group} className={styles.group} aria-label={group}>
             <div className={styles.groupLabel}>{group}</div>
@@ -19,21 +21,17 @@ export function DesktopContent() {
                   to={item.to}
                   data-tone={item.tone}
                   className={styles.link}
+                  aria-label={item.label}
+                  title={item.label}
                   activeOptions={{ exact: false }}
                 >
                   <item.icon className={styles.icon} weight="regular" />
-                  {item.label}
+                  <span className={styles.label}>{item.label}</span>
                 </Link>
               ))}
           </nav>
         ))}
-        <LockButton />
-      </aside>
-      <div className={styles.main}>
-        <div className={styles.content}>
-          <Outlet />
-        </div>
       </div>
-    </div>
+    </aside>
   );
 }

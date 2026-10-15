@@ -118,20 +118,6 @@
   color: var(--muted-foreground);
 }
 
-.progress {
-  height: 0.4rem;
-  overflow: hidden;
-  background: var(--muted);
-  border-radius: var(--radius-pill);
-}
-
-.progress i {
-  display: block;
-  height: 100%;
-  background: var(--plan);
-  border-radius: var(--radius-pill);
-}
-
 .split {
   display: grid;
   grid-template-columns: minmax(0, 1.6fr) minmax(16rem, 1fr);

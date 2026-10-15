@@ -1,6 +1,7 @@
 import clsx from 'clsx';
 import { Icon } from '@/components/icon';
 import styles from './index.module.css';
+import { TitleBarNav } from './nav';
 import { TitleBarSearch } from './search';
 
 /** mac 系统标题栏 Props */
@@ -18,11 +19,9 @@ export function TitleBarMac({ fullscreen }: TitleBarMacProps) {
       })}
       data-tauri-drag-region
     >
-      <div className={styles.brand} data-tauri-drag-region>
+      <div className={styles.leading} data-tauri-drag-region>
         <Icon className={styles.brandIcon} data-tauri-drag-region />
-        <span className={styles.title} data-tauri-drag-region>
-          Precession
-        </span>
+        <TitleBarNav />
       </div>
       <div className={styles.traffic} data-tauri-drag-region="false" />
       <div className={styles.toolbar} data-tauri-drag-region>

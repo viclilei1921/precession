@@ -15,7 +15,7 @@ import {
   journalLinkList
 } from '@/bridge/journal';
 import { bookNoteGet, bookNoteList } from '@/bridge/library';
-import { PasswordInput } from '@/components/passwordInput';
+import { PasswordInput } from '@/components/password-input';
 import styles from '@/components/record.module.css';
 import { journalEntryQuery, refreshJournal } from '@/query/journal/query';
 import { bookListQuery } from '@/query/library/query';

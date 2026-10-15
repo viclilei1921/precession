@@ -4,13 +4,14 @@ import { useNavigate, useParams } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { BookNote, BookNoteKind } from '@/bridge/library';
 import { bookNoteCreate, bookNoteDelete, bookNoteUpdate } from '@/bridge/library';
-import { Dialog } from '@/components/dialog';
+import { DateField } from '@/components/date-field';
+import { Progress } from '@/components/progress';
 import styles from '@/components/record.module.css';
 import { bookNoteListQuery, bookQuery, refreshLibrary } from '@/query/library/query';
 import { PATH } from '@/router/path';
 import { formatMonthDay, fromDateInputValue, startOfLocalDay, toDateInputValue } from '@/utils/day';
 import { errorMessage } from '@/utils/error';
-import { BookDialog } from './page';
+import { BookForm } from './page';
 
 export function ReaderPage() {
   const { bookId } = useParams({ from: '/library/$bookId' });
@@ -40,15 +41,30 @@ export function ReaderPage() {
         ) : null}
       </header>
       {bookQueryResult.error ? <p className={styles.error}>{errorMessage(bookQueryResult.error)}</p> : null}
+      {editingBook && book ? (
+        <div className={styles.card}>
+          <h2 className={styles.cardTitle}>编辑这本书</h2>
+          <BookForm book={book} status={book.status} onClose={() => setEditingBook(false)} />
+        </div>
+      ) : null}
       {book ? (
         <div className={styles.card}>
           <div className={styles.cardTitle}>
             进度 {Math.round(book.progress * 100)}%
             <span className={styles.extra}>{book.rating != null ? `${book.rating} 分` : '未评分'}</span>
           </div>
-          <div className={styles.progress}>
-            <i style={{ width: `${Math.round(book.progress * 100)}%` }} />
-          </div>
+          <Progress value={Math.round(book.progress * 100)} tone="library" label="阅读进度" />
+        </div>
+      ) : null}
+      {editingNote !== null ? (
+        <div className={styles.card}>
+          <h2 className={styles.cardTitle}>{editingNote === 'new' ? '新的书摘或笔记' : '编辑'}</h2>
+          <NoteForm
+            key={editingNote === 'new' ? 'new' : editingNote.id}
+            bookId={bookId}
+            note={editingNote === 'new' ? null : editingNote}
+            onClose={() => setEditingNote(null)}
+          />
         </div>
       ) : null}
       <div className={styles.card}>
@@ -73,17 +89,6 @@ export function ReaderPage() {
         ))}
       </div>
       <p className={styles.note}>正文阅读器还没有接入。这里先管这本书的档案、书摘和笔记。</p>
-      {editingBook && book ? (
-        <BookDialog book={book} status={book.status} onClose={() => setEditingBook(false)} />
-      ) : null}
-      {editingNote !== null ? (
-        <NoteDialog
-          key={editingNote === 'new' ? 'new' : editingNote.id}
-          bookId={bookId}
-          note={editingNote === 'new' ? null : editingNote}
-          onClose={() => setEditingNote(null)}
-        />
-      ) : null}
     </section>
   );
 }
@@ -98,7 +103,7 @@ function statusLabel(status: string): string {
   return '读完';
 }
 
-function NoteDialog({ bookId, note, onClose }: { bookId: string; note: BookNote | null; onClose: () => void }) {
+function NoteForm({ bookId, note, onClose }: { bookId: string; note: BookNote | null; onClose: () => void }) {
   const queryClient = useQueryClient();
   const [kind, setKind] = useState<BookNoteKind>(note?.kind ?? 'excerpt');
   const [title, setTitle] = useState(note?.title ?? '');
@@ -141,77 +146,72 @@ function NoteDialog({ bookId, note, onClose }: { bookId: string; note: BookNote 
   const pending = save.isPending || remove.isPending;
 
   return (
-    <Dialog title={note ? '编辑' : '新的书摘或笔记'} onClose={onClose}>
-      <form
-        className={styles.stack}
-        onSubmit={(event) => {
-          event.preventDefault();
-          save.mutate();
-        }}
-      >
-        <div className={styles.pair}>
-          <label className={styles.field}>
-            类型
-            <select value={kind} onChange={(event) => setKind(event.target.value as BookNoteKind)}>
-              <option value="excerpt">书摘</option>
-              <option value="note">笔记</option>
-            </select>
-          </label>
-          <label className={styles.field}>
-            时间
-            <input type="date" value={occurredAt} onChange={(event) => setOccurredAt(event.target.value)} />
-          </label>
-        </div>
+    <form
+      className={styles.stack}
+      onSubmit={(event) => {
+        event.preventDefault();
+        save.mutate();
+      }}
+    >
+      <div className={styles.pair}>
         <label className={styles.field}>
-          标题
-          <input value={title} required onChange={(event) => setTitle(event.target.value)} />
+          类型
+          <select value={kind} onChange={(event) => setKind(event.target.value as BookNoteKind)}>
+            <option value="excerpt">书摘</option>
+            <option value="note">笔记</option>
+          </select>
+        </label>
+        <DateField label="时间" value={occurredAt} onChange={setOccurredAt} />
+      </div>
+      <label className={styles.field}>
+        标题
+        <input value={title} required onChange={(event) => setTitle(event.target.value)} />
+      </label>
+      <label className={styles.field}>
+        正文
+        <textarea value={body} onChange={(event) => setBody(event.target.value)} />
+      </label>
+      <div className={styles.pair}>
+        <label className={styles.field}>
+          章节
+          <input value={chapter} onChange={(event) => setChapter(event.target.value)} />
         </label>
         <label className={styles.field}>
-          正文
-          <textarea value={body} onChange={(event) => setBody(event.target.value)} />
+          位置
+          <input value={location} onChange={(event) => setLocation(event.target.value)} />
         </label>
-        <div className={styles.pair}>
-          <label className={styles.field}>
-            章节
-            <input value={chapter} onChange={(event) => setChapter(event.target.value)} />
-          </label>
-          <label className={styles.field}>
-            位置
-            <input value={location} onChange={(event) => setLocation(event.target.value)} />
-          </label>
-        </div>
-        <label className={styles.check}>
-          <input type="checkbox" checked={highlight} onChange={(event) => setHighlight(event.target.checked)} />
-          标为高光
-        </label>
-        {save.error ? <p className={styles.error}>{errorMessage(save.error)}</p> : null}
-        {remove.error ? <p className={styles.error}>{errorMessage(remove.error)}</p> : null}
-        <div className={styles.actions}>
-          {note ? (
-            <button
-              type="button"
-              className={styles.danger}
-              disabled={pending}
-              onClick={() => {
-                if (!confirmDelete) {
-                  setConfirmDelete(true);
-                  return;
-                }
-                remove.mutate();
-              }}
-            >
-              {confirmDelete ? '确认删除' : '删除'}
-            </button>
-          ) : null}
-          <span className={styles.spacer} />
-          <button type="button" className={styles.ghost} disabled={pending} onClick={onClose}>
-            取消
+      </div>
+      <label className={styles.check}>
+        <input type="checkbox" checked={highlight} onChange={(event) => setHighlight(event.target.checked)} />
+        标为高光
+      </label>
+      {save.error ? <p className={styles.error}>{errorMessage(save.error)}</p> : null}
+      {remove.error ? <p className={styles.error}>{errorMessage(remove.error)}</p> : null}
+      <div className={styles.actions}>
+        {note ? (
+          <button
+            type="button"
+            className={styles.danger}
+            disabled={pending}
+            onClick={() => {
+              if (!confirmDelete) {
+                setConfirmDelete(true);
+                return;
+              }
+              remove.mutate();
+            }}
+          >
+            {confirmDelete ? '确认删除' : '删除'}
           </button>
-          <button type="submit" className={styles.primary} disabled={pending}>
-            保存
-          </button>
-        </div>
-      </form>
-    </Dialog>
+        ) : null}
+        <span className={styles.spacer} />
+        <button type="button" className={styles.ghost} disabled={pending} onClick={onClose}>
+          取消
+        </button>
+        <button type="submit" className={styles.primary} disabled={pending}>
+          保存
+        </button>
+      </div>
+    </form>
   );
 }

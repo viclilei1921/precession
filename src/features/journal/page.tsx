@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import type { JournalKind } from '@/bridge/journal';
-import { Dialog } from '@/components/dialog';
 import styles from '@/components/record.module.css';
 import { usePageSearch } from '@/hooks/search';
 import { journalListQuery } from '@/query/journal/query';
@@ -66,6 +65,20 @@ export function JournalPage() {
           新建
         </button>
       </header>
+      {creating ? (
+        <div className={styles.card}>
+          <h2 className={styles.cardTitle}>新建手记</h2>
+          <JournalEditor
+            entry={null}
+            kind={kind}
+            onClose={() => setCreating(false)}
+            onSaved={(entry) => {
+              setCreating(false);
+              void navigate({ to: PATH.journalEntry, params: { entryId: entry.id } });
+            }}
+          />
+        </div>
+      ) : null}
       {listQuery.error ? <p className={styles.error}>{errorMessage(listQuery.error)}</p> : null}
       <div className={styles.card}>
         {listQuery.isPending ? <p className={styles.note}>正在读取…</p> : null}
@@ -88,19 +101,6 @@ export function JournalPage() {
           </button>
         ))}
       </div>
-      {creating ? (
-        <Dialog title="新建手记" onClose={() => setCreating(false)}>
-          <JournalEditor
-            entry={null}
-            kind={kind}
-            onClose={() => setCreating(false)}
-            onSaved={(entry) => {
-              setCreating(false);
-              void navigate({ to: PATH.journalEntry, params: { entryId: entry.id } });
-            }}
-          />
-        </Dialog>
-      ) : null}
     </section>
   );
 }

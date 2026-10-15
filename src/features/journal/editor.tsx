@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import type { JournalEntry, JournalEntryInput, JournalKind } from '@/bridge/journal';
 import { journalEntryCreate, journalEntryDelete, journalEntryUpdate } from '@/bridge/journal';
+import { DateField } from '@/components/date-field';
 import styles from '@/components/record.module.css';
 import { refreshJournal } from '@/query/journal/query';
 import { fromDateInputValue, startOfLocalDay, toDateInputValue } from '@/utils/day';
@@ -88,10 +89,7 @@ export function JournalEditor({ entry, kind, onClose, onSaved, onDeleted }: Jour
             ))}
           </select>
         </label>
-        <label className={styles.field}>
-          发生时间
-          <input type="date" value={occurredAt} onChange={(event) => setOccurredAt(event.target.value)} />
-        </label>
+        <DateField label="发生时间" value={occurredAt} onChange={setOccurredAt} />
       </div>
       <label className={styles.field}>
         标题

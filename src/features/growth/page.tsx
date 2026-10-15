@@ -4,8 +4,8 @@ import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import type { GrowthEntry, GrowthKind } from '@/bridge/growth';
 import { growthEntryCreate, growthEntryDelete, growthEntryUpdate } from '@/bridge/growth';
-import { Dialog } from '@/components/dialog';
-import { MemberPanel } from '@/components/memberPanel';
+import { DateField } from '@/components/date-field';
+import { MemberPanel } from '@/components/member-panel';
 import styles from '@/components/record.module.css';
 import { usePageSearch } from '@/hooks/search';
 import { growthListQuery, refreshGrowth } from '@/query/growth/query';
@@ -101,6 +101,18 @@ export function GrowthPage() {
         </p>
       ) : null}
       {listQuery.error ? <p className={styles.error}>{errorMessage(listQuery.error)}</p> : null}
+      {editing !== null && selected ? (
+        <div className={styles.card}>
+          <h2 className={styles.cardTitle}>{editing === 'new' ? '记下成长' : '编辑成长'}</h2>
+          <GrowthForm
+            key={editing === 'new' ? 'new' : editing.id}
+            memberId={selected}
+            entry={editing === 'new' ? null : editing}
+            kind={kind === 'all' ? 'milestone' : kind}
+            onClose={() => setEditing(null)}
+          />
+        </div>
+      ) : null}
       <div className={styles.card}>
         {selected == null ? <p className={styles.empty}>先添加一位成员，再记里程碑和瞬间。</p> : null}
         {selected != null && listQuery.isPending ? <p className={styles.note}>正在读取…</p> : null}
@@ -120,20 +132,11 @@ export function GrowthPage() {
           </button>
         ))}
       </div>
-      {editing !== null && selected ? (
-        <GrowthDialog
-          key={editing === 'new' ? 'new' : editing.id}
-          memberId={selected}
-          entry={editing === 'new' ? null : editing}
-          kind={kind === 'all' ? 'milestone' : kind}
-          onClose={() => setEditing(null)}
-        />
-      ) : null}
     </section>
   );
 }
 
-function GrowthDialog({
+function GrowthForm({
   memberId,
   entry,
   kind,
@@ -182,67 +185,62 @@ function GrowthDialog({
   const pending = save.isPending || remove.isPending;
 
   return (
-    <Dialog title={entry ? '编辑成长' : '记下成长'} onClose={onClose}>
-      <form
-        className={styles.stack}
-        onSubmit={(event) => {
-          event.preventDefault();
-          save.mutate();
-        }}
-      >
-        <div className={styles.pair}>
-          <label className={styles.field}>
-            类型
-            <select value={draftKind} onChange={(event) => setDraftKind(event.target.value as GrowthKind)}>
-              <option value="milestone">里程碑</option>
-              <option value="moment">瞬间</option>
-            </select>
-          </label>
-          <label className={styles.field}>
-            发生时间
-            <input type="date" value={occurredAt} onChange={(event) => setOccurredAt(event.target.value)} />
-          </label>
-        </div>
+    <form
+      className={styles.stack}
+      onSubmit={(event) => {
+        event.preventDefault();
+        save.mutate();
+      }}
+    >
+      <div className={styles.pair}>
         <label className={styles.field}>
-          标题
-          <input value={title} required onChange={(event) => setTitle(event.target.value)} />
+          类型
+          <select value={draftKind} onChange={(event) => setDraftKind(event.target.value as GrowthKind)}>
+            <option value="milestone">里程碑</option>
+            <option value="moment">瞬间</option>
+          </select>
         </label>
-        <label className={styles.field}>
-          说明
-          <textarea value={body} onChange={(event) => setBody(event.target.value)} />
-        </label>
-        <label className={styles.check}>
-          <input type="checkbox" checked={highlight} onChange={(event) => setHighlight(event.target.checked)} />
-          标为高光，进入年度之书
-        </label>
-        {save.error ? <p className={styles.error}>{errorMessage(save.error)}</p> : null}
-        {remove.error ? <p className={styles.error}>{errorMessage(remove.error)}</p> : null}
-        <div className={styles.actions}>
-          {entry ? (
-            <button
-              type="button"
-              className={styles.danger}
-              disabled={pending}
-              onClick={() => {
-                if (!confirmDelete) {
-                  setConfirmDelete(true);
-                  return;
-                }
-                remove.mutate();
-              }}
-            >
-              {confirmDelete ? '确认删除' : '删除'}
-            </button>
-          ) : null}
-          <span className={styles.spacer} />
-          <button type="button" className={styles.ghost} disabled={pending} onClick={onClose}>
-            取消
+        <DateField label="发生时间" value={occurredAt} onChange={setOccurredAt} />
+      </div>
+      <label className={styles.field}>
+        标题
+        <input value={title} required onChange={(event) => setTitle(event.target.value)} />
+      </label>
+      <label className={styles.field}>
+        说明
+        <textarea value={body} onChange={(event) => setBody(event.target.value)} />
+      </label>
+      <label className={styles.check}>
+        <input type="checkbox" checked={highlight} onChange={(event) => setHighlight(event.target.checked)} />
+        标为高光，进入年度之书
+      </label>
+      {save.error ? <p className={styles.error}>{errorMessage(save.error)}</p> : null}
+      {remove.error ? <p className={styles.error}>{errorMessage(remove.error)}</p> : null}
+      <div className={styles.actions}>
+        {entry ? (
+          <button
+            type="button"
+            className={styles.danger}
+            disabled={pending}
+            onClick={() => {
+              if (!confirmDelete) {
+                setConfirmDelete(true);
+                return;
+              }
+              remove.mutate();
+            }}
+          >
+            {confirmDelete ? '确认删除' : '删除'}
           </button>
-          <button type="submit" className={styles.primary} disabled={pending}>
-            保存
-          </button>
-        </div>
-      </form>
-    </Dialog>
+        ) : null}
+        <span className={styles.spacer} />
+        <button type="button" className={styles.ghost} disabled={pending} onClick={onClose}>
+          取消
+        </button>
+        <button type="submit" className={styles.primary} disabled={pending}>
+          保存
+        </button>
+      </div>
+    </form>
   );
 }

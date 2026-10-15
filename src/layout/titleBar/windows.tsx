@@ -3,6 +3,7 @@ import clsx from 'clsx';
 import { windowClose, windowMinimize, windowToggleMaximize } from '@/bridge';
 import { Icon } from '@/components/icon';
 import styles from './index.module.css';
+import { TitleBarNav } from './nav';
 import { TitleBarSearch } from './search';
 
 /** windows 系统标题栏 Props */
@@ -15,11 +16,9 @@ type TitleBarWindowsProps = {
 export function TitleBarWindows({ maximized }: TitleBarWindowsProps) {
   return (
     <header className={styles.titleBar} data-tauri-drag-region>
-      <div className={styles.brand}>
+      <div className={styles.leading}>
         <Icon className={styles.brandIcon} />
-        <span className={styles.title}>
-          Precession
-        </span>
+        <TitleBarNav />
       </div>
       <div className={styles.toolbar}>
         <TitleBarSearch />
@@ -27,34 +26,30 @@ export function TitleBarWindows({ maximized }: TitleBarWindowsProps) {
       <div className={styles.controls}>
         <button
           type="button"
-          className={styles.button}
+          className={styles.navButton}
           title="最小化"
           aria-label="最小化"
           onClick={() => windowMinimize()}
         >
-          <MinusIcon className={styles.icon} weight="thin" />
+          <MinusIcon className={styles.icon} weight="regular" />
         </button>
         <button
           type="button"
-          className={styles.button}
+          className={styles.navButton}
           title={maximized ? '还原' : '最大化'}
           aria-label={maximized ? '还原' : '最大化'}
           onClick={() => windowToggleMaximize()}
         >
-          {maximized ? (
-            <CopySimpleIcon className={styles.icon} weight="thin" />
-          ) : (
-            <SquareIcon className={styles.icon} weight="thin" />
-          )}
+          {maximized ? <CopySimpleIcon className={styles.icon} /> : <SquareIcon className={styles.icon} />}
         </button>
         <button
           type="button"
-          className={clsx(styles.button, styles.close)}
+          className={clsx(styles.navButton, styles.close)}
           title="关闭"
           aria-label="关闭"
           onClick={() => windowClose()}
         >
-          <XIcon className={styles.icon} weight="thin" />
+          <XIcon className={styles.icon} weight="regular" />
         </button>
       </div>
     </header>

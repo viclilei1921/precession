@@ -109,6 +109,7 @@
     "Dgobject",
     "Dicu",
     "Dintrospection",
+    "Dismissable",
     "distclean",
     "Dorg",
     "drawtext",

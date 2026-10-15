@@ -1,8 +1,10 @@
 import { PlusIcon, TrashIcon } from '@phosphor-icons/react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import type { Plan, PlanInput, PlanPatch, PlanStatus } from '@/bridge/plan';
 import { planCreate, planDelete, planUpdate } from '@/bridge/plan';
+import { DateField } from '@/components/date-field';
+import { Modal } from '@/components/modal';
 import { refreshPlanViews } from '@/query/plan/query';
 import { fromDateInputValue, startOfLocalDay, toDateInputValue } from '@/utils/day';
 import { errorMessage } from '@/utils/error';
@@ -26,8 +28,6 @@ type PlanFormProps = {
 };
 
 export function PlanForm({ plan, onClose }: PlanFormProps) {
-  const panelRef = useRef<HTMLFormElement>(null);
-  const returnFocus = useRef<HTMLElement | null>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
   const queryClient = useQueryClient();
@@ -68,23 +68,6 @@ export function PlanForm({ plan, onClose }: PlanFormProps) {
   const pending = save.isPending || remove.isPending;
   const knownPriority = PRIORITIES.some((item) => item.value === priority);
 
-  useEffect(() => {
-    returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    panelRef.current?.focus();
-
-    function onKey(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        onCloseRef.current();
-      }
-    }
-
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      returnFocus.current?.focus();
-    };
-  }, []);
-
   function formFields() {
     return {
       title,
@@ -101,15 +84,9 @@ export function PlanForm({ plan, onClose }: PlanFormProps) {
   }
 
   return (
-    <div className={styles.backdrop}>
-      <button type="button" className={styles.scrim} aria-label="关闭" onClick={onClose} />
+    <Modal wide title={plan ? '编辑计划' : '新建计划'} onClose={onClose}>
       <form
-        ref={panelRef}
-        className={styles.dialog}
-        role="dialog"
-        aria-modal="true"
-        aria-label={plan ? '编辑计划' : '新建计划'}
-        tabIndex={-1}
+        className={styles.form}
         onSubmit={(event) => {
           event.preventDefault();
           const fields = formFields();
@@ -128,7 +105,6 @@ export function PlanForm({ plan, onClose }: PlanFormProps) {
           });
         }}
       >
-        <h2 className={styles.title}>{plan ? '编辑计划' : '新建计划'}</h2>
         <label className={styles.field}>
           标题
           <input value={title} required onChange={(event) => setTitle(event.target.value)} />
@@ -163,20 +139,11 @@ export function PlanForm({ plan, onClose }: PlanFormProps) {
         </div>
         {done || status === 'scheduled' ? (
           <div className={styles.pair}>
-            <label className={styles.field}>
-              安排时间
-              <input type="date" value={scheduled} onChange={(event) => setScheduled(event.target.value)} />
-            </label>
-            <label className={styles.field}>
-              截止时间
-              <input type="date" value={due} onChange={(event) => setDue(event.target.value)} />
-            </label>
+            <DateField label="安排时间" value={scheduled} onChange={setScheduled} />
+            <DateField label="截止时间" value={due} onChange={setDue} />
           </div>
         ) : (
-          <label className={styles.field}>
-            截止时间
-            <input type="date" value={due} onChange={(event) => setDue(event.target.value)} />
-          </label>
+          <DateField label="截止时间" value={due} onChange={setDue} />
         )}
         <div className={styles.steps}>
           <span className={styles.field}>步骤</span>
@@ -249,6 +216,6 @@ export function PlanForm({ plan, onClose }: PlanFormProps) {
           </button>
         </div>
       </form>
-    </div>
+    </Modal>
   );
 }

@@ -10,18 +10,19 @@ import { YearPage } from '@/features/review/year-page';
 import { SettingsPage } from '@/features/settings/page';
 import { TodayPage } from '@/features/today/page';
 import { ToolboxPage } from '@/features/toolbox/page';
-import { ContentFrame } from '@/layout/contentView/frame';
+import { ContentLayout } from '@/layout/content';
+import { useAppStore } from '@/store/app';
 import { PATH } from './path';
 
 const rootRoute = createRootRoute({
-  component: ContentFrame
+  component: ContentLayout
 });
 
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: PATH.root,
   beforeLoad: () => {
-    throw redirect({ to: PATH.today });
+    throw redirect({ to: useAppStore.getState().isMobile() ? PATH.plan : PATH.today });
   }
 });
 

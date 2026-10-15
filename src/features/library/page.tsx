@@ -5,7 +5,7 @@ import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import type { Book, BookStatus } from '@/bridge/library';
 import { bookCreate, bookDelete, bookUpdate } from '@/bridge/library';
-import { Dialog } from '@/components/dialog';
+import { DateField } from '@/components/date-field';
 import styles from '@/components/record.module.css';
 import { usePageSearch } from '@/hooks/search';
 import { bookListQuery, refreshLibrary } from '@/query/library/query';
@@ -64,6 +64,17 @@ export function LibraryPage() {
         </button>
       </header>
       {booksQuery.error ? <p className={styles.error}>{errorMessage(booksQuery.error)}</p> : null}
+      {editing !== null ? (
+        <div className={styles.card}>
+          <h2 className={styles.cardTitle}>{editing === 'new' ? '添加书' : '编辑书'}</h2>
+          <BookForm
+            key={editing === 'new' ? 'new' : editing.id}
+            book={editing === 'new' ? null : editing}
+            status={status}
+            onClose={() => setEditing(null)}
+          />
+        </div>
+      ) : null}
       <div className={styles.card}>
         {booksQuery.isPending ? <p className={styles.note}>正在读取…</p> : null}
         {!booksQuery.isPending && books.length === 0 ? (
@@ -87,19 +98,11 @@ export function LibraryPage() {
           </button>
         ))}
       </div>
-      {editing !== null ? (
-        <BookDialog
-          key={editing === 'new' ? 'new' : editing.id}
-          book={editing === 'new' ? null : editing}
-          status={status}
-          onClose={() => setEditing(null)}
-        />
-      ) : null}
     </section>
   );
 }
 
-export function BookDialog({ book, status, onClose }: { book: Book | null; status: BookStatus; onClose: () => void }) {
+export function BookForm({ book, status, onClose }: { book: Book | null; status: BookStatus; onClose: () => void }) {
   const queryClient = useQueryClient();
   const [title, setTitle] = useState(book?.title ?? '');
   const [author, setAuthor] = useState(book?.author ?? '');
@@ -139,93 +142,85 @@ export function BookDialog({ book, status, onClose }: { book: Book | null; statu
   const pending = save.isPending || remove.isPending;
 
   return (
-    <Dialog title={book ? '编辑书' : '添加书'} onClose={onClose}>
-      <form
-        className={styles.stack}
-        onSubmit={(event) => {
-          event.preventDefault();
-          save.mutate();
-        }}
-      >
+    <form
+      className={styles.stack}
+      onSubmit={(event) => {
+        event.preventDefault();
+        save.mutate();
+      }}
+    >
+      <label className={styles.field}>
+        书名
+        <input value={title} required onChange={(event) => setTitle(event.target.value)} />
+      </label>
+      <label className={styles.field}>
+        作者
+        <input value={author} onChange={(event) => setAuthor(event.target.value)} />
+      </label>
+      <div className={styles.pair}>
         <label className={styles.field}>
-          书名
-          <input value={title} required onChange={(event) => setTitle(event.target.value)} />
+          状态
+          <select value={draftStatus} onChange={(event) => setDraftStatus(event.target.value as BookStatus)}>
+            {statuses.map((item) => (
+              <option key={item.status} value={item.status}>
+                {item.label}
+              </option>
+            ))}
+          </select>
         </label>
         <label className={styles.field}>
-          作者
-          <input value={author} onChange={(event) => setAuthor(event.target.value)} />
+          进度（%）
+          <input
+            type="number"
+            min={0}
+            max={100}
+            value={progress}
+            onChange={(event) => setProgress(event.target.value)}
+          />
         </label>
-        <div className={styles.pair}>
-          <label className={styles.field}>
-            状态
-            <select value={draftStatus} onChange={(event) => setDraftStatus(event.target.value as BookStatus)}>
-              {statuses.map((item) => (
-                <option key={item.status} value={item.status}>
-                  {item.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className={styles.field}>
-            进度（%）
-            <input
-              type="number"
-              min={0}
-              max={100}
-              value={progress}
-              onChange={(event) => setProgress(event.target.value)}
-            />
-          </label>
-        </div>
-        <div className={styles.pair}>
-          <label className={styles.field}>
-            评分
-            <select value={rating} onChange={(event) => setRating(event.target.value)}>
-              <option value="">未评分</option>
-              {[1, 2, 3, 4, 5].map((score) => (
-                <option key={score} value={score}>
-                  {score}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className={styles.field}>
-            开始
-            <input type="date" value={startedAt} onChange={(event) => setStartedAt(event.target.value)} />
-          </label>
-        </div>
+      </div>
+      <div className={styles.pair}>
         <label className={styles.field}>
-          读完
-          <input type="date" value={finishedAt} onChange={(event) => setFinishedAt(event.target.value)} />
+          评分
+          <select value={rating} onChange={(event) => setRating(event.target.value)}>
+            <option value="">未评分</option>
+            {[1, 2, 3, 4, 5].map((score) => (
+              <option key={score} value={score}>
+                {score}
+              </option>
+            ))}
+          </select>
         </label>
-        {save.error ? <p className={styles.error}>{errorMessage(save.error)}</p> : null}
-        {remove.error ? <p className={styles.error}>{errorMessage(remove.error)}</p> : null}
-        <div className={styles.actions}>
-          {book ? (
-            <button
-              type="button"
-              className={styles.danger}
-              disabled={pending}
-              onClick={() => {
-                if (!confirmDelete) {
-                  setConfirmDelete(true);
-                  return;
-                }
-                remove.mutate();
-              }}
-            >
-              {confirmDelete ? '确认删除' : '删除'}
-            </button>
-          ) : null}
-          <span className={styles.spacer} />
-          <button type="button" className={styles.ghost} disabled={pending} onClick={onClose}>
-            取消
+        <DateField label="开始" value={startedAt} onChange={setStartedAt} />
+      </div>
+      <DateField label="读完" value={finishedAt} onChange={setFinishedAt} />
+      {save.error ? <p className={styles.error}>{errorMessage(save.error)}</p> : null}
+      {remove.error ? <p className={styles.error}>{errorMessage(remove.error)}</p> : null}
+      <div className={styles.actions}>
+        {book ? (
+          <button
+            type="button"
+            className={styles.danger}
+            disabled={pending}
+            onClick={() => {
+              if (!confirmDelete) {
+                setConfirmDelete(true);
+                return;
+              }
+              remove.mutate();
+            }}
+          >
+            {confirmDelete ? '确认删除' : '删除'}
           </button>
-          <button type="submit" className={styles.primary} disabled={pending}>
-            保存
-          </button>
-        </div>
-      </form>
-    </Dialog>
+        ) : null}
+        <span className={styles.spacer} />
+        <button type="button" className={styles.ghost} disabled={pending} onClick={onClose}>
+          取消
+        </button>
+        <button type="submit" className={styles.primary} disabled={pending}>
+          保存
+        </button>
+      </div>
+    </form>
   );
 }
