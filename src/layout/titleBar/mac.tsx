@@ -14,9 +14,8 @@ type TitleBarMacProps = {
 export function TitleBarMac({ fullscreen }: TitleBarMacProps) {
   return (
     <header
-      className={clsx(styles.titleBar, styles.macos, {
-        [styles.fullscreen]: fullscreen
-      })}
+      className={clsx(styles.titleBar, styles.macos)}
+      data-fullscreen={fullscreen ? 'true' : undefined}
       data-tauri-drag-region
     >
       <div className={styles.leading} data-tauri-drag-region>

@@ -14,7 +14,7 @@
   height: var(--inset-top);
 }
 
-.macos.fullscreen {
+.macos[data-fullscreen="true"] {
   height: 0;
   overflow: hidden;
   border-bottom: 0;

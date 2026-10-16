@@ -1,4 +1,4 @@
-import { TitleBar } from '@/layout/titlebar/index';
+import { TitleBar } from '@/layout/titleBar';
 import { useAppStore } from '@/store/app';
 import styles from './app.module.css';
 import { ContentView } from './layout/content';

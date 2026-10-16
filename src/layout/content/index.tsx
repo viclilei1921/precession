@@ -34,10 +34,8 @@ export function ContentLayout() {
   return (
     <main className={styles.desktop}>
       <DesktopAside />
-      <div className={styles.main}>
-        <div className={styles.content}>
-          <Outlet />
-        </div>
+      <div className={styles.content}>
+        <Outlet />
       </div>
     </main>
   );

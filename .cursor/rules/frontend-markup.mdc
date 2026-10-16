@@ -1,0 +1,29 @@
+---
+description: 前端 DOM 与样式。写组件和 CSS Module 时遵守。
+globs: src/**/*.{tsx,css}
+alwaysApply: false
+---
+
+# DOM 与样式
+
+去掉一层之后功能、样式、语义都不变，就删掉这层。单根不包空 `div`。多节点用 Fragment。不为加类名或变体再套一层。`map` 出的 `li` 直接放进 `ul` / `ol`。优先用 `button`、`ul`、`header`、`main`、`section`、`article`。布局容器、滚动、定位、事件代理、弹层结构保留。不设 DOM 层数上限。
+
+class 管静态外观和渲染时确定的变体。运行时开关用 `data-*`：开为 `"true"`，关则省略。选择器写 `[data-on="true"]`。封闭枚举用 `data-tone` 选 token。业务 id 和价格不放 `data-*`。`disabled`、`checked` 用原生属性和伪类。`data-platform`、`data-touch-ui`、`data-tauri-drag-region` 保留。
+
+CSS 类名用 kebab-case，TSX 写 `styles.camelCase`。已有的 camelCase 类名不要为改名去动。`clsx` 只在合并多个 class 时使用。开关不要放进 `clsx`。
+
+颜色、间距、圆角、字号用 `src/style/token.css` 的变量。CSS Module 不用标签选择器当主选择器，不为防冲突做无意义后代嵌套。`:global` 只用于平台覆写和第三方覆盖，并包在组件类名上，例如 `:global(html[data-platform="mobile"]) .split`。移动端看启动平台，不用媒体查询猜设备。
+
+`src/components` 的新组件把 `className` 接到根节点。只有运行时算出的宽、位置才写 `style`。`button` 写 `type="button"`。图标用 Phosphor，尺寸用 class，默认 `weight="regular"`。新组件目录用 kebab-case。
+
+```tsx
+// 反例
+<div>
+  <div className={clsx(styles.card, isOn && styles.on)}>内容</div>
+</div>
+
+// 正例
+<article className={styles.card} data-on={isOn ? 'true' : undefined}>
+  内容
+</article>
+```

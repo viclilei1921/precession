@@ -18,16 +18,9 @@
   overflow: hidden;
 }
 
-.main {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  height: 100%;
-  min-height: 0;
-}
-
 .content {
   flex: 1;
+  min-width: 0;
   min-height: 0;
   padding: var(--space-4) var(--space-5);
   overflow: auto;

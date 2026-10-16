@@ -1,71 +1,57 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import type { JournalEntry, JournalEntryInput, JournalKind } from '@/bridge/journal';
-import { journalEntryCreate, journalEntryDelete, journalEntryUpdate } from '@/bridge/journal';
+import type { GrowthEntry, GrowthKind } from '@/bridge/growth';
+import { growthEntryCreate, growthEntryDelete, growthEntryUpdate } from '@/bridge/growth';
 import { DateField } from '@/components/date-field';
 import styles from '@/components/record.module.css';
-import { refreshJournal } from '@/query/journal/query';
+import { refreshGrowth } from '@/query/growth/query';
 import { fromDateInputValue, startOfLocalDay, toDateInputValue } from '@/utils/day';
 import { errorMessage } from '@/utils/error';
 
-const kindLabel: Record<JournalKind, string> = {
-  diary: '日记',
-  spark: '灵感',
-  writing: '写作'
-};
-
-type JournalEditorProps = {
-  entry: JournalEntry | null;
-  kind: JournalKind;
-  onClose?: () => void;
-  onSaved: (entry: JournalEntry) => void;
-  onDeleted?: () => void;
-};
-
-export function JournalEditor({ entry, kind, onClose, onSaved, onDeleted }: JournalEditorProps) {
+export function GrowthForm({
+  memberId,
+  entry,
+  kind,
+  onClose
+}: {
+  memberId: string;
+  entry: GrowthEntry | null;
+  kind: GrowthKind;
+  onClose: () => void;
+}) {
   const queryClient = useQueryClient();
-  const [draftKind, setDraftKind] = useState<JournalKind>(entry?.kind ?? kind);
+  const [draftKind, setDraftKind] = useState<GrowthKind>(entry?.kind ?? kind);
   const [title, setTitle] = useState(entry?.title ?? '');
-  const [body, setBody] = useState(entry?.locked ? '' : (entry?.body ?? ''));
+  const [body, setBody] = useState(entry?.body ?? '');
   const [occurredAt, setOccurredAt] = useState(toDateInputValue(entry?.occurredAt ?? startOfLocalDay()));
   const [highlight, setHighlight] = useState(entry?.highlight ?? false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-
-  function input(): JournalEntryInput {
-    const stillSealed = Boolean(entry?.locked) && body.trim() === '';
-    return {
-      kind: draftKind,
-      occurredAt: fromDateInputValue(occurredAt) ?? startOfLocalDay(),
-      title,
-      body: stillSealed ? (entry?.body ?? '') : body,
-      locked: stillSealed,
-      highlight,
-      memberIds: entry?.memberIds ?? [],
-      tagIds: entry?.tagIds ?? [],
-      placeIds: entry?.placeIds ?? []
-    };
-  }
-
   const save = useMutation({
     mutationFn: () => {
-      const next = input();
-      return entry ? journalEntryUpdate(entry.id, next) : journalEntryCreate(next);
+      const input = {
+        kind: draftKind,
+        memberId,
+        occurredAt: fromDateInputValue(occurredAt) ?? startOfLocalDay(),
+        title,
+        body,
+        locked: entry?.locked ?? false,
+        highlight,
+        memberIds: entry?.memberIds ?? [],
+        tagIds: entry?.tagIds ?? [],
+        placeIds: entry?.placeIds ?? []
+      };
+      return entry ? growthEntryUpdate(entry.id, input) : growthEntryCreate(input);
     },
-    onSuccess: async (saved) => {
-      await refreshJournal(queryClient);
-      onSaved(saved);
+    onSuccess: async () => {
+      await refreshGrowth(queryClient);
+      onClose();
     }
   });
   const remove = useMutation({
-    mutationFn: () => {
-      if (!entry) {
-        return Promise.reject(new Error('手记不存在'));
-      }
-      return journalEntryDelete(entry.id);
-    },
+    mutationFn: () => (entry ? growthEntryDelete(entry.id) : Promise.reject(new Error('记录不存在'))),
     onSuccess: async () => {
-      await refreshJournal(queryClient);
-      onDeleted?.();
+      await refreshGrowth(queryClient);
+      onClose();
     }
   });
   const pending = save.isPending || remove.isPending;
@@ -81,12 +67,9 @@ export function JournalEditor({ entry, kind, onClose, onSaved, onDeleted }: Jour
       <div className={styles.pair}>
         <label className={styles.field}>
           类型
-          <select value={draftKind} onChange={(event) => setDraftKind(event.target.value as JournalKind)}>
-            {(Object.keys(kindLabel) as JournalKind[]).map((item) => (
-              <option key={item} value={item}>
-                {kindLabel[item]}
-              </option>
-            ))}
+          <select value={draftKind} onChange={(event) => setDraftKind(event.target.value as GrowthKind)}>
+            <option value="milestone">里程碑</option>
+            <option value="moment">瞬间</option>
           </select>
         </label>
         <DateField label="发生时间" value={occurredAt} onChange={setOccurredAt} />
@@ -96,18 +79,17 @@ export function JournalEditor({ entry, kind, onClose, onSaved, onDeleted }: Jour
         <input value={title} required onChange={(event) => setTitle(event.target.value)} />
       </label>
       <label className={styles.field}>
-        正文
-        {entry?.locked && body === '' ? <span className={styles.note}>正文已封存。解开之后才能改。</span> : null}
+        说明
         <textarea value={body} onChange={(event) => setBody(event.target.value)} />
       </label>
       <label className={styles.check}>
         <input type="checkbox" checked={highlight} onChange={(event) => setHighlight(event.target.checked)} />
-        标为高光
+        标为高光，进入年度之书
       </label>
       {save.error ? <p className={styles.error}>{errorMessage(save.error)}</p> : null}
       {remove.error ? <p className={styles.error}>{errorMessage(remove.error)}</p> : null}
       <div className={styles.actions}>
-        {entry && onDeleted ? (
+        {entry ? (
           <button
             type="button"
             className={styles.danger}
@@ -124,11 +106,9 @@ export function JournalEditor({ entry, kind, onClose, onSaved, onDeleted }: Jour
           </button>
         ) : null}
         <span className={styles.spacer} />
-        {onClose ? (
-          <button type="button" className={styles.ghost} disabled={pending} onClick={onClose}>
-            取消
-          </button>
-        ) : null}
+        <button type="button" className={styles.ghost} disabled={pending} onClick={onClose}>
+          取消
+        </button>
         <button type="submit" className={styles.primary} disabled={pending}>
           保存
         </button>

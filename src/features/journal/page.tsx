@@ -10,7 +10,7 @@ import { PATH } from '@/router/path';
 import { formatMonthDay } from '@/utils/day';
 import { errorMessage } from '@/utils/error';
 import { matchesQuery } from '@/utils/search';
-import { JournalEditor } from './editor';
+import { JournalEditor } from './components/editor';
 
 const kinds: { kind: JournalKind; label: string; Icon: typeof NotebookIcon }[] = [
   { kind: 'diary', label: '日记', Icon: NotebookIcon },

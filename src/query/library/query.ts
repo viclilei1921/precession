@@ -1,6 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query';
 import { queryOptions } from '@tanstack/react-query';
-import { bookGet, bookList, bookNoteList } from '@/bridge/library';
+import { bookGet, bookList, bookNoteGet, bookNoteList } from '@/bridge/library';
 
 export const bookListQuery = queryOptions({
   queryKey: ['library', 'books'],
@@ -18,6 +18,13 @@ export function bookNoteListQuery(bookId: string) {
   return queryOptions({
     queryKey: ['library', 'notes', bookId],
     queryFn: () => bookNoteList(bookId)
+  });
+}
+
+export function bookNoteQuery(id: string) {
+  return queryOptions({
+    queryKey: ['library', 'note', id],
+    queryFn: () => bookNoteGet(id)
   });
 }
 

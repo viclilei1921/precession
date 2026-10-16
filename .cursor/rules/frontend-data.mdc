@@ -1,0 +1,19 @@
+---
+description: 前端数据、状态与路由。Tauri 调用、Zustand、Query 和路由按此写。
+globs: src/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# 数据、状态与路由
+
+`@tauri-apps/*` 只在 `src/bridge` 导入。页面和 store 用 `@/bridge`。
+
+组件内部状态用 `useState`。跨组件 UI 用 Zustand，按领域拆 store，用 selector 订阅：`useAppStore((state) => state.sidebarCollapsed)`。接口数据只放 TanStack Query，不写入 Zustand。同步动作写在 store 里，读写库走 bridge。
+
+查询定义和 `refresh*` 放在 `src/query/<领域>/`。页面写 `useQuery(planListQuery)`。`queryKey` 为 `['模块', '接口', ...参数]`。同一套读写被多处复用时再抽 hook。错误在页面上展示文案。成功后调用已有的 `refresh*`。
+
+路由在 `src/router/index.tsx`，使用 hash history。路径常量在 `src/router/path.ts`。保持代码路由和同步引入，不改成文件路由或按页懒加载。深链意图（`create`、`id`、`kind`）放 search params，并写 `validateSearch`，类型不用 `any`。本页视图切换用 `useState`。标题栏搜索用 `useSearchStore`。站内跳转用 `Link` 或 `useNavigate`。
+
+完整说明见 `docs/frontend.md`。
+
+看界面用 `pnpm app`，Android 用 `pnpm app:android`。不要执行 `pnpm dev`：它只起 Vite，没有 Tauri 窗口。
