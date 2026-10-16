@@ -111,7 +111,7 @@ export function CreateView({ onDone }: CreateViewProps) {
   }
 
   return (
-    <div className={styles.gate}>
+    <main className={styles.gate}>
       <h1>设置档案密码</h1>
       <p className={styles.muted}>第一次打开需要设置密码。密码至少 8 位。</p>
       <form
@@ -163,6 +163,6 @@ export function CreateView({ onDone }: CreateViewProps) {
           {busy ? '正在创建…' : '创建档案'}
         </button>
       </form>
-    </div>
+    </main>
   );
 }

@@ -86,7 +86,7 @@ export function UnlockView({ deviceUnlock, userLocked, onDone }: UnlockViewProps
   }
 
   return (
-    <div className={styles.gate}>
+    <main className={styles.gate}>
       <h1>解锁档案</h1>
       <p className={styles.muted}>
         {showPassword
@@ -175,6 +175,6 @@ export function UnlockView({ deviceUnlock, userLocked, onDone }: UnlockViewProps
           ) : null}
         </form>
       ) : null}
-    </div>
+    </main>
   );
 }

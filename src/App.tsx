@@ -10,7 +10,7 @@ export default function App() {
   return (
     <div className={styles.app}>
       <TitleBar />
-      <main className={styles.main}>{unlockedDb ? <ContentView /> : <LockView />}</main>
+      {unlockedDb ? <ContentView /> : <LockView />}
     </div>
   );
 }

@@ -1,31 +1,27 @@
 .nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
   width: var(--sidebar-w);
   min-width: 0;
   height: 100%;
+  padding-block: var(--space-4);
   overflow: hidden;
   background: var(--sidebar);
   border-right: 1px solid var(--sidebar-border);
   transition: width var(--transition);
 }
 
-.nav[data-collapsed="true"] {
+.collapsed {
   width: 0;
   background: transparent;
   border-right-width: 0;
 }
 
-.body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  height: 100%;
-  padding: var(--space-4) var(--space-3);
-  overflow: hidden;
-}
-
 .group {
   display: grid;
   gap: var(--space-1);
+  padding-inline: var(--space-3);
 }
 
 .groupLabel {
@@ -43,7 +39,7 @@
     opacity var(--transition);
 }
 
-.nav[data-collapsed="true"] .groupLabel {
+.collapsed .groupLabel {
   max-height: 0;
   padding-block: 0;
   opacity: 0;
@@ -103,7 +99,7 @@
   transition: opacity var(--transition);
 }
 
-.nav[data-collapsed="true"] .label {
+.collapsed .label {
   opacity: 0;
 }
 

@@ -9,8 +9,3 @@
   user-select: none;
   background: var(--background);
 }
-
-.main {
-  flex: 1;
-  overflow: hidden;
-}

@@ -22,23 +22,23 @@ export function ContentLayout() {
 
   if (mobile) {
     return (
-      <div className={styles.mobile}>
+      <main className={styles.mobile}>
         <div className={styles.content}>
           <Outlet />
         </div>
         <MobileAside />
-      </div>
+      </main>
     );
   }
 
   return (
-    <div className={styles.desktop}>
+    <main className={styles.desktop}>
       <DesktopAside />
       <div className={styles.main}>
         <div className={styles.content}>
           <Outlet />
         </div>
       </div>
-    </div>
+    </main>
   );
 }

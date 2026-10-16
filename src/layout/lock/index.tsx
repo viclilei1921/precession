@@ -45,19 +45,19 @@ export function LockView() {
 
   if (bootError) {
     return (
-      <div className={styles.gate}>
+      <main className={styles.gate}>
         <h1>人生档案</h1>
         <p className={styles.error}>{bootError}</p>
-      </div>
+      </main>
     );
   }
 
   if (!status) {
     return (
-      <div className={styles.gate}>
+      <main className={styles.gate}>
         <h1>人生档案</h1>
         <p className={styles.muted}>加载中…</p>
-      </div>
+      </main>
     );
   }
 
