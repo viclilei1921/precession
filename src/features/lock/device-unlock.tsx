@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { dbDisableDeviceUnlock, dbEnableDeviceUnlock, dbStatus } from '@/bridge/db';
+import { Button } from '@/components/button';
 import { PasswordInput } from '@/components/password-input';
 import { useAppStore } from '@/store/app';
 import { errorMessage } from '@/utils/error';
@@ -48,9 +49,9 @@ export function DeviceUnlock() {
       <h2>设备解锁</h2>
       <p className={styles.hint}>{deviceUnlock ? '这台设备已启用免密打开。' : '启用后，打开应用不必输入档案密码。'}</p>
       {deviceUnlock ? (
-        <button type="button" disabled={busy} onClick={() => void disableDevice()}>
+        <Button variant="outlined" disabled={busy} onClick={() => void disableDevice()}>
           {busy ? '正在关闭…' : '关闭设备解锁'}
-        </button>
+        </Button>
       ) : (
         <form
           className={styles.form}
@@ -61,17 +62,17 @@ export function DeviceUnlock() {
             }
           }}
         >
-          <label htmlFor="device-password">档案密码</label>
           <PasswordInput
             id="device-password"
+            label="档案密码"
             autoComplete="current-password"
             value={password}
             disabled={busy}
             onChange={(event) => setPassword(event.currentTarget.value)}
           />
-          <button type="submit" disabled={busy}>
+          <Button type="submit" disabled={busy}>
             {busy ? '正在启用…' : '启用设备解锁'}
-          </button>
+          </Button>
         </form>
       )}
       {error ? <p className={styles.error}>{error}</p> : null}

@@ -65,30 +65,6 @@
   gap: var(--space-1);
 }
 
-.nav-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.75rem;
-  height: 1.75rem;
-  padding: 0;
-  color: var(--foreground);
-  border-radius: var(--radius-md);
-}
-
-.nav-button:hover:not(:disabled) {
-  background: var(--muted);
-}
-
-.nav-button[data-collapsed="true"] {
-  background: var(--muted);
-}
-
-.nav-button:disabled {
-  color: var(--muted-foreground);
-  cursor: default;
-}
-
 .macos .toolbar {
   padding-right: var(--space-5);
 }
@@ -155,21 +131,11 @@
   app-region: no-drag;
 }
 
-.nav-button.close:hover {
-  color: var(--destructive-foreground);
-  background: var(--destructive);
-}
-
 .icon {
   display: block;
   flex: none;
   width: var(--icon-xs);
   height: var(--icon-xs);
-}
-
-.nav-button.close .icon {
-  width: var(--icon-sm);
-  height: var(--icon-sm);
 }
 
 :global([data-tauri-drag-region]) {

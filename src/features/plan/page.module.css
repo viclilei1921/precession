@@ -29,33 +29,8 @@
   border-radius: var(--radius-md);
 }
 
-.segment,
-.primary {
-  display: inline-flex;
-  gap: var(--space-1);
-  align-items: center;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-sm);
-}
-
-.segment[data-on="true"] {
-  font-weight: 700;
-  background: var(--card);
-}
-
-.primary {
+.create {
   margin-left: auto;
-  font-weight: 600;
-  color: var(--primary-foreground);
-  background: var(--primary);
-  border-radius: var(--radius-md);
-}
-
-.icon,
-.iconButton .icon {
-  flex: none;
-  width: var(--icon-sm);
-  height: var(--icon-sm);
 }
 
 .split {
@@ -119,13 +94,6 @@
   border-bottom: 0;
 }
 
-.inboxTitle {
-  flex: 1;
-  min-width: 0;
-  padding: 0;
-  text-align: left;
-}
-
 .statValue {
   font-size: var(--text-2xl);
   font-weight: 800;
@@ -145,12 +113,6 @@
   font-weight: 700;
 }
 
-.iconButton {
-  display: grid;
-  place-items: center;
-  padding: var(--space-1);
-}
-
 .weekdays,
 .days {
   display: grid;
@@ -162,29 +124,6 @@
 .weekdays {
   font-size: var(--text-xs);
   color: var(--muted-foreground);
-}
-
-.day {
-  display: grid;
-  gap: 2px;
-  justify-items: center;
-  padding: var(--space-1) 0;
-  font-size: var(--text-xs);
-  border-radius: var(--radius-sm);
-}
-
-.day[data-muted="true"] {
-  color: var(--muted-foreground);
-}
-
-.day[data-today="true"] {
-  font-weight: 700;
-}
-
-.day[data-selected="true"] {
-  font-weight: 700;
-  color: var(--plan-foreground);
-  background: var(--plan);
 }
 
 .mark,
@@ -202,14 +141,6 @@
   color: var(--muted-foreground);
 }
 
-.day[data-off="true"] .mark {
-  color: var(--destructive);
-}
-
-.day[data-selected="true"] .mark {
-  color: inherit;
-}
-
 .dot,
 .dotSpacer {
   width: 0.25rem;
@@ -221,24 +152,10 @@
   background: var(--plan);
 }
 
-.day[data-selected="true"] .dot {
-  background: var(--plan-foreground);
-}
-
-.linkCard {
-  display: grid;
-  gap: var(--space-1);
-  padding: var(--space-4);
-  text-align: left;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-}
-
 :global(html[data-platform="mobile"]) .split {
   grid-template-columns: 1fr;
 }
 
-:global(html[data-platform="mobile"]) .primary {
+:global(html[data-platform="mobile"]) .create {
   margin-left: 0;
 }

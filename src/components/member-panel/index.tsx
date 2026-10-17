@@ -1,7 +1,10 @@
 import { useState } from 'react';
 import type { Member, MemberInput } from '@/bridge/member';
+import { Button } from '@/components/button';
+import { ChipButton } from '@/components/button/chip';
 import { DateField } from '@/components/date-field';
 import styles from '@/components/record.module.css';
+import { TextField } from '@/components/text-field';
 import { ageLabel, fromDateInputValue, toDateInputValue } from '@/utils/day';
 import { errorMessage } from '@/utils/error';
 
@@ -31,11 +34,9 @@ export function MemberPanel({
       {listError ? <p className={styles.error}>{listError}</p> : null}
       <div className={styles.chips}>
         {members.map((member) => (
-          <button
+          <ChipButton
             key={member.id}
-            type="button"
-            className={styles.chip}
-            data-on={selectedId === member.id ? 'true' : undefined}
+            selected={selectedId === member.id}
             onClick={() => {
               onSelect?.(member.id);
               if (!onSelect) {
@@ -45,15 +46,11 @@ export function MemberPanel({
           >
             {member.name}
             {member.birthday != null ? ` · ${ageLabel(member.birthday)}` : ''}
-          </button>
+          </ChipButton>
         ))}
-        <button type="button" className={styles.chip} onClick={() => setEditing('new')}>
-          添加成员
-        </button>
+        <ChipButton onClick={() => setEditing('new')}>添加成员</ChipButton>
         {onSelect && selectedId ? (
-          <button
-            type="button"
-            className={styles.chip}
+          <ChipButton
             onClick={() => {
               const found = members.find((member) => member.id === selectedId);
               if (found) {
@@ -62,7 +59,7 @@ export function MemberPanel({
             }}
           >
             编辑成员
-          </button>
+          </ChipButton>
         ) : null}
       </div>
       {editing !== null ? (
@@ -147,31 +144,23 @@ function MemberForm({
       }}
     >
       <h3 className={styles.cardTitle}>{member ? '编辑成员' : '添加成员'}</h3>
-      <label className={styles.field}>
-        名字
-        <input value={name} required onChange={(event) => setName(event.target.value)} />
-      </label>
+      <TextField label="名字" value={name} required onChange={(event) => setName(event.target.value)} />
       <div className={styles.pair}>
-        <label className={styles.field}>
-          关系
-          <input
-            value={relation}
-            placeholder="自己、孩子、父母"
-            onChange={(event) => setRelation(event.target.value)}
-          />
-        </label>
-        <label className={styles.field}>
-          性别
-          <input value={gender} onChange={(event) => setGender(event.target.value)} />
-        </label>
+        <TextField
+          label="关系"
+          value={relation}
+          placeholder="自己、孩子、父母"
+          onChange={(event) => setRelation(event.target.value)}
+        />
+        <TextField label="性别" value={gender} onChange={(event) => setGender(event.target.value)} />
       </div>
       <DateField label="生日" value={birthday} onChange={setBirthday} />
       {error ? <p className={styles.error}>{error}</p> : null}
       <div className={styles.actions}>
         {member ? (
-          <button
-            type="button"
-            className={styles.danger}
+          <Button
+            variant="outlined"
+            tone="destructive"
             disabled={pending}
             onClick={() => {
               if (!confirmDelete) {
@@ -182,15 +171,15 @@ function MemberForm({
             }}
           >
             {confirmDelete ? '确认删除' : '删除'}
-          </button>
+          </Button>
         ) : null}
         <span className={styles.spacer} />
-        <button type="button" className={styles.ghost} disabled={pending} onClick={onClose}>
+        <Button variant="outlined" disabled={pending} onClick={onClose}>
           取消
-        </button>
-        <button type="submit" className={styles.primary} disabled={pending}>
+        </Button>
+        <Button type="submit" className={styles.trailing} disabled={pending}>
           保存
-        </button>
+        </Button>
       </div>
     </form>
   );

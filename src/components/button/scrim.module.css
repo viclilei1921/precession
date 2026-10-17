@@ -1,0 +1,8 @@
+.scrim {
+  position: absolute;
+  inset: 0;
+  padding: 0;
+  cursor: default;
+  background: transparent;
+  border: 0;
+}

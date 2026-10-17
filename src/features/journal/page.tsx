@@ -3,6 +3,9 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import type { JournalKind } from '@/bridge/journal';
+import { Button } from '@/components/button';
+import { RowButton } from '@/components/button/row';
+import { SegmentButton } from '@/components/button/segment';
 import styles from '@/components/record.module.css';
 import { usePageSearch } from '@/hooks/search';
 import { journalListQuery } from '@/query/journal/query';
@@ -48,22 +51,16 @@ export function JournalPage() {
         <p className={styles.hint}>日记、灵感和写作。灵感可以扩写成文，再归入某一天的日记。</p>
         <div className={styles.segments} role="tablist" aria-label="手记类型">
           {kinds.map((item) => (
-            <button
-              key={item.kind}
-              type="button"
-              className={styles.segment}
-              data-on={kind === item.kind ? 'true' : undefined}
-              onClick={() => setKind(item.kind)}
-            >
-              <item.Icon className={styles.icon} weight="regular" />
+            <SegmentButton key={item.kind} selected={kind === item.kind} onClick={() => setKind(item.kind)}>
+              <item.Icon weight="regular" />
               {item.label}
-            </button>
+            </SegmentButton>
           ))}
         </div>
-        <button type="button" className={styles.primary} onClick={() => setCreating(true)}>
-          <PlusIcon className={styles.icon} weight="regular" />
+        <Button className={styles.trailing} onClick={() => setCreating(true)}>
+          <PlusIcon weight="regular" />
           新建
-        </button>
+        </Button>
       </header>
       {creating ? (
         <div className={styles.card}>
@@ -86,10 +83,8 @@ export function JournalPage() {
           <p className={styles.empty}>{query.trim() ? '没有匹配的手记。' : '这里还没有记录。'}</p>
         ) : null}
         {entries.map((entry) => (
-          <button
+          <RowButton
             key={entry.id}
-            type="button"
-            className={styles.row}
             onClick={() => void navigate({ to: PATH.journalEntry, params: { entryId: entry.id } })}
           >
             <span className={styles.rowTitle}>{entry.title}</span>
@@ -98,7 +93,7 @@ export function JournalPage() {
               {entry.locked ? '已锁定 · ' : ''}
               {formatMonthDay(entry.occurredAt)}
             </span>
-          </button>
+          </RowButton>
         ))}
       </div>
     </section>

@@ -1,28 +1,5 @@
-.root {
-  position: relative;
-  display: flex;
-  width: 100%;
-}
-
-:where(.input) {
-  width: 100%;
-  padding: var(--space-2) var(--space-4);
-  padding-inline-end: calc(var(--icon-md) + var(--space-2) + var(--space-4));
-  color: var(--foreground);
-  user-select: text;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-}
-
-.input:focus {
-  outline: none;
-  border-color: var(--primary);
-}
-
-:where(.input:disabled) {
-  cursor: not-allowed;
-  opacity: 0.7;
+.input {
+  padding-inline-end: calc(var(--icon-md) + var(--space-2) + var(--space-3));
 }
 
 /* Windows WebView 会在密码框里再画一只眼睛，和组件按钮叠在一起。 */
@@ -35,24 +12,41 @@
   position: absolute;
   top: 50%;
   right: var(--space-2);
+  z-index: 2;
   display: grid;
   place-items: center;
   padding: var(--space-1);
+  overflow: hidden;
   color: var(--muted-foreground);
   touch-action: none;
   cursor: pointer;
   user-select: none;
   background: none;
   border: 0;
+  border-radius: var(--radius-pill);
+  isolation: isolate;
   transform: translateY(-50%);
+}
+
+.toggle svg {
+  width: var(--icon-md);
+  height: var(--icon-md);
+}
+
+.toggle:hover:not(:disabled) {
+  background: color-mix(in oklch, var(--foreground) 8%, transparent);
+}
+
+.toggle:active:not(:disabled) {
+  background: color-mix(in oklch, var(--foreground) 12%, transparent);
+}
+
+.toggle:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
 }
 
 .toggle:disabled {
   cursor: not-allowed;
-  opacity: 0.7;
-}
-
-.icon {
-  width: var(--icon-md);
-  height: var(--icon-md);
+  opacity: 0.38;
 }

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { dbDisableDeviceUnlock, dbUnlock, dbUnlockDevice } from '@/bridge/db';
+import { Button } from '@/components/button';
 import { PasswordInput } from '@/components/password-input';
 import { errorMessage } from '@/utils/error';
 import styles from './index.module.css';
@@ -114,9 +115,9 @@ export function UnlockView({ deviceUnlock, userLocked, onDone }: UnlockViewProps
           <p id="unlock-error" className={styles.fieldError} aria-live="polite">
             {error}
           </p>
-          <button type="submit" disabled={busy}>
+          <Button type="submit" className={styles.submit} disabled={busy}>
             {busy ? '正在解锁…' : '解锁'}
-          </button>
+          </Button>
         </form>
       ) : null}
       {showPassword ? (
@@ -131,9 +132,9 @@ export function UnlockView({ deviceUnlock, userLocked, onDone }: UnlockViewProps
           }}
         >
           <div className={styles.field}>
-            <label htmlFor="unlock-password">密码</label>
             <PasswordInput
               id="unlock-password"
+              label="密码"
               autoComplete="current-password"
               value={password}
               disabled={busy}
@@ -148,30 +149,33 @@ export function UnlockView({ deviceUnlock, userLocked, onDone }: UnlockViewProps
           <p id="unlock-error" className={styles.fieldError} aria-live="polite">
             {error}
           </p>
-          <button type="submit" disabled={busy}>
+          <Button type="submit" className={styles.submit} disabled={busy}>
             {busy ? '正在解锁…' : '用档案密码解锁'}
-          </button>
+          </Button>
           {deviceUnlock ? (
-            <button
-              type="button"
+            <Button
+              variant="outlined"
+              className={styles.submit}
               disabled={busy}
               onClick={() => {
                 void unlockWithDevice();
               }}
             >
               {userLocked ? '用系统验证解锁' : '直接解锁'}
-            </button>
+            </Button>
           ) : null}
           {error === '设备解锁已失效' ? (
-            <button
-              type="button"
+            <Button
+              variant="outlined"
+              tone="destructive"
+              className={styles.submit}
               disabled={busy}
               onClick={() => {
                 void removeDevice();
               }}
             >
               移除设备解锁
-            </button>
+            </Button>
           ) : null}
         </form>
       ) : null}

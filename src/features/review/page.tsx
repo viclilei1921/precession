@@ -14,9 +14,13 @@ import {
   SquaresFourIcon
 } from '@phosphor-icons/react';
 import { useQuery } from '@tanstack/react-query';
-import { Link, useNavigate } from '@tanstack/react-router';
+import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { TimelineKind } from '@/bridge/timeline';
+import { ChipButton } from '@/components/button/chip';
+import { IconButton } from '@/components/button/icon';
+import { LinkButton } from '@/components/button/link';
+import { RowButton } from '@/components/button/row';
 import styles from '@/components/record.module.css';
 import { usePageSearch } from '@/hooks/search';
 import { timelineListQuery } from '@/query/timeline/query';
@@ -66,41 +70,25 @@ export function ReviewPage() {
         <h1 className={styles.title}>回顾</h1>
         <p className={styles.hint}>把四块记录按时间再读一遍。</p>
         <div className={styles.actions}>
-          <button
-            type="button"
-            className={styles.ghost}
-            aria-label="上个月"
-            onClick={() => setMonth(addLocalMonths(month, -1))}
-          >
-            <CaretLeftIcon className={styles.icon} weight="regular" />
-          </button>
+          <IconButton label="上个月" onClick={() => setMonth(addLocalMonths(month, -1))}>
+            <CaretLeftIcon weight="regular" />
+          </IconButton>
           <span>{formatMonth(month)}</span>
-          <button
-            type="button"
-            className={styles.ghost}
-            aria-label="下个月"
-            onClick={() => setMonth(addLocalMonths(month, 1))}
-          >
-            <CaretRightIcon className={styles.icon} weight="regular" />
-          </button>
+          <IconButton label="下个月" onClick={() => setMonth(addLocalMonths(month, 1))}>
+            <CaretRightIcon weight="regular" />
+          </IconButton>
         </div>
-        <Link to={PATH.yearBook} className={styles.primary}>
-          <BooksIcon className={styles.icon} weight="regular" />
+        <LinkButton to={PATH.yearBook} className={styles.trailing}>
+          <BooksIcon weight="regular" />
           年度之书
-        </Link>
+        </LinkButton>
       </header>
       <div className={styles.chips}>
         {filters.map((item) => (
-          <button
-            key={item.kind}
-            type="button"
-            className={styles.chip}
-            data-on={kind === item.kind ? 'true' : undefined}
-            onClick={() => setKind(item.kind)}
-          >
-            <item.Icon className={styles.icon} weight="regular" />
+          <ChipButton key={item.kind} selected={kind === item.kind} onClick={() => setKind(item.kind)}>
+            <item.Icon weight="regular" />
             {item.label}
-          </button>
+          </ChipButton>
         ))}
       </div>
       {listQuery.error ? <p className={styles.error}>{errorMessage(listQuery.error)}</p> : null}
@@ -110,12 +98,7 @@ export function ReviewPage() {
           <p className={styles.empty}>{query.trim() ? '没有匹配的记录。' : '这个月还没有记录。'}</p>
         ) : null}
         {items.map((item) => (
-          <button
-            key={`${item.kind}-${item.id}`}
-            type="button"
-            className={styles.row}
-            onClick={() => openItem(navigate, item.kind, item.id)}
-          >
+          <RowButton key={`${item.kind}-${item.id}`} onClick={() => openItem(navigate, item.kind, item.id)}>
             <span className={styles.rowTitle}>
               {kindLabel[item.kind]} · {item.title.trim() || item.body.trim() || '未命名'}
             </span>
@@ -123,7 +106,7 @@ export function ReviewPage() {
               {item.highlight ? '高光 · ' : ''}
               {formatMonthDay(item.occurredAt)} {formatFeedClock(item.occurredAt)}
             </span>
-          </button>
+          </RowButton>
         ))}
       </div>
     </section>

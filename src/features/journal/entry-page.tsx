@@ -1,6 +1,7 @@
 import { CaretLeftIcon } from '@phosphor-icons/react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from '@tanstack/react-router';
+import { Button } from '@/components/button';
 import styles from '@/components/record.module.css';
 import { journalEntryQuery } from '@/query/journal/query';
 import { PATH } from '@/router/path';
@@ -34,10 +35,10 @@ export function JournalEntryPage() {
     <section className={styles.page}>
       <header className={styles.head}>
         <h1 className={styles.title}>编辑手记</h1>
-        <button type="button" className={styles.ghost} onClick={() => void navigate({ to: PATH.journal })}>
-          <CaretLeftIcon className={styles.icon} weight="regular" />
+        <Button variant="outlined" onClick={() => void navigate({ to: PATH.journal })}>
+          <CaretLeftIcon weight="regular" />
           返回列表
-        </button>
+        </Button>
       </header>
       <JournalEditor
         key={entryQuery.data.updatedAt}

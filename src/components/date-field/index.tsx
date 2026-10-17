@@ -1,6 +1,14 @@
 import { CalendarBlankIcon, CaretLeftIcon, CaretRightIcon } from '@phosphor-icons/react';
-import { useEffect, useRef, useState } from 'react';
+import clsx from 'clsx';
+import { useRef, useState } from 'react';
+import { Button } from '@/components/button';
+import { DayButton } from '@/components/button/day';
+import { IconButton } from '@/components/button/icon';
+import { RowButton } from '@/components/button/row';
+import { Field } from '@/components/field';
+import fieldStyles from '@/components/field/index.module.css';
 import { Modal } from '@/components/modal';
+import { Popover } from '@/components/popover';
 import { useAppStore } from '@/store/app';
 import {
   addLocalDays,
@@ -22,6 +30,7 @@ type DateFieldProps = {
   value: string;
   onChange: (value: string) => void;
   disabled?: boolean;
+  error?: string;
 };
 
 function monthCells(month: number) {
@@ -53,23 +62,13 @@ function CalendarPanel({ value, onPick }: { value: string; onPick: (value: strin
   return (
     <div className={styles.calendar}>
       <header className={styles.header}>
-        <button
-          type="button"
-          className={styles.step}
-          aria-label="上个月"
-          onClick={() => setMonth(addLocalMonths(month, -1))}
-        >
-          <CaretLeftIcon className={styles.icon} weight="regular" />
-        </button>
+        <IconButton label="上个月" onClick={() => setMonth(addLocalMonths(month, -1))}>
+          <CaretLeftIcon weight="regular" />
+        </IconButton>
         <span>{heading}</span>
-        <button
-          type="button"
-          className={styles.step}
-          aria-label="下个月"
-          onClick={() => setMonth(addLocalMonths(month, 1))}
-        >
-          <CaretRightIcon className={styles.icon} weight="regular" />
-        </button>
+        <IconButton label="下个月" onClick={() => setMonth(addLocalMonths(month, 1))}>
+          <CaretRightIcon weight="regular" />
+        </IconButton>
       </header>
       <div className={styles.weekdays}>
         {WEEKDAYS.map((day) => (
@@ -80,17 +79,15 @@ function CalendarPanel({ value, onPick }: { value: string; onPick: (value: strin
         {cells.map((cell) => {
           const picked = selected != null && isSameLocalDay(cell.time, selected);
           return (
-            <button
+            <DayButton
               key={cell.time}
-              type="button"
-              className={styles.cell}
-              data-outside-month={cell.inMonth ? undefined : 'true'}
-              data-selected={picked ? 'true' : undefined}
-              data-today={isSameLocalDay(cell.time, today) ? 'true' : undefined}
+              selected={picked}
+              today={isSameLocalDay(cell.time, today)}
+              outside={!cell.inMonth}
               onClick={() => onPick(toDateInputValue(cell.time))}
             >
               {new Date(cell.time).getDate()}
-            </button>
+            </DayButton>
           );
         })}
       </div>
@@ -98,79 +95,70 @@ function CalendarPanel({ value, onPick }: { value: string; onPick: (value: strin
   );
 }
 
-/** 日期选择。桌面是弹出日历，移动端是底部抽屉。 */
-export function DateField({ label, value, onChange, disabled }: DateFieldProps) {
+/** 日期选择。桌面用 Popover 浮出日历，移动端是底部抽屉。 */
+export function DateField({ label, value, onChange, disabled, error }: DateFieldProps) {
   const mobile = useAppStore((state) => state.isMobile());
-  const [open, setOpen] = useState(false);
-  const fieldRef = useRef<HTMLDivElement>(null);
+  const anchorRef = useRef<HTMLDivElement>(null);
+  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+  const open = anchorEl != null;
 
-  useEffect(() => {
-    if (!open || mobile) {
-      return;
-    }
+  function show() {
+    setAnchorEl(anchorRef.current);
+  }
 
-    function onPointer(event: PointerEvent) {
-      if (!fieldRef.current?.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    }
-
-    function onKey(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        setOpen(false);
-      }
-    }
-
-    document.addEventListener('pointerdown', onPointer);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('pointerdown', onPointer);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [mobile, open]);
+  function close() {
+    setAnchorEl(null);
+  }
 
   function pick(next: string) {
     onChange(next);
-    setOpen(false);
+    close();
   }
 
   return (
-    <div ref={fieldRef} className={styles.field}>
-      <span className={styles.label}>{label}</span>
-      <div className={styles.group} data-disabled={disabled ? 'true' : undefined}>
-        <button
-          type="button"
-          className={styles.trigger}
-          disabled={disabled}
-          onClick={() => setOpen((current) => !current)}
+    <div ref={anchorRef} className={styles.anchor}>
+      <Field label={label} filled={value.length > 0} disabled={disabled} error={error}>
+        {() => (
+          <div className={styles.group}>
+            <RowButton
+              className={clsx(fieldStyles.blankable, styles.value)}
+              variant="trigger"
+              disabled={disabled}
+              onClick={show}
+            >
+              {displayValue(value)}
+            </RowButton>
+            {value ? (
+              <Button variant="text" disabled={disabled} onClick={() => onChange('')}>
+                清除
+              </Button>
+            ) : null}
+            <IconButton label="打开日历" disabled={disabled} expanded={open} onClick={show}>
+              <CalendarBlankIcon weight="regular" />
+            </IconButton>
+          </div>
+        )}
+      </Field>
+      {mobile ? (
+        open ? (
+          <Modal title={label} onClose={close}>
+            <CalendarPanel value={value} onPick={pick} />
+          </Modal>
+        ) : null
+      ) : (
+        <Popover
+          open={open}
+          anchorEl={anchorEl}
+          label={label}
+          className={styles.panel}
+          anchorOrigin={{ horizontal: 'left', vertical: 'bottom' }}
+          transformOrigin={{ horizontal: 'left', vertical: 'top' }}
+          gap={8}
+          onClose={close}
         >
-          {displayValue(value)}
-        </button>
-        {value ? (
-          <button type="button" className={styles.textButton} disabled={disabled} onClick={() => onChange('')}>
-            清除
-          </button>
-        ) : null}
-        <button
-          type="button"
-          className={styles.iconButton}
-          aria-label="打开日历"
-          disabled={disabled}
-          onClick={() => setOpen(true)}
-        >
-          <CalendarBlankIcon className={styles.icon} weight="regular" />
-        </button>
-      </div>
-      {open && !mobile ? (
-        <div className={styles.popover}>
           <CalendarPanel value={value} onPick={pick} />
-        </div>
-      ) : null}
-      {open && mobile ? (
-        <Modal title={label} onClose={() => setOpen(false)}>
-          <CalendarPanel value={value} onPick={pick} />
-        </Modal>
-      ) : null}
+        </Popover>
+      )}
     </div>
   );
 }

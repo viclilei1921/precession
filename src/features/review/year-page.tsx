@@ -1,8 +1,9 @@
 import { CaretLeftIcon, CaretRightIcon } from '@phosphor-icons/react';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { TimelineKind } from '@/bridge/timeline';
+import { IconButton } from '@/components/button/icon';
+import { LinkButton } from '@/components/button/link';
 import styles from '@/components/record.module.css';
 import { bookListQuery } from '@/query/library/query';
 import { timelineListQuery } from '@/query/timeline/query';
@@ -43,27 +44,17 @@ export function YearPage() {
         <h1 className={styles.title}>{year} 年度之书</h1>
         <p className={styles.hint}>这一年的记录自动汇总。高光来自手记、成长和书摘上的标记。</p>
         <div className={styles.actions}>
-          <button
-            type="button"
-            className={styles.ghost}
-            aria-label="上一年"
-            onClick={() => setYearStart(addLocalYears(yearStart, -1))}
-          >
-            <CaretLeftIcon className={styles.icon} weight="regular" />
-          </button>
-          <button
-            type="button"
-            className={styles.ghost}
-            aria-label="下一年"
-            onClick={() => setYearStart(addLocalYears(yearStart, 1))}
-          >
-            <CaretRightIcon className={styles.icon} weight="regular" />
-          </button>
+          <IconButton label="上一年" onClick={() => setYearStart(addLocalYears(yearStart, -1))}>
+            <CaretLeftIcon weight="regular" />
+          </IconButton>
+          <IconButton label="下一年" onClick={() => setYearStart(addLocalYears(yearStart, 1))}>
+            <CaretRightIcon weight="regular" />
+          </IconButton>
         </div>
-        <Link to={PATH.review} className={styles.ghost}>
-          <CaretLeftIcon className={styles.icon} weight="regular" />
+        <LinkButton to={PATH.review} variant="outlined">
+          <CaretLeftIcon weight="regular" />
           返回回顾
-        </Link>
+        </LinkButton>
       </header>
       {timelineQuery.error ? <p className={styles.error}>{errorMessage(timelineQuery.error)}</p> : null}
       <div className={styles.card}>

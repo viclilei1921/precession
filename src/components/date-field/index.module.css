@@ -1,13 +1,5 @@
-.field {
-  position: relative;
-  display: grid;
-  gap: var(--space-1);
+.anchor {
   min-width: 0;
-  font-size: var(--text-sm);
-}
-
-.label {
-  color: var(--foreground);
 }
 
 .group {
@@ -15,49 +7,19 @@
   gap: var(--space-2);
   align-items: center;
   min-width: 0;
-  padding: var(--space-2) var(--space-3);
-  background: var(--background);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  min-height: 2.75rem;
+  padding-inline: 0.875rem;
 }
 
-.group[data-disabled="true"] {
-  cursor: default;
-  opacity: 0.7;
+.value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.trigger {
-  flex: 1;
-  min-width: 0;
-  padding: 0;
-  text-align: left;
-  background: transparent;
-  border: 0;
-}
-
-.textButton,
-.iconButton,
-.step {
-  flex: none;
-  padding: 0;
-  color: var(--muted-foreground);
-}
-
-.icon {
-  width: var(--icon-sm);
-  height: var(--icon-sm);
-}
-
-.popover {
-  position: absolute;
-  top: calc(100% + var(--space-2));
-  left: 0;
-  z-index: var(--z-toast);
+.panel {
   width: 18rem;
   padding: var(--space-3);
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
 }
 
 .calendar {
@@ -83,30 +45,4 @@
   font-size: var(--text-xs);
   color: var(--muted-foreground);
   text-align: center;
-}
-
-.cell {
-  height: 2.25rem;
-  padding: 0;
-  text-align: center;
-  cursor: pointer;
-  border-radius: var(--radius-md);
-}
-
-.cell[data-outside-month="true"] {
-  color: var(--muted-foreground);
-}
-
-.cell:hover {
-  background: var(--muted);
-}
-
-.cell[data-selected="true"],
-.cell[data-selected="true"]:hover {
-  color: var(--primary-foreground);
-  background: var(--primary);
-}
-
-.cell[data-today="true"] {
-  box-shadow: inset 0 0 0 1px var(--primary);
 }

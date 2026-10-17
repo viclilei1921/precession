@@ -2,8 +2,13 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import type { GrowthEntry, GrowthKind } from '@/bridge/growth';
 import { growthEntryCreate, growthEntryDelete, growthEntryUpdate } from '@/bridge/growth';
+import { Button } from '@/components/button';
+import { Checkbox } from '@/components/checkbox';
 import { DateField } from '@/components/date-field';
 import styles from '@/components/record.module.css';
+import { Select } from '@/components/select';
+import { TextField } from '@/components/text-field';
+import { Textarea } from '@/components/textarea';
 import { refreshGrowth } from '@/query/growth/query';
 import { fromDateInputValue, startOfLocalDay, toDateInputValue } from '@/utils/day';
 import { errorMessage } from '@/utils/error';
@@ -65,34 +70,26 @@ export function GrowthForm({
       }}
     >
       <div className={styles.pair}>
-        <label className={styles.field}>
-          类型
-          <select value={draftKind} onChange={(event) => setDraftKind(event.target.value as GrowthKind)}>
-            <option value="milestone">里程碑</option>
-            <option value="moment">瞬间</option>
-          </select>
-        </label>
+        <Select label="类型" value={draftKind} onChange={(event) => setDraftKind(event.target.value as GrowthKind)}>
+          <option value="milestone">里程碑</option>
+          <option value="moment">瞬间</option>
+        </Select>
         <DateField label="发生时间" value={occurredAt} onChange={setOccurredAt} />
       </div>
-      <label className={styles.field}>
-        标题
-        <input value={title} required onChange={(event) => setTitle(event.target.value)} />
-      </label>
-      <label className={styles.field}>
-        说明
-        <textarea value={body} onChange={(event) => setBody(event.target.value)} />
-      </label>
-      <label className={styles.check}>
-        <input type="checkbox" checked={highlight} onChange={(event) => setHighlight(event.target.checked)} />
-        标为高光，进入年度之书
-      </label>
+      <TextField label="标题" value={title} required onChange={(event) => setTitle(event.target.value)} />
+      <Textarea label="说明" value={body} onChange={(event) => setBody(event.target.value)} />
+      <Checkbox
+        label="标为高光，进入年度之书"
+        checked={highlight}
+        onChange={(event) => setHighlight(event.target.checked)}
+      />
       {save.error ? <p className={styles.error}>{errorMessage(save.error)}</p> : null}
       {remove.error ? <p className={styles.error}>{errorMessage(remove.error)}</p> : null}
       <div className={styles.actions}>
         {entry ? (
-          <button
-            type="button"
-            className={styles.danger}
+          <Button
+            variant="outlined"
+            tone="destructive"
             disabled={pending}
             onClick={() => {
               if (!confirmDelete) {
@@ -103,15 +100,15 @@ export function GrowthForm({
             }}
           >
             {confirmDelete ? '确认删除' : '删除'}
-          </button>
+          </Button>
         ) : null}
         <span className={styles.spacer} />
-        <button type="button" className={styles.ghost} disabled={pending} onClick={onClose}>
+        <Button variant="outlined" disabled={pending} onClick={onClose}>
           取消
-        </button>
-        <button type="submit" className={styles.primary} disabled={pending}>
+        </Button>
+        <Button type="submit" className={styles.trailing} disabled={pending}>
           保存
-        </button>
+        </Button>
       </div>
     </form>
   );

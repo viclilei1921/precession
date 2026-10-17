@@ -1,5 +1,7 @@
 import { CaretLeftIcon, CaretRightIcon } from '@phosphor-icons/react';
 import type { CalendarDay } from '@/bridge/calendar';
+import { DayButton } from '@/components/button/day';
+import { IconButton } from '@/components/button/icon';
 import {
   addLocalDays,
   addLocalMonths,
@@ -58,23 +60,13 @@ export function MonthBoard({ month, selected, marked, days, onSelect, onMonth }:
   return (
     <div className={styles.month}>
       <div className={styles.monthBar}>
-        <button
-          type="button"
-          className={styles.iconButton}
-          aria-label="上个月"
-          onClick={() => onMonth(addLocalMonths(month, -1))}
-        >
-          <CaretLeftIcon className={styles.icon} weight="regular" />
-        </button>
+        <IconButton label="上个月" onClick={() => onMonth(addLocalMonths(month, -1))}>
+          <CaretLeftIcon weight="regular" />
+        </IconButton>
         <span>{formatMonth(month)}</span>
-        <button
-          type="button"
-          className={styles.iconButton}
-          aria-label="下个月"
-          onClick={() => onMonth(addLocalMonths(month, 1))}
-        >
-          <CaretRightIcon className={styles.icon} weight="regular" />
-        </button>
+        <IconButton label="下个月" onClick={() => onMonth(addLocalMonths(month, 1))}>
+          <CaretRightIcon weight="regular" />
+        </IconButton>
       </div>
       <div className={styles.weekdays}>
         {WEEKDAYS.map((label) => (
@@ -87,20 +79,19 @@ export function MonthBoard({ month, selected, marked, days, onSelect, onMonth }:
           const info = byDate.get(toDateInputValue(cell.time));
           const mark = dayMark(info);
           return (
-            <button
+            <DayButton
               key={cell.time}
-              type="button"
-              className={styles.day}
-              data-selected={selectedDay ? 'true' : undefined}
-              data-today={isSameLocalDay(cell.time, today) ? 'true' : undefined}
-              data-muted={cell.inMonth ? undefined : 'true'}
-              data-off={info && !info.isWorkday ? 'true' : undefined}
+              variant="month"
+              selected={selectedDay}
+              today={isSameLocalDay(cell.time, today)}
+              outside={!cell.inMonth}
+              off={info != null && !info.isWorkday}
               onClick={() => onSelect(cell.time)}
             >
               {new Date(cell.time).getDate()}
               {mark ? <span className={styles.mark}>{mark}</span> : <span className={styles.markSpacer} />}
               {marked.has(cell.time) ? <i className={styles.dot} /> : <i className={styles.dotSpacer} />}
-            </button>
+            </DayButton>
           );
         })}
       </div>

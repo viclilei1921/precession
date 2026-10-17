@@ -1,0 +1,109 @@
+.button {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  color: var(--foreground);
+  border-radius: var(--radius-pill);
+}
+
+.button svg {
+  flex: none;
+  width: var(--icon-lg);
+  height: var(--icon-lg);
+}
+
+.compact {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+.compact svg {
+  width: var(--icon-xs);
+  height: var(--icon-xs);
+}
+
+.plain {
+  width: auto;
+  height: auto;
+  padding: 0;
+  color: inherit;
+  border-radius: 0;
+}
+
+.plain svg {
+  width: var(--icon-md);
+  height: var(--icon-md);
+}
+
+.compact[data-tone="destructive"] svg {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+
+.standard[data-on="true"] {
+  background: var(--muted);
+}
+
+.button[data-tone="destructive"]:hover:not(:disabled),
+.button[data-tone="destructive"]:active:not(:disabled) {
+  color: var(--destructive-foreground);
+  background: var(--destructive);
+}
+
+.standard {
+  background: transparent;
+}
+
+.filled {
+  color: var(--primary-foreground);
+  background: var(--primary);
+}
+
+.outlined {
+  color: var(--primary);
+  background: transparent;
+  border: 1px solid var(--border);
+}
+
+.standard:hover:not(:disabled) {
+  background: color-mix(in oklch, var(--foreground) 8%, transparent);
+}
+
+.filled:hover:not(:disabled) {
+  background: color-mix(in oklch, var(--primary-foreground) 8%, var(--primary));
+}
+
+.outlined:hover:not(:disabled) {
+  background: color-mix(in oklch, var(--primary) 8%, transparent);
+}
+
+.standard:active:not(:disabled) {
+  background: color-mix(in oklch, var(--foreground) 12%, transparent);
+}
+
+.filled:active:not(:disabled) {
+  background: color-mix(in oklch, var(--primary-foreground) 12%, var(--primary));
+}
+
+.outlined:active:not(:disabled) {
+  background: color-mix(in oklch, var(--primary) 12%, transparent);
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.button:disabled {
+  cursor: default;
+  opacity: 0.38;
+}
+
+:global(html[data-touch-ui="true"]) .button:not(.compact):not(.plain) {
+  width: var(--tap);
+  height: var(--tap);
+}

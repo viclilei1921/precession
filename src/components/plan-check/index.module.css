@@ -11,27 +11,7 @@
 }
 
 .check {
-  display: grid;
-  place-items: center;
-  padding: 0;
   color: var(--plan);
-}
-
-.check:disabled {
-  cursor: default;
-}
-
-.icon {
-  width: var(--icon-md);
-  height: var(--icon-md);
-}
-
-.title,
-.doneTitle {
-  flex: 1;
-  min-width: 0;
-  padding: 0;
-  text-align: left;
 }
 
 .doneTitle {

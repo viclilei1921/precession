@@ -1,5 +1,6 @@
 import { ArrowLeftIcon, ArrowRightIcon } from '@phosphor-icons/react';
 import { useEffect, useState } from 'react';
+import { IconButton } from '@/components/button/icon';
 import { router } from '@/router';
 import { useAppStore } from '@/store/app';
 import styles from './index.module.css';
@@ -42,26 +43,17 @@ export function TitleBarHistory() {
 
   return (
     <div className={styles.history}>
-      <button
-        type="button"
-        className={styles.navButton}
-        title="后退"
-        aria-label="后退"
-        disabled={!unlocked || !nav.back}
-        onClick={() => router.history.back()}
-      >
-        <ArrowLeftIcon className={styles.icon} weight="regular" />
-      </button>
-      <button
-        type="button"
-        className={styles.navButton}
-        title="前进"
-        aria-label="前进"
+      <IconButton label="后退" size="compact" disabled={!unlocked || !nav.back} onClick={() => router.history.back()}>
+        <ArrowLeftIcon weight="regular" />
+      </IconButton>
+      <IconButton
+        label="前进"
+        size="compact"
         disabled={!unlocked || !nav.forward}
         onClick={() => router.history.forward()}
       >
-        <ArrowRightIcon className={styles.icon} weight="regular" />
-      </button>
+        <ArrowRightIcon weight="regular" />
+      </IconButton>
     </div>
   );
 }

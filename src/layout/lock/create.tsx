@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { dbCreate } from '@/bridge/db';
+import { Button } from '@/components/button';
 import { PasswordInput } from '@/components/password-input';
 import { errorMessage } from '@/utils/error';
 import styles from './index.module.css';
@@ -125,9 +126,9 @@ export function CreateView({ onDone }: CreateViewProps) {
         }}
       >
         <div className={styles.field}>
-          <label htmlFor="create-password">密码</label>
           <PasswordInput
             id="create-password"
+            label="密码"
             autoComplete="new-password"
             value={password}
             disabled={busy}
@@ -141,9 +142,9 @@ export function CreateView({ onDone }: CreateViewProps) {
           />
         </div>
         <div className={styles.field}>
-          <label htmlFor="create-password-confirm">再输入一次</label>
           <PasswordInput
             id="create-password-confirm"
+            label="再输入一次"
             autoComplete="new-password"
             value={passwordConfirm}
             disabled={busy}
@@ -159,9 +160,9 @@ export function CreateView({ onDone }: CreateViewProps) {
         <p id="create-error" className={styles.fieldError} aria-live="polite">
           {error?.message ?? ''}
         </p>
-        <button type="submit" disabled={!canSubmit}>
+        <Button type="submit" className={styles.submit} disabled={!canSubmit}>
           {busy ? '正在创建…' : '创建档案'}
-        </button>
+        </Button>
       </form>
     </main>
   );

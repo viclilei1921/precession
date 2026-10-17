@@ -3,6 +3,9 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import type { Book, BookStatus } from '@/bridge/library';
+import { Button } from '@/components/button';
+import { RowButton } from '@/components/button/row';
+import { SegmentButton } from '@/components/button/segment';
 import styles from '@/components/record.module.css';
 import { usePageSearch } from '@/hooks/search';
 import { bookListQuery } from '@/query/library/query';
@@ -37,22 +40,16 @@ export function LibraryPage() {
         <p className={styles.hint}>想读、在读和读完。点进一本书，记书摘和笔记。</p>
         <div className={styles.segments} role="tablist" aria-label="书架">
           {bookStatuses.map((item) => (
-            <button
-              key={item.status}
-              type="button"
-              className={styles.segment}
-              data-on={status === item.status ? 'true' : undefined}
-              onClick={() => setStatus(item.status)}
-            >
-              <item.Icon className={styles.icon} weight="regular" />
+            <SegmentButton key={item.status} selected={status === item.status} onClick={() => setStatus(item.status)}>
+              <item.Icon weight="regular" />
               {item.label}
-            </button>
+            </SegmentButton>
           ))}
         </div>
-        <button type="button" className={styles.primary} onClick={() => setEditing('new')}>
-          <PlusIcon className={styles.icon} weight="regular" />
+        <Button className={styles.trailing} onClick={() => setEditing('new')}>
+          <PlusIcon weight="regular" />
           添加书
-        </button>
+        </Button>
       </header>
       {booksQuery.error ? <p className={styles.error}>{errorMessage(booksQuery.error)}</p> : null}
       {editing !== null ? (
@@ -72,12 +69,7 @@ export function LibraryPage() {
           <p className={styles.empty}>{query.trim() ? '没有匹配的书。' : '这个书架还是空的。'}</p>
         ) : null}
         {books.map((book) => (
-          <button
-            key={book.id}
-            type="button"
-            className={styles.row}
-            onClick={() => void navigate({ to: PATH.bookReader, params: { bookId: book.id } })}
-          >
+          <RowButton key={book.id} onClick={() => void navigate({ to: PATH.bookReader, params: { bookId: book.id } })}>
             <span className={styles.rowTitle}>
               {book.title}
               {book.author ? ` · ${book.author}` : ''}
@@ -86,7 +78,7 @@ export function LibraryPage() {
               {book.rating != null ? `${book.rating} 分 · ` : ''}
               {Math.round(book.progress * 100)}%
             </span>
-          </button>
+          </RowButton>
         ))}
       </div>
     </section>

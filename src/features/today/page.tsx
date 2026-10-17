@@ -19,6 +19,8 @@ import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { Plan } from '@/bridge/plan';
 import type { TimelineItem, TimelineKind } from '@/bridge/timeline';
+import { ChipButton } from '@/components/button/chip';
+import { RowButton } from '@/components/button/row';
 import { CompleteDialog } from '@/components/complete-dialog';
 import { PlanCheck } from '@/components/plan-check';
 import { Progress } from '@/components/progress';
@@ -91,42 +93,28 @@ export function TodayPage() {
       <div className={styles.capture}>
         <PencilSimpleIcon className={styles.statIcon} weight="regular" />
         <span className={styles.prompt}>记点什么…文字、里程碑、书摘、计划，都从这里进</span>
-        <button
-          type="button"
-          className={styles.chip}
-          data-tone="journal"
+        <ChipButton
+          tone="journal"
           onClick={() => void navigate({ to: PATH.journal, search: { create: true, kind: 'diary' } })}
         >
-          <PencilSimpleIcon className={styles.chipIcon} weight="regular" />
+          <PencilSimpleIcon weight="regular" />
           文字
-        </button>
-        <button
-          type="button"
-          className={styles.chip}
-          data-tone="growth"
+        </ChipButton>
+        <ChipButton
+          tone="growth"
           onClick={() => void navigate({ to: PATH.growth, search: { create: true, kind: 'milestone' } })}
         >
-          <FlagIcon className={styles.chipIcon} weight="regular" />
+          <FlagIcon weight="regular" />
           里程碑
-        </button>
-        <button
-          type="button"
-          className={styles.chip}
-          data-tone="library"
-          onClick={() => void navigate({ to: PATH.library })}
-        >
-          <QuotesIcon className={styles.chipIcon} weight="regular" />
+        </ChipButton>
+        <ChipButton tone="library" onClick={() => void navigate({ to: PATH.library })}>
+          <QuotesIcon weight="regular" />
           书摘
-        </button>
-        <button
-          type="button"
-          className={styles.chip}
-          data-tone="plan"
-          onClick={() => void navigate({ to: PATH.plan, search: { create: true } })}
-        >
-          <ListChecksIcon className={styles.chipIcon} weight="regular" />
+        </ChipButton>
+        <ChipButton tone="plan" onClick={() => void navigate({ to: PATH.plan, search: { create: true } })}>
+          <ListChecksIcon weight="regular" />
           计划
-        </button>
+        </ChipButton>
       </div>
 
       {error ? <p className={styles.error}>{errorMessage(error)}</p> : null}
@@ -234,38 +222,30 @@ function FeedRow({ item }: { item: TimelineItem }) {
 
   if (item.kind === 'plan') {
     return (
-      <button
-        type="button"
-        className={styles.feed}
-        onClick={() => void navigate({ to: PATH.plan, search: { id: item.id } })}
-      >
+      <RowButton variant="feed" onClick={() => void navigate({ to: PATH.plan, search: { id: item.id } })}>
         {body}
-      </button>
+      </RowButton>
     );
   }
   if (item.kind === 'diary' || item.kind === 'spark' || item.kind === 'writing') {
     return (
-      <button
-        type="button"
-        className={styles.feed}
-        onClick={() => void navigate({ to: PATH.journalEntry, params: { entryId: item.id } })}
-      >
+      <RowButton variant="feed" onClick={() => void navigate({ to: PATH.journalEntry, params: { entryId: item.id } })}>
         {body}
-      </button>
+      </RowButton>
     );
   }
   if (item.kind === 'milestone' || item.kind === 'moment') {
     return (
-      <button type="button" className={styles.feed} onClick={() => void navigate({ to: PATH.growth })}>
+      <RowButton variant="feed" onClick={() => void navigate({ to: PATH.growth })}>
         {body}
-      </button>
+      </RowButton>
     );
   }
   if (item.kind === 'excerpt' || item.kind === 'note') {
     return (
-      <button type="button" className={styles.feed} onClick={() => void navigate({ to: PATH.library })}>
+      <RowButton variant="feed" onClick={() => void navigate({ to: PATH.library })}>
         {body}
-      </button>
+      </RowButton>
     );
   }
   return <div className={styles.feedStatic}>{body}</div>;

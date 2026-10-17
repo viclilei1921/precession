@@ -3,6 +3,9 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import type { GrowthEntry, GrowthKind } from '@/bridge/growth';
+import { Button } from '@/components/button';
+import { RowButton } from '@/components/button/row';
+import { SegmentButton } from '@/components/button/segment';
 import { MemberPanel } from '@/components/member-panel';
 import styles from '@/components/record.module.css';
 import { usePageSearch } from '@/hooks/search';
@@ -51,38 +54,23 @@ export function GrowthPage() {
         <h1 className={styles.title}>成长</h1>
         <p className={styles.hint}>按成员排成一条轨迹。里程碑记大事件，瞬间留一句和当时的年纪。</p>
         <div className={styles.segments} role="tablist" aria-label="成长类型">
-          <button
-            type="button"
-            className={styles.segment}
-            data-on={kind === 'all' ? 'true' : undefined}
-            onClick={() => setKind('all')}
-          >
-            <SquaresFourIcon className={styles.icon} weight="regular" />
+          <SegmentButton selected={kind === 'all'} onClick={() => setKind('all')}>
+            <SquaresFourIcon weight="regular" />
             全部
-          </button>
-          <button
-            type="button"
-            className={styles.segment}
-            data-on={kind === 'milestone' ? 'true' : undefined}
-            onClick={() => setKind('milestone')}
-          >
-            <FlagIcon className={styles.icon} weight="regular" />
+          </SegmentButton>
+          <SegmentButton selected={kind === 'milestone'} onClick={() => setKind('milestone')}>
+            <FlagIcon weight="regular" />
             里程碑
-          </button>
-          <button
-            type="button"
-            className={styles.segment}
-            data-on={kind === 'moment' ? 'true' : undefined}
-            onClick={() => setKind('moment')}
-          >
-            <CameraIcon className={styles.icon} weight="regular" />
+          </SegmentButton>
+          <SegmentButton selected={kind === 'moment'} onClick={() => setKind('moment')}>
+            <CameraIcon weight="regular" />
             瞬间
-          </button>
+          </SegmentButton>
         </div>
-        <button type="button" className={styles.primary} disabled={selected == null} onClick={() => setEditing('new')}>
-          <PlusIcon className={styles.icon} weight="regular" />
+        <Button className={styles.trailing} disabled={selected == null} onClick={() => setEditing('new')}>
+          <PlusIcon weight="regular" />
           记一笔
-        </button>
+        </Button>
       </header>
       <MemberPanel
         members={members}
@@ -119,7 +107,7 @@ export function GrowthPage() {
           <p className={styles.empty}>{query.trim() ? '没有匹配的记录。' : '这条轨迹还是空的。'}</p>
         ) : null}
         {entries.map((entry) => (
-          <button key={entry.id} type="button" className={styles.row} onClick={() => setEditing(entry)}>
+          <RowButton key={entry.id} onClick={() => setEditing(entry)}>
             <span className={styles.rowTitle}>
               {entry.kind === 'milestone' ? '里程碑' : '瞬间'} · {entry.title}
             </span>
@@ -128,7 +116,7 @@ export function GrowthPage() {
               {member?.birthday != null ? `${ageLabel(member.birthday, entry.occurredAt)} · ` : ''}
               {formatMonthDay(entry.occurredAt)}
             </span>
-          </button>
+          </RowButton>
         ))}
       </div>
     </section>

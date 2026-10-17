@@ -1,0 +1,59 @@
+.date {
+  height: 2.25rem;
+  padding: 0;
+  text-align: center;
+  border-radius: var(--radius-md);
+}
+
+.date:hover {
+  background: var(--muted);
+}
+
+.date[data-outside="true"] {
+  color: var(--muted-foreground);
+}
+
+.date[data-selected="true"],
+.date[data-selected="true"]:hover {
+  color: var(--primary-foreground);
+  background: var(--primary);
+}
+
+.date[data-today="true"] {
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+
+.month {
+  display: grid;
+  gap: 2px;
+  justify-items: center;
+  padding: var(--space-1) 0;
+  font-size: var(--text-xs);
+  border-radius: var(--radius-sm);
+}
+
+.month[data-outside="true"] {
+  color: var(--muted-foreground);
+}
+
+.month[data-today="true"],
+.month[data-selected="true"] {
+  font-weight: 700;
+}
+
+.month[data-selected="true"] {
+  color: var(--plan-foreground);
+  background: var(--plan);
+}
+
+.month[data-off="true"] span {
+  color: var(--destructive);
+}
+
+.month[data-selected="true"] span {
+  color: inherit;
+}
+
+.month[data-selected="true"] i {
+  background: var(--plan-foreground);
+}

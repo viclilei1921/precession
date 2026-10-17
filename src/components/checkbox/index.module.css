@@ -1,0 +1,102 @@
+.stack {
+  display: grid;
+  gap: var(--space-1);
+  justify-items: start;
+}
+
+.root {
+  position: relative;
+  display: inline-flex;
+  gap: var(--space-1);
+  align-items: center;
+  font-size: var(--text-sm);
+  color: var(--foreground);
+}
+
+.input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  border: 0;
+  clip: rect(0 0 0 0);
+}
+
+.hit {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--radius-pill);
+}
+
+.hit::before {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background: var(--primary);
+  border-radius: inherit;
+  opacity: 0;
+  transition: opacity 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.box {
+  display: grid;
+  place-items: center;
+  width: 1.125rem;
+  height: 1.125rem;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  transition:
+    background 150ms cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.box::after {
+  width: 0.3rem;
+  height: 0.55rem;
+  content: "";
+  border: solid var(--primary-foreground);
+  border-width: 0 2px 2px 0;
+  opacity: 0;
+  transform: rotate(45deg) translate(-1px, -1px) scale(0);
+  transition:
+    opacity 150ms cubic-bezier(0.4, 0, 0.2, 1),
+    transform 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.root:hover .input:not(:disabled) + .hit::before {
+  opacity: 0.08;
+}
+
+.input:checked + .hit .box {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.input:checked + .hit .box::after {
+  opacity: 1;
+  transform: rotate(45deg) translate(-1px, -1px) scale(1);
+}
+
+.input:focus-visible + .hit {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.input:disabled + .hit,
+.input:disabled ~ .label {
+  cursor: default;
+  opacity: 0.38;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hit::before,
+  .box,
+  .box::after {
+    transition: none;
+  }
+}

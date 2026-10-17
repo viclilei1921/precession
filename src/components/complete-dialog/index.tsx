@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import type { Plan } from '@/bridge/plan';
+import { Button } from '@/components/button';
 import { Modal } from '@/components/modal';
+import { Textarea } from '@/components/textarea';
 import styles from './index.module.css';
 
 type CompleteDialogProps = {
@@ -36,18 +38,20 @@ function CompletePanel({
   return (
     <Modal title="完成计划" onClose={onClose}>
       <p className={styles.name}>{plan.title}</p>
-      <label className={styles.field}>
-        结果
-        <textarea value={result} placeholder="可以补一句结果" onChange={(event) => setResult(event.target.value)} />
-      </label>
+      <Textarea
+        label="结果"
+        value={result}
+        placeholder="可以补一句结果"
+        onChange={(event) => setResult(event.target.value)}
+      />
       {error ? <p className={styles.error}>{error}</p> : null}
       <div className={styles.actions}>
-        <button type="button" className={styles.ghost} disabled={pending} onClick={onClose}>
+        <Button variant="outlined" disabled={pending} onClick={onClose}>
           取消
-        </button>
-        <button type="button" className={styles.primary} disabled={pending} onClick={() => onSubmit(result.trim())}>
+        </Button>
+        <Button disabled={pending} onClick={() => onSubmit(result.trim())}>
           完成
-        </button>
+        </Button>
       </div>
     </Modal>
   );

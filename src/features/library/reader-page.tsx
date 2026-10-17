@@ -3,6 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { BookNote } from '@/bridge/library';
+import { Button } from '@/components/button';
+import { RowButton } from '@/components/button/row';
 import { Progress } from '@/components/progress';
 import styles from '@/components/record.module.css';
 import { bookNoteListQuery, bookQuery } from '@/query/library/query';
@@ -29,14 +31,14 @@ export function ReaderPage() {
         <p className={styles.hint}>
           {book ? [book.author, statusLabel(book.status)].filter(Boolean).join(' · ') : '划线和批注会留在这本书上。'}
         </p>
-        <button type="button" className={styles.ghost} onClick={() => void navigate({ to: PATH.library })}>
-          <CaretLeftIcon className={styles.icon} weight="regular" />
+        <Button variant="outlined" onClick={() => void navigate({ to: PATH.library })}>
+          <CaretLeftIcon weight="regular" />
           返回书架
-        </button>
+        </Button>
         {book ? (
-          <button type="button" className={styles.primary} onClick={() => setEditingBook(true)}>
+          <Button className={styles.trailing} onClick={() => setEditingBook(true)}>
             编辑这本书
-          </button>
+          </Button>
         ) : null}
       </header>
       {bookQueryResult.error ? <p className={styles.error}>{errorMessage(bookQueryResult.error)}</p> : null}
@@ -69,14 +71,14 @@ export function ReaderPage() {
       <div className={styles.card}>
         <div className={styles.cardTitle}>
           书摘和笔记
-          <button type="button" className={styles.ghost} onClick={() => setEditingNote('new')}>
+          <Button variant="outlined" onClick={() => setEditingNote('new')}>
             新的一条
-          </button>
+          </Button>
         </div>
         {notesQuery.isPending ? <p className={styles.note}>正在读取…</p> : null}
         {!notesQuery.isPending && notes.length === 0 ? <p className={styles.empty}>还没有划线或心得。</p> : null}
         {notes.map((note) => (
-          <button key={note.id} type="button" className={styles.row} onClick={() => setEditingNote(note)}>
+          <RowButton key={note.id} onClick={() => setEditingNote(note)}>
             <span className={styles.rowTitle}>
               {note.kind === 'excerpt' ? '书摘' : '笔记'} · {note.title}
             </span>
@@ -84,7 +86,7 @@ export function ReaderPage() {
               {note.chapter ? `${note.chapter} · ` : ''}
               {formatMonthDay(note.occurredAt)}
             </span>
-          </button>
+          </RowButton>
         ))}
       </div>
       <p className={styles.note}>正文阅读器还没有接入。这里先管这本书的档案、书摘和笔记。</p>

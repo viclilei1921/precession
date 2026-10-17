@@ -2,6 +2,9 @@ import { EyeIcon, EyeSlashIcon } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import type { ChangeEvent, ComponentProps, KeyboardEvent, PointerEvent, InputEvent as ReactInputEvent } from 'react';
 import { useState } from 'react';
+import { Field } from '@/components/field';
+import fieldStyles from '@/components/field/index.module.css';
+import { useRipple } from '@/components/ripple';
 import styles from './index.module.css';
 
 /** 去掉空格、中文和其他非密码字符。保留英文大小写、数字，以及 ! 到 ~ 的符号。 */
@@ -11,6 +14,7 @@ function keepPasswordText(value: string) {
 
 /** 密码输入框 Props */
 type PasswordInputProps = Omit<ComponentProps<'input'>, 'type' | 'className'> & {
+  label?: string;
   /** 外层类名，用来覆盖宽度和间距 */
   className?: string;
   /** 输入框类名，用来覆盖背景和内边距 */
@@ -19,14 +23,21 @@ type PasswordInputProps = Omit<ComponentProps<'input'>, 'type' | 'className'> & 
 
 /** 按住小眼睛显示密码，松开后隐藏 */
 export function PasswordInput({
+  label,
   className,
   inputClassName,
   disabled,
+  required,
+  id,
+  placeholder,
   onChange,
   onBeforeInput,
+  'aria-invalid': ariaInvalid,
+  'aria-describedby': describedBy,
   ...props
 }: PasswordInputProps) {
   const [visible, setVisible] = useState(false);
+  const ripple = useRipple();
 
   /** 单字输入直接拦下；粘贴仍交给 onChange 去掉不合规的部分 */
   function beforeInput(event: ReactInputEvent<HTMLInputElement>) {
@@ -97,37 +108,52 @@ export function PasswordInput({
     }
   }
 
+  const invalid = ariaInvalid === true || ariaInvalid === 'true';
+
   return (
-    <div className={clsx(styles.root, className)}>
-      <input
-        {...props}
-        className={clsx(styles.input, inputClassName)}
-        type={visible ? 'text' : 'password'}
-        disabled={disabled}
-        onBeforeInput={beforeInput}
-        onChange={change}
-      />
-      <button
-        type="button"
-        className={styles.toggle}
-        disabled={disabled}
-        aria-label="按住显示密码"
-        aria-pressed={visible}
-        onPointerDown={press}
-        onPointerUp={release}
-        onPointerCancel={release}
-        onLostPointerCapture={release}
-        onPointerLeave={leave}
-        onKeyDown={pressKey}
-        onKeyUp={releaseKey}
-        onBlur={release}
-      >
-        {visible ? (
-          <EyeSlashIcon className={styles.icon} weight="regular" />
-        ) : (
-          <EyeIcon className={styles.icon} weight="regular" />
-        )}
-      </button>
-    </div>
+    <Field id={id} label={label} required={required} disabled={disabled} invalid={invalid} className={className}>
+      {({ id: fieldId, describedBy: fieldDescribedBy }) => (
+        <>
+          <input
+            {...props}
+            id={fieldId}
+            className={clsx(fieldStyles.control, styles.input, inputClassName)}
+            type={visible ? 'text' : 'password'}
+            required={required}
+            disabled={disabled}
+            placeholder={placeholder ?? ' '}
+            aria-invalid={ariaInvalid}
+            aria-describedby={[fieldDescribedBy, describedBy].filter(Boolean).join(' ') || undefined}
+            onBeforeInput={beforeInput}
+            onChange={change}
+          />
+          <button
+            type="button"
+            className={styles.toggle}
+            aria-label="按住显示密码"
+            aria-pressed={visible}
+            title="按住显示密码"
+            disabled={disabled}
+            onPointerDown={(event) => {
+              ripple.onPointerDown(event);
+              press(event);
+            }}
+            onPointerUp={release}
+            onPointerCancel={release}
+            onLostPointerCapture={release}
+            onPointerLeave={leave}
+            onKeyDown={(event) => {
+              ripple.onKeyDown(event);
+              pressKey(event);
+            }}
+            onKeyUp={releaseKey}
+            onBlur={release}
+          >
+            {ripple.nodes}
+            {visible ? <EyeSlashIcon weight="regular" /> : <EyeIcon weight="regular" />}
+          </button>
+        </>
+      )}
+    </Field>
   );
 }

@@ -1,7 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { journalCitationCreate, journalCitationDelete } from '@/bridge/journal';
+import { Button } from '@/components/button';
 import styles from '@/components/record.module.css';
+import { Select } from '@/components/select';
 import { journalCitationListQuery, refreshJournalCitations } from '@/query/journal/query';
 import { bookListQuery, bookNoteListQuery, bookNoteQuery } from '@/query/library/query';
 import { errorMessage } from '@/utils/error';
@@ -40,43 +42,33 @@ export function Citations({ entryId }: { entryId: string }) {
         <CitationRow key={citation.id} noteId={citation.bookNoteId} onRemove={() => remove.mutate(citation.id)} />
       ))}
       <div className={styles.pair}>
-        <label className={styles.field}>
-          书
-          <select
-            value={bookId}
-            onChange={(event) => {
-              setBookId(event.target.value);
-              setNoteId('');
-            }}
-          >
-            <option value="">选择一本书</option>
-            {books.map((book) => (
-              <option key={book.id} value={book.id}>
-                {book.title}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className={styles.field}>
-          书摘或笔记
-          <select value={noteId} onChange={(event) => setNoteId(event.target.value)}>
-            <option value="">选择一条</option>
-            {(notesQuery.data ?? []).map((note) => (
-              <option key={note.id} value={note.id}>
-                {note.title}
-              </option>
-            ))}
-          </select>
-        </label>
+        <Select
+          label="书"
+          value={bookId}
+          onChange={(event) => {
+            setBookId(event.target.value);
+            setNoteId('');
+          }}
+        >
+          <option value="">选择一本书</option>
+          {books.map((book) => (
+            <option key={book.id} value={book.id}>
+              {book.title}
+            </option>
+          ))}
+        </Select>
+        <Select label="书摘或笔记" value={noteId} onChange={(event) => setNoteId(event.target.value)}>
+          <option value="">选择一条</option>
+          {(notesQuery.data ?? []).map((note) => (
+            <option key={note.id} value={note.id}>
+              {note.title}
+            </option>
+          ))}
+        </Select>
       </div>
-      <button
-        type="button"
-        className={styles.primary}
-        disabled={noteId.length === 0 || add.isPending}
-        onClick={() => add.mutate()}
-      >
+      <Button className={styles.trailing} disabled={noteId.length === 0 || add.isPending} onClick={() => add.mutate()}>
         引用
-      </button>
+      </Button>
       {add.error ? <p className={styles.error}>{errorMessage(add.error)}</p> : null}
       {books.length === 0 ? <p className={styles.note}>书库里还没有书，先去添加。</p> : null}
     </div>
@@ -89,9 +81,9 @@ function CitationRow({ noteId, onRemove }: { noteId: string; onRemove: () => voi
   return (
     <div className={styles.row}>
       <span className={styles.rowTitle}>{noteQuery.data?.title ?? '书摘'}</span>
-      <button type="button" className={styles.ghost} onClick={onRemove}>
+      <Button variant="outlined" onClick={onRemove}>
         取消
-      </button>
+      </Button>
     </div>
   );
 }

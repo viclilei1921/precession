@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import type { JournalEntry } from '@/bridge/journal';
 import { journalEntryOpen, journalEntrySeal, journalEntryUpdate } from '@/bridge/journal';
+import { Button } from '@/components/button';
 import { PasswordInput } from '@/components/password-input';
 import styles from '@/components/record.module.css';
 import { refreshJournal } from '@/query/journal/query';
@@ -57,34 +58,29 @@ export function Seal({ entry }: { entry: JournalEntry }) {
       <h2 className={styles.cardTitle}>正文封存</h2>
       <p className={styles.note}>{entry.locked ? '这篇日记的正文已经单独封存。' : '可以用另一套密码把正文封起来。'}</p>
       {plain ? <p className={styles.note}>{plain}</p> : null}
-      <label className={styles.field} htmlFor="journal-body-password">
-        正文密码
-        <PasswordInput
-          id="journal-body-password"
-          inputClassName={styles.passwordInput}
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-        />
-      </label>
+      <PasswordInput
+        id="journal-body-password"
+        label="正文密码"
+        value={password}
+        onChange={(event) => setPassword(event.target.value)}
+      />
       <div className={styles.actions}>
         {entry.locked ? (
-          <button
-            type="button"
-            className={styles.primary}
+          <Button
+            className={styles.trailing}
             disabled={open.isPending || password.length === 0}
             onClick={() => open.mutate()}
           >
             解开
-          </button>
+          </Button>
         ) : (
-          <button
-            type="button"
-            className={styles.primary}
+          <Button
+            className={styles.trailing}
             disabled={seal.isPending || password.length === 0}
             onClick={() => seal.mutate()}
           >
             封存
-          </button>
+          </Button>
         )}
       </div>
       {seal.error ? <p className={styles.error}>{errorMessage(seal.error)}</p> : null}

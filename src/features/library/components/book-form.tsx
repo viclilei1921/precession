@@ -4,8 +4,11 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import type { Book, BookStatus } from '@/bridge/library';
 import { bookCreate, bookDelete, bookUpdate } from '@/bridge/library';
+import { Button } from '@/components/button';
 import { DateField } from '@/components/date-field';
 import styles from '@/components/record.module.css';
+import { Select } from '@/components/select';
+import { TextField } from '@/components/text-field';
 import { refreshLibrary } from '@/query/library/query';
 import { fromDateInputValue, toDateInputValue } from '@/utils/day';
 import { errorMessage } from '@/utils/error';
@@ -63,48 +66,34 @@ export function BookForm({ book, status, onClose }: { book: Book | null; status:
         save.mutate();
       }}
     >
-      <label className={styles.field}>
-        书名
-        <input value={title} required onChange={(event) => setTitle(event.target.value)} />
-      </label>
-      <label className={styles.field}>
-        作者
-        <input value={author} onChange={(event) => setAuthor(event.target.value)} />
-      </label>
+      <TextField label="书名" value={title} required onChange={(event) => setTitle(event.target.value)} />
+      <TextField label="作者" value={author} onChange={(event) => setAuthor(event.target.value)} />
       <div className={styles.pair}>
-        <label className={styles.field}>
-          状态
-          <select value={draftStatus} onChange={(event) => setDraftStatus(event.target.value as BookStatus)}>
-            {bookStatuses.map((item) => (
-              <option key={item.status} value={item.status}>
-                {item.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className={styles.field}>
-          进度（%）
-          <input
-            type="number"
-            min={0}
-            max={100}
-            value={progress}
-            onChange={(event) => setProgress(event.target.value)}
-          />
-        </label>
+        <Select label="状态" value={draftStatus} onChange={(event) => setDraftStatus(event.target.value as BookStatus)}>
+          {bookStatuses.map((item) => (
+            <option key={item.status} value={item.status}>
+              {item.label}
+            </option>
+          ))}
+        </Select>
+        <TextField
+          label="进度（%）"
+          type="number"
+          min={0}
+          max={100}
+          value={progress}
+          onChange={(event) => setProgress(event.target.value)}
+        />
       </div>
       <div className={styles.pair}>
-        <label className={styles.field}>
-          评分
-          <select value={rating} onChange={(event) => setRating(event.target.value)}>
-            <option value="">未评分</option>
-            {[1, 2, 3, 4, 5].map((score) => (
-              <option key={score} value={score}>
-                {score}
-              </option>
-            ))}
-          </select>
-        </label>
+        <Select label="评分" value={rating} onChange={(event) => setRating(event.target.value)}>
+          <option value="">未评分</option>
+          {[1, 2, 3, 4, 5].map((score) => (
+            <option key={score} value={score}>
+              {score}
+            </option>
+          ))}
+        </Select>
         <DateField label="开始" value={startedAt} onChange={setStartedAt} />
       </div>
       <DateField label="读完" value={finishedAt} onChange={setFinishedAt} />
@@ -112,9 +101,9 @@ export function BookForm({ book, status, onClose }: { book: Book | null; status:
       {remove.error ? <p className={styles.error}>{errorMessage(remove.error)}</p> : null}
       <div className={styles.actions}>
         {book ? (
-          <button
-            type="button"
-            className={styles.danger}
+          <Button
+            variant="outlined"
+            tone="destructive"
             disabled={pending}
             onClick={() => {
               if (!confirmDelete) {
@@ -125,15 +114,15 @@ export function BookForm({ book, status, onClose }: { book: Book | null; status:
             }}
           >
             {confirmDelete ? '确认删除' : '删除'}
-          </button>
+          </Button>
         ) : null}
         <span className={styles.spacer} />
-        <button type="button" className={styles.ghost} disabled={pending} onClick={onClose}>
+        <Button variant="outlined" disabled={pending} onClick={onClose}>
           取消
-        </button>
-        <button type="submit" className={styles.primary} disabled={pending}>
+        </Button>
+        <Button type="submit" className={styles.trailing} disabled={pending}>
           保存
-        </button>
+        </Button>
       </div>
     </form>
   );

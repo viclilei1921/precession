@@ -3,8 +3,13 @@ import clsx from 'clsx';
 import { useState } from 'react';
 import type { JournalEntry, JournalEntryInput, JournalKind } from '@/bridge/journal';
 import { journalEntryCreate, journalEntryDelete, journalEntryUpdate } from '@/bridge/journal';
+import { Button } from '@/components/button';
+import { Checkbox } from '@/components/checkbox';
 import { DateField } from '@/components/date-field';
 import styles from '@/components/record.module.css';
+import { Select } from '@/components/select';
+import { TextField } from '@/components/text-field';
+import { Textarea } from '@/components/textarea';
 import { refreshJournal } from '@/query/journal/query';
 import { fromDateInputValue, startOfLocalDay, toDateInputValue } from '@/utils/day';
 import { errorMessage } from '@/utils/error';
@@ -81,38 +86,30 @@ export function JournalEditor({ entry, kind, className, onClose, onSaved, onDele
       }}
     >
       <div className={styles.pair}>
-        <label className={styles.field}>
-          类型
-          <select value={draftKind} onChange={(event) => setDraftKind(event.target.value as JournalKind)}>
-            {(Object.keys(kindLabel) as JournalKind[]).map((item) => (
-              <option key={item} value={item}>
-                {kindLabel[item]}
-              </option>
-            ))}
-          </select>
-        </label>
+        <Select label="类型" value={draftKind} onChange={(event) => setDraftKind(event.target.value as JournalKind)}>
+          {(Object.keys(kindLabel) as JournalKind[]).map((item) => (
+            <option key={item} value={item}>
+              {kindLabel[item]}
+            </option>
+          ))}
+        </Select>
         <DateField label="发生时间" value={occurredAt} onChange={setOccurredAt} />
       </div>
-      <label className={styles.field}>
-        标题
-        <input value={title} required onChange={(event) => setTitle(event.target.value)} />
-      </label>
-      <label className={styles.field}>
-        正文
-        {entry?.locked && body === '' ? <span className={styles.note}>正文已封存。解开之后才能改。</span> : null}
-        <textarea value={body} onChange={(event) => setBody(event.target.value)} />
-      </label>
-      <label className={styles.check}>
-        <input type="checkbox" checked={highlight} onChange={(event) => setHighlight(event.target.checked)} />
-        标为高光
-      </label>
+      <TextField label="标题" value={title} required onChange={(event) => setTitle(event.target.value)} />
+      <Textarea
+        label="正文"
+        hint={entry?.locked && body === '' ? '正文已封存。解开之后才能改。' : undefined}
+        value={body}
+        onChange={(event) => setBody(event.target.value)}
+      />
+      <Checkbox label="标为高光" checked={highlight} onChange={(event) => setHighlight(event.target.checked)} />
       {save.error ? <p className={styles.error}>{errorMessage(save.error)}</p> : null}
       {remove.error ? <p className={styles.error}>{errorMessage(remove.error)}</p> : null}
       <div className={styles.actions}>
         {entry && onDeleted ? (
-          <button
-            type="button"
-            className={styles.danger}
+          <Button
+            variant="outlined"
+            tone="destructive"
             disabled={pending}
             onClick={() => {
               if (!confirmDelete) {
@@ -123,17 +120,17 @@ export function JournalEditor({ entry, kind, className, onClose, onSaved, onDele
             }}
           >
             {confirmDelete ? '确认删除' : '删除'}
-          </button>
+          </Button>
         ) : null}
         <span className={styles.spacer} />
         {onClose ? (
-          <button type="button" className={styles.ghost} disabled={pending} onClick={onClose}>
+          <Button variant="outlined" disabled={pending} onClick={onClose}>
             取消
-          </button>
+          </Button>
         ) : null}
-        <button type="submit" className={styles.primary} disabled={pending}>
+        <Button type="submit" className={styles.trailing} disabled={pending}>
           保存
-        </button>
+        </Button>
       </div>
     </form>
   );

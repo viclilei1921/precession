@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { useEffect, useRef } from 'react';
+import { ScrimButton } from '@/components/button/scrim';
 import styles from './index.module.css';
 
 type ModalProps = {
@@ -35,7 +36,7 @@ export function Modal({ title, onClose, children, wide }: ModalProps) {
 
   return (
     <div className={styles.backdrop}>
-      <button type="button" className={styles.scrim} aria-label="关闭" onClick={onClose} />
+      <ScrimButton onClick={onClose} />
       <div
         ref={panelRef}
         className={wide ? styles.wide : styles.dialog}

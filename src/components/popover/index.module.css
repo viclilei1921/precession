@@ -1,0 +1,51 @@
+.root {
+  position: fixed;
+  inset: 0;
+  /* 日历从模态里打开，浮层要盖在模态上面，并留在 toast 下面。 */
+  z-index: calc(var(--z-modal) + 1);
+  pointer-events: none;
+}
+
+.backdrop {
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
+}
+
+.paper {
+  --popover-motion: 195ms;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  max-width: calc(100% - 2rem);
+  max-height: calc(100% - 2rem);
+  overflow: auto;
+  color: var(--popover-foreground);
+  pointer-events: none;
+  outline: none;
+  background: var(--popover);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow:
+    0 1px 2px oklch(from var(--foreground) l c h / 8%),
+    0 8px 24px oklch(from var(--foreground) l c h / 12%);
+  opacity: 0;
+  transform: scale(0.75);
+  transform-origin: top left;
+  transition:
+    opacity var(--popover-motion) cubic-bezier(0.4, 0, 0.2, 1),
+    transform var(--popover-motion) cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.root[data-open="true"] .paper {
+  pointer-events: auto;
+  opacity: 1;
+  transform: scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .paper {
+    transition: none;
+  }
+}

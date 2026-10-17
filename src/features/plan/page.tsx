@@ -4,6 +4,9 @@ import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import type { Plan } from '@/bridge/plan';
 import { planUpdate } from '@/bridge/plan';
+import { Button } from '@/components/button';
+import { RowButton } from '@/components/button/row';
+import { SegmentButton } from '@/components/button/segment';
 import { CompleteDialog } from '@/components/complete-dialog';
 import { DateField } from '@/components/date-field';
 import { PlanCheck } from '@/components/plan-check';
@@ -98,38 +101,23 @@ export function PlanPage() {
         <h1 className={styles.title}>计划</h1>
         <p className={styles.hint}>面向未来的前置记录 · 完成即记入轨迹</p>
         <div className={styles.segments} role="tablist" aria-label="计划视图">
-          <button
-            type="button"
-            className={styles.segment}
-            data-on={view === 'todo' ? 'true' : undefined}
-            onClick={() => setView('todo')}
-          >
-            <ListChecksIcon className={styles.icon} weight="regular" />
+          <SegmentButton selected={view === 'todo'} onClick={() => setView('todo')}>
+            <ListChecksIcon weight="regular" />
             待办
-          </button>
-          <button
-            type="button"
-            className={styles.segment}
-            data-on={view === 'inbox' ? 'true' : undefined}
-            onClick={() => setView('inbox')}
-          >
-            <TrayIcon className={styles.icon} weight="regular" />
+          </SegmentButton>
+          <SegmentButton selected={view === 'inbox'} onClick={() => setView('inbox')}>
+            <TrayIcon weight="regular" />
             收集箱 {inbox.length}
-          </button>
-          <button
-            type="button"
-            className={styles.segment}
-            data-on={view === 'calendar' ? 'true' : undefined}
-            onClick={() => setView('calendar')}
-          >
-            <CalendarBlankIcon className={styles.icon} weight="regular" />
+          </SegmentButton>
+          <SegmentButton selected={view === 'calendar'} onClick={() => setView('calendar')}>
+            <CalendarBlankIcon weight="regular" />
             日历
-          </button>
+          </SegmentButton>
         </div>
-        <button type="button" className={styles.primary} onClick={() => setEditing('new')}>
-          <PlusIcon className={styles.icon} weight="regular" />
+        <Button className={styles.create} onClick={() => setEditing('new')}>
+          <PlusIcon weight="regular" />
           新建计划
-        </button>
+        </Button>
       </header>
 
       {plansQuery.error ? <p className={styles.error}>{errorMessage(plansQuery.error)}</p> : null}
@@ -196,10 +184,10 @@ export function PlanPage() {
               </span>
               <Progress value={weekRate} label="本周完成率" />
             </div>
-            <button type="button" className={styles.linkCard} onClick={() => setView('inbox')}>
+            <RowButton variant="card" onClick={() => setView('inbox')}>
               <span className={styles.cardTitle}>收集箱</span>
               <span className={styles.note}>{inbox.length} 条未排期，选一天即可排上。</span>
-            </button>
+            </RowButton>
           </div>
         </div>
       ) : null}
@@ -213,9 +201,9 @@ export function PlanPage() {
           ) : null}
           {inbox.map((plan) => (
             <div key={plan.id} className={styles.inboxRow}>
-              <button type="button" className={styles.inboxTitle} onClick={() => setEditing(plan)}>
+              <RowButton variant="title" onClick={() => setEditing(plan)}>
                 {plan.title}
-              </button>
+              </RowButton>
               <DateField
                 label="安排到"
                 value=""

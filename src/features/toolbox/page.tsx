@@ -3,8 +3,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import type { Task } from '@/bridge/task';
 import { onTaskQueueUpdated, taskCancel, taskEnqueue } from '@/bridge/task';
+import { Button } from '@/components/button';
+import { SegmentButton } from '@/components/button/segment';
 import { PasswordInput } from '@/components/password-input';
 import styles from '@/components/record.module.css';
+import { TextField } from '@/components/text-field';
 import { usePageSearch } from '@/hooks/search';
 import { taskListQuery } from '@/query/task/query';
 import { errorMessage } from '@/utils/error';
@@ -91,47 +94,28 @@ export function ToolboxPage() {
       >
         <h2 className={styles.cardTitle}>加密或解密一个文件</h2>
         <div className={styles.segments}>
-          <button
-            type="button"
-            className={styles.segment}
-            data-on={mode === 'encryptFile' ? 'true' : undefined}
-            onClick={() => setMode('encryptFile')}
-          >
-            <LockIcon className={styles.icon} weight="regular" />
+          <SegmentButton selected={mode === 'encryptFile'} onClick={() => setMode('encryptFile')}>
+            <LockIcon weight="regular" />
             加密
-          </button>
-          <button
-            type="button"
-            className={styles.segment}
-            data-on={mode === 'decryptFile' ? 'true' : undefined}
-            onClick={() => setMode('decryptFile')}
-          >
-            <LockOpenIcon className={styles.icon} weight="regular" />
+          </SegmentButton>
+          <SegmentButton selected={mode === 'decryptFile'} onClick={() => setMode('decryptFile')}>
+            <LockOpenIcon weight="regular" />
             解密
-          </button>
+          </SegmentButton>
         </div>
-        <label className={styles.field}>
-          输入路径
-          <input value={input} required onChange={(event) => setInput(event.target.value)} />
-        </label>
-        <label className={styles.field}>
-          输出路径
-          <input value={output} required onChange={(event) => setOutput(event.target.value)} />
-        </label>
-        <label className={styles.field} htmlFor="toolbox-file-password">
-          密码
-          <PasswordInput
-            id="toolbox-file-password"
-            inputClassName={styles.passwordInput}
-            value={password}
-            required
-            onChange={(event) => setPassword(event.target.value)}
-          />
-        </label>
+        <TextField label="输入路径" value={input} required onChange={(event) => setInput(event.target.value)} />
+        <TextField label="输出路径" value={output} required onChange={(event) => setOutput(event.target.value)} />
+        <PasswordInput
+          id="toolbox-file-password"
+          label="密码"
+          value={password}
+          required
+          onChange={(event) => setPassword(event.target.value)}
+        />
         {enqueue.error ? <p className={styles.error}>{errorMessage(enqueue.error)}</p> : null}
-        <button type="submit" className={styles.primary} disabled={enqueue.isPending}>
+        <Button type="submit" className={styles.trailing} disabled={enqueue.isPending}>
           加入队列
-        </button>
+        </Button>
       </form>
       <div className={styles.card}>
         <h2 className={styles.cardTitle}>队列</h2>
@@ -146,14 +130,9 @@ export function ToolboxPage() {
             </span>
             <span className={styles.meta}>{task.message}</span>
             {task.status === 'pending' || task.status === 'processing' ? (
-              <button
-                type="button"
-                className={styles.ghost}
-                disabled={cancel.isPending}
-                onClick={() => cancel.mutate(task.id)}
-              >
+              <Button variant="outlined" disabled={cancel.isPending} onClick={() => cancel.mutate(task.id)}>
                 取消
-              </button>
+              </Button>
             ) : null}
           </div>
         ))}

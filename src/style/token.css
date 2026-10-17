@@ -87,12 +87,12 @@
   --measure: 42rem;
   --site-width: 68rem;
   --header-h: 3.5rem;
-  --sidebar-w: 12.75rem;
+  --sidebar-w: 15rem;
   --dock-h: 4rem;
   --bar-h: 4.5rem;
   --shell-pad: 1.5rem;
   --tap: 2.75rem;
-  /* 图标：10 / 12 / 16 / 18 / 20 px。icon-lg 未使用。 */
+  /* 图标：10 / 12 / 16 / 18 / 20 px。侧栏导航用 icon-lg。 */
   --icon-2xs: 0.625rem;
   --icon-xs: 0.75rem;
   --icon-sm: 1rem;

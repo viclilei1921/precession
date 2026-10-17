@@ -3,8 +3,14 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
 import type { Plan, PlanInput, PlanPatch, PlanStatus } from '@/bridge/plan';
 import { planCreate, planDelete, planUpdate } from '@/bridge/plan';
+import { Button } from '@/components/button';
+import { IconButton } from '@/components/button/icon';
+import { Checkbox } from '@/components/checkbox';
 import { DateField } from '@/components/date-field';
 import { Modal } from '@/components/modal';
+import { Select } from '@/components/select';
+import { TextField } from '@/components/text-field';
+import { Textarea } from '@/components/textarea';
 import { refreshPlanViews } from '@/query/plan/query';
 import { fromDateInputValue, startOfLocalDay, toDateInputValue } from '@/utils/day';
 import { errorMessage } from '@/utils/error';
@@ -105,37 +111,30 @@ export function PlanForm({ plan, onClose }: PlanFormProps) {
           });
         }}
       >
-        <label className={styles.field}>
-          标题
-          <input value={title} required onChange={(event) => setTitle(event.target.value)} />
-        </label>
-        <label className={styles.field}>
-          备注
-          <textarea value={body} onChange={(event) => setBody(event.target.value)} />
-        </label>
+        <TextField label="标题" value={title} required onChange={(event) => setTitle(event.target.value)} />
+        <Textarea label="备注" value={body} onChange={(event) => setBody(event.target.value)} />
         <div className={styles.pair}>
-          <label className={styles.field}>
-            优先级
-            <select value={priority} onChange={(event) => setPriority(Number(event.target.value))}>
-              {knownPriority ? null : <option value={priority}>{priority}</option>}
-              {PRIORITIES.map((item) => (
-                <option key={item.value} value={item.value}>
-                  {item.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className={styles.field} htmlFor="plan-status">
-            状态
-            {done ? (
-              <input id="plan-status" value="已完成" disabled />
-            ) : (
-              <select id="plan-status" value={status} onChange={(event) => setStatus(event.target.value as PlanStatus)}>
-                <option value="inbox">收集箱</option>
-                <option value="scheduled">已安排</option>
-              </select>
-            )}
-          </label>
+          <Select label="优先级" value={priority} onChange={(event) => setPriority(Number(event.target.value))}>
+            {knownPriority ? null : <option value={priority}>{priority}</option>}
+            {PRIORITIES.map((item) => (
+              <option key={item.value} value={item.value}>
+                {item.label}
+              </option>
+            ))}
+          </Select>
+          {done ? (
+            <TextField id="plan-status" label="状态" value="已完成" disabled />
+          ) : (
+            <Select
+              id="plan-status"
+              label="状态"
+              value={status}
+              onChange={(event) => setStatus(event.target.value as PlanStatus)}
+            >
+              <option value="inbox">收集箱</option>
+              <option value="scheduled">已安排</option>
+            </Select>
+          )}
         </div>
         {done || status === 'scheduled' ? (
           <div className={styles.pair}>
@@ -146,11 +145,10 @@ export function PlanForm({ plan, onClose }: PlanFormProps) {
           <DateField label="截止时间" value={due} onChange={setDue} />
         )}
         <div className={styles.steps}>
-          <span className={styles.field}>步骤</span>
+          <span className={styles.stepsLabel}>步骤</span>
           {steps.map((step) => (
             <div key={step.key} className={styles.step}>
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={step.done}
                 aria-label="步骤完成"
                 onChange={(event) =>
@@ -159,42 +157,39 @@ export function PlanForm({ plan, onClose }: PlanFormProps) {
                   )
                 }
               />
-              <input
-                type="text"
-                value={step.title}
+              <TextField
+                className={styles.stepTitle}
                 aria-label="步骤标题"
+                value={step.title}
                 onChange={(event) =>
                   setSteps((current) =>
                     current.map((item) => (item.key === step.key ? { ...item, title: event.target.value } : item))
                   )
                 }
               />
-              <button
-                type="button"
-                className={styles.remove}
-                aria-label="删除步骤"
+              <IconButton
+                label="删除步骤"
                 onClick={() => setSteps((current) => current.filter((item) => item.key !== step.key))}
               >
-                <TrashIcon className={styles.icon} weight="regular" />
-              </button>
+                <TrashIcon weight="regular" />
+              </IconButton>
             </div>
           ))}
-          <button
-            type="button"
-            className={styles.add}
+          <Button
+            variant="text"
             onClick={() => setSteps((current) => [...current, { key: crypto.randomUUID(), title: '', done: false }])}
           >
-            <PlusIcon className={styles.icon} weight="regular" />
+            <PlusIcon weight="regular" />
             添加步骤
-          </button>
+          </Button>
         </div>
         {save.error ? <p className={styles.error}>{errorMessage(save.error)}</p> : null}
         {remove.error ? <p className={styles.error}>{errorMessage(remove.error)}</p> : null}
         <div className={styles.actions}>
           {plan ? (
-            <button
-              type="button"
-              className={styles.danger}
+            <Button
+              variant="outlined"
+              tone="destructive"
               disabled={pending}
               onClick={() => {
                 if (!confirmDelete) {
@@ -205,15 +200,15 @@ export function PlanForm({ plan, onClose }: PlanFormProps) {
               }}
             >
               {confirmDelete ? '确认删除' : '删除'}
-            </button>
+            </Button>
           ) : null}
           <span className={styles.spacer} />
-          <button type="button" className={styles.ghost} disabled={pending} onClick={onClose}>
+          <Button variant="outlined" disabled={pending} onClick={onClose}>
             取消
-          </button>
-          <button type="submit" className={styles.primary} disabled={pending}>
+          </Button>
+          <Button type="submit" disabled={pending}>
             保存
-          </button>
+          </Button>
         </div>
       </form>
     </Modal>
