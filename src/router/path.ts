@@ -15,8 +15,14 @@ export const PATH = {
   library: '/library',
   /* 阅读器 */
   bookReader: '/library/$bookId',
-  /* 工具箱 */
+  /* 工具箱入口，转到视频处理 */
   toolbox: '/toolbox',
+  /* 文件加密 */
+  toolboxFile: '/toolbox/file',
+  /* 图片转码 */
+  toolboxImage: '/toolbox/image',
+  /* 视频处理 */
+  toolboxVideo: '/toolbox/video',
   /* 回顾 */
   review: '/review',
   /* 年度之书 */

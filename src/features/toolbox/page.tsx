@@ -83,8 +83,8 @@ export function ToolboxPage() {
   return (
     <section className={styles.page}>
       <header className={styles.head}>
-        <h1 className={styles.title}>工具箱</h1>
-        <p className={styles.hint}>文件加解密在这里提交。转码、裁剪、合并和图片转码走同一条队列。</p>
+        <h1 className={styles.title}>文件加密</h1>
+        <p className={styles.hint}>文件加解密在这里提交。</p>
       </header>
       <Scroll className={styles.scroll}>
         <div className={styles.body}>

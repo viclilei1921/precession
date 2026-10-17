@@ -9,7 +9,9 @@ import { ReviewPage } from '@/features/review/page';
 import { YearPage } from '@/features/review/year-page';
 import { SettingsPage } from '@/features/settings/page';
 import { TodayPage } from '@/features/today/page';
+import { ImageToolboxPage } from '@/features/toolbox/image-page';
 import { ToolboxPage } from '@/features/toolbox/page';
+import { VideoToolboxPage } from '@/features/toolbox/video-page';
 import { ContentLayout } from '@/layout/content';
 import { useAppStore } from '@/store/app';
 import { PATH } from './path';
@@ -134,7 +136,27 @@ const readerRoute = createRoute({
 const toolboxRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: PATH.toolbox,
+  beforeLoad: () => {
+    throw redirect({ to: PATH.toolboxVideo });
+  }
+});
+
+const toolboxFileRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: PATH.toolboxFile,
   component: ToolboxPage
+});
+
+const toolboxImageRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: PATH.toolboxImage,
+  component: ImageToolboxPage
+});
+
+const toolboxVideoRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: PATH.toolboxVideo,
+  component: VideoToolboxPage
 });
 
 const reviewRoute = createRoute({
@@ -165,6 +187,9 @@ const routeTree = rootRoute.addChildren([
   libraryRoute,
   readerRoute,
   toolboxRoute,
+  toolboxFileRoute,
+  toolboxImageRoute,
+  toolboxVideoRoute,
   reviewRoute,
   yearRoute,
   settingsRoute

@@ -4,10 +4,12 @@ import {
   ClockCounterClockwiseIcon,
   FlagIcon,
   GearIcon,
+  ImageIcon,
   ListChecksIcon,
+  LockKeyIcon,
   NotebookIcon,
   SunIcon,
-  ToolboxIcon
+  VideoCameraIcon
 } from '@phosphor-icons/react';
 import { PATH } from './path';
 
@@ -16,7 +18,10 @@ export type Surface = 'sidebar';
 
 export type RouteTone = 'plan' | 'journal' | 'growth' | 'library' | 'toolbox';
 
-export type RouteGroup = '记录' | '整理' | '系统';
+export type RouteGroup = '记录' | '工具箱' | '系统';
+
+/** 桌面侧栏里默认收进「更多」 */
+export type RouteFold = 'more';
 
 export type NavPath =
   | typeof PATH.today
@@ -24,7 +29,9 @@ export type NavPath =
   | typeof PATH.journal
   | typeof PATH.growth
   | typeof PATH.library
-  | typeof PATH.toolbox
+  | typeof PATH.toolboxFile
+  | typeof PATH.toolboxImage
+  | typeof PATH.toolboxVideo
   | typeof PATH.review
   | typeof PATH.settings;
 
@@ -36,6 +43,7 @@ export type RouteItem = {
   surfaces: Surface[];
   icon: Icon;
   tone?: RouteTone;
+  fold?: RouteFold;
 };
 
 export const routeItems: RouteItem[] = [
@@ -56,7 +64,8 @@ export const routeItems: RouteItem[] = [
     group: '记录',
     surfaces: ['sidebar'],
     icon: NotebookIcon,
-    tone: 'journal'
+    tone: 'journal',
+    fold: 'more'
   },
   {
     id: 'growth',
@@ -65,7 +74,8 @@ export const routeItems: RouteItem[] = [
     group: '记录',
     surfaces: ['sidebar'],
     icon: FlagIcon,
-    tone: 'growth'
+    tone: 'growth',
+    fold: 'more'
   },
   {
     id: 'library',
@@ -77,28 +87,47 @@ export const routeItems: RouteItem[] = [
     tone: 'library'
   },
   {
-    id: 'toolbox',
-    label: '工具箱',
-    to: PATH.toolbox,
-    group: '整理',
-    surfaces: ['sidebar'],
-    icon: ToolboxIcon,
-    tone: 'toolbox'
-  },
-  {
     id: 'review',
     label: '回顾',
     to: PATH.review,
-    group: '整理',
+    group: '记录',
     surfaces: ['sidebar'],
-    icon: ClockCounterClockwiseIcon
+    icon: ClockCounterClockwiseIcon,
+    fold: 'more'
+  },
+  {
+    id: 'toolbox-file',
+    label: '文件加密',
+    to: PATH.toolboxFile,
+    group: '工具箱',
+    surfaces: ['sidebar'],
+    icon: LockKeyIcon,
+    tone: 'toolbox'
+  },
+  {
+    id: 'toolbox-image',
+    label: '图片转码',
+    to: PATH.toolboxImage,
+    group: '工具箱',
+    surfaces: ['sidebar'],
+    icon: ImageIcon,
+    tone: 'toolbox'
+  },
+  {
+    id: 'toolbox-video',
+    label: '视频处理',
+    to: PATH.toolboxVideo,
+    group: '工具箱',
+    surfaces: ['sidebar'],
+    icon: VideoCameraIcon,
+    tone: 'toolbox'
   },
   { id: 'settings', label: '设置', to: PATH.settings, group: '系统', surfaces: ['sidebar'], icon: GearIcon }
 ];
 
 const mobileNavOrder = ['plan', 'journal', 'growth', 'library', 'settings'] as const;
 
-/** 移动端底栏，按固定顺序。今天、工具箱、回顾只出现在桌面侧栏。 */
+/** 移动端底栏，按固定顺序。今天、文件加密、图片转码、视频处理、回顾只出现在桌面侧栏。 */
 export function mobileNavItems() {
   return mobileNavOrder.flatMap((id) => {
     const item = routeItems.find((entry) => entry.id === id);
@@ -106,7 +135,7 @@ export function mobileNavItems() {
   });
 }
 
-export const sidebarGroups: RouteGroup[] = ['记录', '整理', '系统'];
+export const sidebarGroups: RouteGroup[] = ['记录', '工具箱', '系统'];
 
 export function itemsOn(surface: Surface) {
   return routeItems.filter((item) => item.surfaces.includes(surface));
