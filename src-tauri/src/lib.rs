@@ -211,16 +211,10 @@ pub fn run() {
       let _ = window.hide();
     }
 
-    // 系统会在缩放后把红绿灯放回默认位置，重新对准标题栏中线。
-    // 全屏时按钮由系统收进屏幕顶栏，这里不要改。
+    // 缩放时系统会把回弹开关复位，再关掉。红绿灯在标题栏 layout 末尾对齐，这里再改会和系统位置来回抢。
     #[cfg(target_os = "macos")]
     if let tauri::WindowEvent::Resized(_) = event {
-      // 缩放时系统会把回弹开关复位，再关掉。
       disable_main_elastic_overscroll(window);
-      if window.is_fullscreen().ok() == Some(true) {
-        return;
-      }
-      align_main_traffic_lights(window);
     }
   });
 
@@ -233,27 +227,180 @@ pub fn run() {
   });
 }
 
-/// 标题栏高度，和前端 `.title-bar` 的 `2.75rem` 一致（根字号 16px 时为 44px）。红绿灯中线和标题中线对齐。
+/// 标题栏高度，和前端 `.title-bar` 的 `2.25rem` 一致（根字号 16px 时为 36px）。红绿灯中线和标题中线对齐。
 #[cfg(target_os = "macos")]
 const TITLEBAR_HEIGHT: f64 = 36.0;
 
 #[cfg(target_os = "macos")]
-fn align_main_traffic_lights(window: &tauri::Window) {
-  let Some(webview) = window.get_webview_window(window.label()) else {
-    return;
-  };
-  let _ = webview.with_webview(|webview| unsafe {
-    let ns_window: &objc2_app_kit::NSWindow = &*webview.ns_window().cast();
-    align_traffic_lights(ns_window);
+static TRAFFIC_MAIN_WINDOW: std::sync::atomic::AtomicPtr<std::ffi::c_void> =
+  std::sync::atomic::AtomicPtr::new(std::ptr::null_mut());
+
+#[cfg(target_os = "macos")]
+static TRAFFIC_LAYOUT_IMP: std::sync::atomic::AtomicPtr<std::ffi::c_void> =
+  std::sync::atomic::AtomicPtr::new(std::ptr::null_mut());
+
+/// 把关闭、最小化、全屏按钮的中线放到标题栏中线。只改纵向位置。
+#[cfg(target_os = "macos")]
+fn align_traffic_lights(window: &objc2_app_kit::NSWindow) {
+  install_traffic_light_hook(window);
+  position_traffic_lights(window);
+}
+
+/// 系统在主题框的 `layout` 里把按钮放回默认高度。挂到这次布局末尾再改，绘制前就已经在中线上。
+#[cfg(target_os = "macos")]
+fn install_traffic_light_hook(window: &objc2_app_kit::NSWindow) {
+  use std::sync::Once;
+
+  static ONCE: Once = Once::new();
+  ONCE.call_once(|| {
+    let Some(host) = theme_frame_host(window) else {
+      tauri_plugin_log::log::warn!("traffic light hook skipped, theme frame missing");
+      return;
+    };
+    let Some(host_window) = host.window() else {
+      return;
+    };
+    let ptr = objc2::rc::Retained::as_ptr(&host_window).cast::<std::ffi::c_void>().cast_mut();
+    TRAFFIC_MAIN_WINDOW.store(ptr, std::sync::atomic::Ordering::Release);
+
+    let class = host.class();
+    if !hookable_theme_class(class) {
+      tauri_plugin_log::log::warn!("traffic light hook skipped, class {}", class.name().to_string_lossy());
+      return;
+    }
+    let imp = unsafe {
+      std::mem::transmute::<
+        unsafe extern "C-unwind" fn(*mut objc2::runtime::AnyObject, objc2::runtime::Sel),
+        objc2::runtime::Imp,
+      >(traffic_light_layout)
+    };
+    if !hook_theme_method(class, objc2::sel!(layout), imp, &TRAFFIC_LAYOUT_IMP) {
+      tauri_plugin_log::log::warn!("traffic light hook failed, class {}", class.name().to_string_lossy());
+    }
   });
 }
 
-/// 把关闭、最小化、缩放按钮的中线放到标题栏中线。只改纵向位置。
 #[cfg(target_os = "macos")]
-fn align_traffic_lights(window: &objc2_app_kit::NSWindow) {
-  use objc2_app_kit::NSWindowButton;
+fn theme_frame_host(window: &objc2_app_kit::NSWindow) -> Option<objc2::rc::Retained<objc2_app_kit::NSView>> {
+  let content = window.contentView()?;
+  let mut host = unsafe { content.superview() }?;
+  while let Some(parent) = unsafe { host.superview() } {
+    if !hookable_theme_class(parent.class()) {
+      break;
+    }
+    host = parent;
+  }
+  if !hookable_theme_class(host.class()) {
+    return None;
+  }
+  Some(host)
+}
+
+#[cfg(target_os = "macos")]
+fn hookable_theme_class(class: &objc2::runtime::AnyClass) -> bool {
+  let name = class.name();
+  name != c"NSView" && name != c"NSResponder" && name != c"NSObject"
+}
+
+#[cfg(target_os = "macos")]
+fn hook_theme_method(
+  class: &objc2::runtime::AnyClass,
+  sel: objc2::runtime::Sel,
+  new_imp: objc2::runtime::Imp,
+  slot: &std::sync::atomic::AtomicPtr<std::ffi::c_void>,
+) -> bool {
+  use std::sync::atomic::Ordering;
+
+  use objc2::ffi::{
+    class_addMethod, class_getInstanceMethod, method_getImplementation, method_getTypeEncoding,
+    method_setImplementation,
+  };
+
+  let class_ptr = std::ptr::from_ref(class);
+  let method = unsafe { class_getInstanceMethod(class_ptr, sel) };
+  if method.is_null() {
+    return false;
+  }
+
+  let inherited = class.superclass().is_some_and(|superclass| {
+    let super_method = unsafe { class_getInstanceMethod(std::ptr::from_ref(superclass), sel) };
+    super_method == method
+  });
+
+  if inherited {
+    let Some(original) = (unsafe { method_getImplementation(method) }) else {
+      return false;
+    };
+    let encoding = unsafe { method_getTypeEncoding(method) };
+    if encoding.is_null() {
+      return false;
+    }
+    slot.store(unsafe { std::mem::transmute(original) }, Ordering::Release);
+    let added = unsafe { class_addMethod(class_ptr.cast_mut(), sel, new_imp, encoding) };
+    if !added.as_bool() {
+      slot.store(std::ptr::null_mut(), Ordering::Release);
+      return false;
+    }
+    return true;
+  }
+
+  let Some(original) = (unsafe { method_setImplementation(method, new_imp) }) else {
+    return false;
+  };
+  slot.store(unsafe { std::mem::transmute(original) }, Ordering::Release);
+  true
+}
+
+#[cfg(target_os = "macos")]
+unsafe extern "C-unwind" fn traffic_light_layout(this: *mut objc2::runtime::AnyObject, cmd: objc2::runtime::Sel) {
+  if TRAFFIC_ALIGNING.with(|flag| flag.get()) {
+    return;
+  }
+  let original = TRAFFIC_LAYOUT_IMP.load(std::sync::atomic::Ordering::Acquire);
+  if !original.is_null() {
+    let original: unsafe extern "C-unwind" fn(*mut objc2::runtime::AnyObject, objc2::runtime::Sel) =
+      unsafe { std::mem::transmute(original) };
+    unsafe { original(this, cmd) };
+  }
+  if this.is_null() || TRAFFIC_ALIGNING.with(|flag| flag.replace(true)) {
+    return;
+  }
+  let _guard = ClearTrafficAligning;
+  let view: &objc2_app_kit::NSView = unsafe { &*this.cast() };
+  let Some(window) = view.window() else {
+    return;
+  };
+  let current = objc2::rc::Retained::as_ptr(&window).cast::<std::ffi::c_void>();
+  if current == TRAFFIC_MAIN_WINDOW.load(std::sync::atomic::Ordering::Acquire).cast_const() {
+    position_traffic_lights(&window);
+  }
+}
+
+#[cfg(target_os = "macos")]
+thread_local! {
+  static TRAFFIC_ALIGNING: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+#[cfg(target_os = "macos")]
+struct ClearTrafficAligning;
+
+#[cfg(target_os = "macos")]
+impl Drop for ClearTrafficAligning {
+  fn drop(&mut self) {
+    TRAFFIC_ALIGNING.with(|flag| flag.set(false));
+  }
+}
+
+/// 关掉隐式动画再改原点。缩放事务里直接 `setFrameOrigin` 会把高度差做成上下滑动。
+#[cfg(target_os = "macos")]
+fn position_traffic_lights(window: &objc2_app_kit::NSWindow) {
+  use objc2::runtime::{AnyClass, Bool};
+  use objc2_app_kit::{NSWindowButton, NSWindowStyleMask};
   use objc2_foundation::NSPoint;
 
+  if window.styleMask().contains(NSWindowStyleMask::FullScreen) {
+    return;
+  }
   let Some(content) = window.contentView() else {
     return;
   };
@@ -269,11 +416,32 @@ fn align_traffic_lights(window: &objc2_app_kit::NSWindow) {
   let center = content.convertPoint_toView(NSPoint::new(0.0, center_y), Some(&*button_super));
   let origin_y = center.y - button_height / 2.0;
 
+  let Some(transaction) = AnyClass::get(c"CATransaction") else {
+    place_traffic_lights(window, origin_y);
+    return;
+  };
+  unsafe {
+    let _: () = objc2::msg_send![transaction, begin];
+    let _: () = objc2::msg_send![transaction, setDisableActions: Bool::YES];
+  }
+  place_traffic_lights(window, origin_y);
+  unsafe {
+    let _: () = objc2::msg_send![transaction, commit];
+  }
+}
+
+#[cfg(target_os = "macos")]
+fn place_traffic_lights(window: &objc2_app_kit::NSWindow, origin_y: f64) {
+  use objc2_app_kit::NSWindowButton;
+
   for kind in [NSWindowButton::CloseButton, NSWindowButton::MiniaturizeButton, NSWindowButton::ZoomButton] {
     let Some(button) = window.standardWindowButton(kind) else {
       continue;
     };
     let mut origin = button.frame().origin;
+    if (origin.y - origin_y).abs() < 0.5 {
+      continue;
+    }
     origin.y = origin_y;
     button.setFrameOrigin(origin);
   }
