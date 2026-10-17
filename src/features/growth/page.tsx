@@ -8,6 +8,7 @@ import { RowButton } from '@/components/button/row';
 import { SegmentButton } from '@/components/button/segment';
 import { MemberPanel } from '@/components/member-panel';
 import styles from '@/components/record.module.css';
+import { Scroll } from '@/components/scroll';
 import { usePageSearch } from '@/hooks/search';
 import { growthListQuery } from '@/query/growth/query';
 import { useMembers } from '@/query/member/use-members';
@@ -72,53 +73,57 @@ export function GrowthPage() {
           记一笔
         </Button>
       </header>
-      <MemberPanel
-        members={members}
-        listError={membersState.error ? errorMessage(membersState.error) : ''}
-        isPending={membersState.isPending}
-        selectedId={selected}
-        onSelect={setMemberId}
-        onSave={membersState.save}
-        onDelete={membersState.remove}
-      />
-      {member ? (
-        <p className={styles.note}>
-          {member.relation ? `${member.relation} · ` : ''}
-          {member.birthday != null ? `现在 ${ageLabel(member.birthday)}` : '还没有生日，年龄不会自动算'}
-        </p>
-      ) : null}
-      {listQuery.error ? <p className={styles.error}>{errorMessage(listQuery.error)}</p> : null}
-      {editing !== null && selected ? (
-        <div className={styles.card}>
-          <h2 className={styles.cardTitle}>{editing === 'new' ? '记下成长' : '编辑成长'}</h2>
-          <GrowthForm
-            key={editing === 'new' ? 'new' : editing.id}
-            memberId={selected}
-            entry={editing === 'new' ? null : editing}
-            kind={kind === 'all' ? 'milestone' : kind}
-            onClose={() => setEditing(null)}
+      <Scroll className={styles.scroll}>
+        <div className={styles.body}>
+          <MemberPanel
+            members={members}
+            listError={membersState.error ? errorMessage(membersState.error) : ''}
+            isPending={membersState.isPending}
+            selectedId={selected}
+            onSelect={setMemberId}
+            onSave={membersState.save}
+            onDelete={membersState.remove}
           />
+          {member ? (
+            <p className={styles.note}>
+              {member.relation ? `${member.relation} · ` : ''}
+              {member.birthday != null ? `现在 ${ageLabel(member.birthday)}` : '还没有生日，年龄不会自动算'}
+            </p>
+          ) : null}
+          {listQuery.error ? <p className={styles.error}>{errorMessage(listQuery.error)}</p> : null}
+          {editing !== null && selected ? (
+            <div className={styles.card}>
+              <h2 className={styles.cardTitle}>{editing === 'new' ? '记下成长' : '编辑成长'}</h2>
+              <GrowthForm
+                key={editing === 'new' ? 'new' : editing.id}
+                memberId={selected}
+                entry={editing === 'new' ? null : editing}
+                kind={kind === 'all' ? 'milestone' : kind}
+                onClose={() => setEditing(null)}
+              />
+            </div>
+          ) : null}
+          <div className={styles.card}>
+            {selected == null ? <p className={styles.empty}>先添加一位成员，再记里程碑和瞬间。</p> : null}
+            {selected != null && listQuery.isPending ? <p className={styles.note}>正在读取…</p> : null}
+            {selected != null && !listQuery.isPending && entries.length === 0 ? (
+              <p className={styles.empty}>{query.trim() ? '没有匹配的记录。' : '这条轨迹还是空的。'}</p>
+            ) : null}
+            {entries.map((entry) => (
+              <RowButton key={entry.id} onClick={() => setEditing(entry)}>
+                <span className={styles.rowTitle}>
+                  {entry.kind === 'milestone' ? '里程碑' : '瞬间'} · {entry.title}
+                </span>
+                <span className={styles.meta}>
+                  {entry.highlight ? '高光 · ' : ''}
+                  {member?.birthday != null ? `${ageLabel(member.birthday, entry.occurredAt)} · ` : ''}
+                  {formatMonthDay(entry.occurredAt)}
+                </span>
+              </RowButton>
+            ))}
+          </div>
         </div>
-      ) : null}
-      <div className={styles.card}>
-        {selected == null ? <p className={styles.empty}>先添加一位成员，再记里程碑和瞬间。</p> : null}
-        {selected != null && listQuery.isPending ? <p className={styles.note}>正在读取…</p> : null}
-        {selected != null && !listQuery.isPending && entries.length === 0 ? (
-          <p className={styles.empty}>{query.trim() ? '没有匹配的记录。' : '这条轨迹还是空的。'}</p>
-        ) : null}
-        {entries.map((entry) => (
-          <RowButton key={entry.id} onClick={() => setEditing(entry)}>
-            <span className={styles.rowTitle}>
-              {entry.kind === 'milestone' ? '里程碑' : '瞬间'} · {entry.title}
-            </span>
-            <span className={styles.meta}>
-              {entry.highlight ? '高光 · ' : ''}
-              {member?.birthday != null ? `${ageLabel(member.birthday, entry.occurredAt)} · ` : ''}
-              {formatMonthDay(entry.occurredAt)}
-            </span>
-          </RowButton>
-        ))}
-      </div>
+      </Scroll>
     </section>
   );
 }

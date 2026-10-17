@@ -24,6 +24,7 @@ import { RowButton } from '@/components/button/row';
 import { CompleteDialog } from '@/components/complete-dialog';
 import { PlanCheck } from '@/components/plan-check';
 import { Progress } from '@/components/progress';
+import { Scroll } from '@/components/scroll';
 import { usePageSearch } from '@/hooks/search';
 import { calendarCaption, calendarRangeQuery } from '@/query/calendar/query';
 import { useCompletePlan } from '@/query/plan/complete';
@@ -89,105 +90,108 @@ export function TodayPage() {
           {caption ? ` · ${caption}` : ''}
         </p>
       </header>
+      <Scroll className={styles.scroll}>
+        <div className={styles.body}>
+          <div className={styles.capture}>
+            <PencilSimpleIcon className={styles.statIcon} weight="regular" />
+            <span className={styles.prompt}>记点什么…文字、里程碑、书摘、计划，都从这里进</span>
+            <ChipButton
+              tone="journal"
+              onClick={() => void navigate({ to: PATH.journal, search: { create: true, kind: 'diary' } })}
+            >
+              <PencilSimpleIcon weight="regular" />
+              文字
+            </ChipButton>
+            <ChipButton
+              tone="growth"
+              onClick={() => void navigate({ to: PATH.growth, search: { create: true, kind: 'milestone' } })}
+            >
+              <FlagIcon weight="regular" />
+              里程碑
+            </ChipButton>
+            <ChipButton tone="library" onClick={() => void navigate({ to: PATH.library })}>
+              <QuotesIcon weight="regular" />
+              书摘
+            </ChipButton>
+            <ChipButton tone="plan" onClick={() => void navigate({ to: PATH.plan, search: { create: true } })}>
+              <ListChecksIcon weight="regular" />
+              计划
+            </ChipButton>
+          </div>
 
-      <div className={styles.capture}>
-        <PencilSimpleIcon className={styles.statIcon} weight="regular" />
-        <span className={styles.prompt}>记点什么…文字、里程碑、书摘、计划，都从这里进</span>
-        <ChipButton
-          tone="journal"
-          onClick={() => void navigate({ to: PATH.journal, search: { create: true, kind: 'diary' } })}
-        >
-          <PencilSimpleIcon weight="regular" />
-          文字
-        </ChipButton>
-        <ChipButton
-          tone="growth"
-          onClick={() => void navigate({ to: PATH.growth, search: { create: true, kind: 'milestone' } })}
-        >
-          <FlagIcon weight="regular" />
-          里程碑
-        </ChipButton>
-        <ChipButton tone="library" onClick={() => void navigate({ to: PATH.library })}>
-          <QuotesIcon weight="regular" />
-          书摘
-        </ChipButton>
-        <ChipButton tone="plan" onClick={() => void navigate({ to: PATH.plan, search: { create: true } })}>
-          <ListChecksIcon weight="regular" />
-          计划
-        </ChipButton>
-      </div>
+          {error ? <p className={styles.error}>{errorMessage(error)}</p> : null}
 
-      {error ? <p className={styles.error}>{errorMessage(error)}</p> : null}
+          <div className={styles.stats}>
+            <article className={styles.stat}>
+              <ListChecksIcon className={styles.statIcon} weight="regular" />
+              <span className={styles.statValue}>
+                {completion.done}
+                <small> / {completion.total}</small>
+              </span>
+              <span className={styles.statLabel}>今日计划完成</span>
+              <Progress value={completionRate} label="今日计划完成" />
+            </article>
+            <article className={styles.stat}>
+              <NotebookIcon className={styles.statIcon} weight="regular" />
+              <span className={styles.statValue}>
+                {feed.length} <small>条</small>
+              </span>
+              <span className={styles.statLabel}>今天记录{recordSummary(feed) ? ` · ${recordSummary(feed)}` : ''}</span>
+            </article>
+            <article className={styles.stat}>
+              <FireIcon className={styles.statIcon} weight="regular" />
+              <span className={styles.statValue}>
+                {streakCount(streakQuery.data ?? [], todayStart)} <small>天</small>
+              </span>
+              <span className={styles.statLabel}>连续记录</span>
+            </article>
+            <article className={styles.stat}>
+              <HourglassIcon className={styles.statIcon} weight="regular" />
+              <span className={styles.statValue}>
+                {running} <small>运行中</small>
+              </span>
+              <span className={styles.statLabel}>后台处理</span>
+            </article>
+          </div>
 
-      <div className={styles.stats}>
-        <article className={styles.stat}>
-          <ListChecksIcon className={styles.statIcon} weight="regular" />
-          <span className={styles.statValue}>
-            {completion.done}
-            <small> / {completion.total}</small>
-          </span>
-          <span className={styles.statLabel}>今日计划完成</span>
-          <Progress value={completionRate} label="今日计划完成" />
-        </article>
-        <article className={styles.stat}>
-          <NotebookIcon className={styles.statIcon} weight="regular" />
-          <span className={styles.statValue}>
-            {feed.length} <small>条</small>
-          </span>
-          <span className={styles.statLabel}>今天记录{recordSummary(feed) ? ` · ${recordSummary(feed)}` : ''}</span>
-        </article>
-        <article className={styles.stat}>
-          <FireIcon className={styles.statIcon} weight="regular" />
-          <span className={styles.statValue}>
-            {streakCount(streakQuery.data ?? [], todayStart)} <small>天</small>
-          </span>
-          <span className={styles.statLabel}>连续记录</span>
-        </article>
-        <article className={styles.stat}>
-          <HourglassIcon className={styles.statIcon} weight="regular" />
-          <span className={styles.statValue}>
-            {running} <small>运行中</small>
-          </span>
-          <span className={styles.statLabel}>后台处理</span>
-        </article>
-      </div>
-
-      <div className={styles.split}>
-        <article className={styles.card}>
-          <h2 className={styles.cardTitle}>
-            <ClockCounterClockwiseIcon className={styles.icon} weight="regular" />
-            今日动态
-            <span className={styles.extra}>按时间混排</span>
-          </h2>
-          {feedQuery.isPending ? <p className={styles.note}>正在读取…</p> : null}
-          {!feedQuery.isPending && visibleFeed.length === 0 ? (
-            <p className={styles.empty}>{query.trim() ? '没有匹配的记录。' : '今天还没有新的记录。'}</p>
-          ) : null}
-          {visibleFeed.map((item) => (
-            <FeedRow key={`${item.kind}-${item.id}`} item={item} />
-          ))}
-        </article>
-        <article className={styles.card}>
-          <h2 className={styles.cardTitle}>
-            <CalendarBlankIcon className={styles.icon} weight="regular" />
-            今日计划
-            {overdue > 0 ? <span className={styles.extra}>{overdue} 项逾期</span> : null}
-          </h2>
-          {plansQuery.isPending ? <p className={styles.note}>正在读取…</p> : null}
-          {!plansQuery.isPending && visiblePanel.length === 0 ? (
-            <p className={styles.empty}>{query.trim() ? '没有匹配的计划。' : '今天还没有计划。'}</p>
-          ) : null}
-          {visiblePanel.map((plan) => (
-            <PlanCheck
-              key={plan.id}
-              plan={plan}
-              meta={planMeta(plan, todayStart)}
-              onComplete={setCompleting}
-              onOpen={(item) => void navigate({ to: PATH.plan, search: { id: item.id } })}
-            />
-          ))}
-        </article>
-      </div>
+          <div className={styles.split}>
+            <article className={styles.card}>
+              <h2 className={styles.cardTitle}>
+                <ClockCounterClockwiseIcon className={styles.icon} weight="regular" />
+                今日动态
+                <span className={styles.extra}>按时间混排</span>
+              </h2>
+              {feedQuery.isPending ? <p className={styles.note}>正在读取…</p> : null}
+              {!feedQuery.isPending && visibleFeed.length === 0 ? (
+                <p className={styles.empty}>{query.trim() ? '没有匹配的记录。' : '今天还没有新的记录。'}</p>
+              ) : null}
+              {visibleFeed.map((item) => (
+                <FeedRow key={`${item.kind}-${item.id}`} item={item} />
+              ))}
+            </article>
+            <article className={styles.card}>
+              <h2 className={styles.cardTitle}>
+                <CalendarBlankIcon className={styles.icon} weight="regular" />
+                今日计划
+                {overdue > 0 ? <span className={styles.extra}>{overdue} 项逾期</span> : null}
+              </h2>
+              {plansQuery.isPending ? <p className={styles.note}>正在读取…</p> : null}
+              {!plansQuery.isPending && visiblePanel.length === 0 ? (
+                <p className={styles.empty}>{query.trim() ? '没有匹配的计划。' : '今天还没有计划。'}</p>
+              ) : null}
+              {visiblePanel.map((plan) => (
+                <PlanCheck
+                  key={plan.id}
+                  plan={plan}
+                  meta={planMeta(plan, todayStart)}
+                  onComplete={setCompleting}
+                  onOpen={(item) => void navigate({ to: PATH.plan, search: { id: item.id } })}
+                />
+              ))}
+            </article>
+          </div>
+        </div>
+      </Scroll>
       <CompleteDialog
         plan={completing}
         pending={complete.pending}

@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { Button } from '@/components/button';
 import styles from '@/components/record.module.css';
+import { Scroll } from '@/components/scroll';
 import { journalEntryQuery } from '@/query/journal/query';
 import { PATH } from '@/router/path';
 import { errorMessage } from '@/utils/error';
@@ -40,17 +41,21 @@ export function JournalEntryPage() {
           返回列表
         </Button>
       </header>
-      <JournalEditor
-        key={entryQuery.data.updatedAt}
-        className={styles.card}
-        entry={entryQuery.data}
-        kind={entryQuery.data.kind}
-        onSaved={() => undefined}
-        onDeleted={() => void navigate({ to: PATH.journal })}
-      />
-      <Promote entry={entryQuery.data} />
-      {entryQuery.data.kind === 'diary' ? <Seal entry={entryQuery.data} /> : null}
-      <Citations entryId={entryQuery.data.id} />
+      <Scroll className={styles.scroll}>
+        <div className={styles.body}>
+          <JournalEditor
+            key={entryQuery.data.updatedAt}
+            className={styles.card}
+            entry={entryQuery.data}
+            kind={entryQuery.data.kind}
+            onSaved={() => undefined}
+            onDeleted={() => void navigate({ to: PATH.journal })}
+          />
+          <Promote entry={entryQuery.data} />
+          {entryQuery.data.kind === 'diary' ? <Seal entry={entryQuery.data} /> : null}
+          <Citations entryId={entryQuery.data.id} />
+        </div>
+      </Scroll>
     </section>
   );
 }

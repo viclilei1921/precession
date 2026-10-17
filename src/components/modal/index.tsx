@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { useEffect, useRef } from 'react';
 import { ScrimButton } from '@/components/button/scrim';
+import { Scroll } from '@/components/scroll';
 import styles from './index.module.css';
 
 type ModalProps = {
@@ -45,10 +46,12 @@ export function Modal({ title, onClose, children, wide }: ModalProps) {
         aria-label={title}
         tabIndex={-1}
       >
-        <div className={styles.panel}>
-          <h2 className={styles.title}>{title}</h2>
-          {children}
-        </div>
+        <Scroll className={styles.scroll}>
+          <div className={styles.panel}>
+            <h2 className={styles.title}>{title}</h2>
+            {children}
+          </div>
+        </Scroll>
       </div>
     </div>
   );

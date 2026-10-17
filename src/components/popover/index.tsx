@@ -2,6 +2,7 @@ import clsx from 'clsx';
 import type { MouseEvent, ReactNode } from 'react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { Scroll } from '@/components/scroll';
 import styles from './index.module.css';
 
 type VerticalOrigin = 'top' | 'center' | 'bottom';
@@ -314,7 +315,7 @@ export function Popover({
         aria-label={label}
         tabIndex={-1}
       >
-        {children}
+        <Scroll className={styles.scroll}>{children}</Scroll>
       </div>
     </div>,
     document.body

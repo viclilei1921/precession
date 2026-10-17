@@ -22,6 +22,7 @@ import { IconButton } from '@/components/button/icon';
 import { LinkButton } from '@/components/button/link';
 import { RowButton } from '@/components/button/row';
 import styles from '@/components/record.module.css';
+import { Scroll } from '@/components/scroll';
 import { usePageSearch } from '@/hooks/search';
 import { timelineListQuery } from '@/query/timeline/query';
 import { PATH } from '@/router/path';
@@ -83,32 +84,36 @@ export function ReviewPage() {
           年度之书
         </LinkButton>
       </header>
-      <div className={styles.chips}>
-        {filters.map((item) => (
-          <ChipButton key={item.kind} selected={kind === item.kind} onClick={() => setKind(item.kind)}>
-            <item.Icon weight="regular" />
-            {item.label}
-          </ChipButton>
-        ))}
-      </div>
-      {listQuery.error ? <p className={styles.error}>{errorMessage(listQuery.error)}</p> : null}
-      <div className={styles.card}>
-        {listQuery.isPending ? <p className={styles.note}>正在读取…</p> : null}
-        {!listQuery.isPending && items.length === 0 ? (
-          <p className={styles.empty}>{query.trim() ? '没有匹配的记录。' : '这个月还没有记录。'}</p>
-        ) : null}
-        {items.map((item) => (
-          <RowButton key={`${item.kind}-${item.id}`} onClick={() => openItem(navigate, item.kind, item.id)}>
-            <span className={styles.rowTitle}>
-              {kindLabel[item.kind]} · {item.title.trim() || item.body.trim() || '未命名'}
-            </span>
-            <span className={styles.meta}>
-              {item.highlight ? '高光 · ' : ''}
-              {formatMonthDay(item.occurredAt)} {formatFeedClock(item.occurredAt)}
-            </span>
-          </RowButton>
-        ))}
-      </div>
+      <Scroll className={styles.scroll}>
+        <div className={styles.body}>
+          <div className={styles.chips}>
+            {filters.map((item) => (
+              <ChipButton key={item.kind} selected={kind === item.kind} onClick={() => setKind(item.kind)}>
+                <item.Icon weight="regular" />
+                {item.label}
+              </ChipButton>
+            ))}
+          </div>
+          {listQuery.error ? <p className={styles.error}>{errorMessage(listQuery.error)}</p> : null}
+          <div className={styles.card}>
+            {listQuery.isPending ? <p className={styles.note}>正在读取…</p> : null}
+            {!listQuery.isPending && items.length === 0 ? (
+              <p className={styles.empty}>{query.trim() ? '没有匹配的记录。' : '这个月还没有记录。'}</p>
+            ) : null}
+            {items.map((item) => (
+              <RowButton key={`${item.kind}-${item.id}`} onClick={() => openItem(navigate, item.kind, item.id)}>
+                <span className={styles.rowTitle}>
+                  {kindLabel[item.kind]} · {item.title.trim() || item.body.trim() || '未命名'}
+                </span>
+                <span className={styles.meta}>
+                  {item.highlight ? '高光 · ' : ''}
+                  {formatMonthDay(item.occurredAt)} {formatFeedClock(item.occurredAt)}
+                </span>
+              </RowButton>
+            ))}
+          </div>
+        </div>
+      </Scroll>
     </section>
   );
 }

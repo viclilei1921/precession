@@ -7,6 +7,7 @@ import { Button } from '@/components/button';
 import { RowButton } from '@/components/button/row';
 import { SegmentButton } from '@/components/button/segment';
 import styles from '@/components/record.module.css';
+import { Scroll } from '@/components/scroll';
 import { usePageSearch } from '@/hooks/search';
 import { bookListQuery } from '@/query/library/query';
 import { PATH } from '@/router/path';
@@ -51,36 +52,43 @@ export function LibraryPage() {
           添加书
         </Button>
       </header>
-      {booksQuery.error ? <p className={styles.error}>{errorMessage(booksQuery.error)}</p> : null}
-      {editing !== null ? (
-        <div className={styles.card}>
-          <h2 className={styles.cardTitle}>{editing === 'new' ? '添加书' : '编辑书'}</h2>
-          <BookForm
-            key={editing === 'new' ? 'new' : editing.id}
-            book={editing === 'new' ? null : editing}
-            status={status}
-            onClose={() => setEditing(null)}
-          />
+      <Scroll className={styles.scroll}>
+        <div className={styles.body}>
+          {booksQuery.error ? <p className={styles.error}>{errorMessage(booksQuery.error)}</p> : null}
+          {editing !== null ? (
+            <div className={styles.card}>
+              <h2 className={styles.cardTitle}>{editing === 'new' ? '添加书' : '编辑书'}</h2>
+              <BookForm
+                key={editing === 'new' ? 'new' : editing.id}
+                book={editing === 'new' ? null : editing}
+                status={status}
+                onClose={() => setEditing(null)}
+              />
+            </div>
+          ) : null}
+          <div className={styles.card}>
+            {booksQuery.isPending ? <p className={styles.note}>正在读取…</p> : null}
+            {!booksQuery.isPending && books.length === 0 ? (
+              <p className={styles.empty}>{query.trim() ? '没有匹配的书。' : '这个书架还是空的。'}</p>
+            ) : null}
+            {books.map((book) => (
+              <RowButton
+                key={book.id}
+                onClick={() => void navigate({ to: PATH.bookReader, params: { bookId: book.id } })}
+              >
+                <span className={styles.rowTitle}>
+                  {book.title}
+                  {book.author ? ` · ${book.author}` : ''}
+                </span>
+                <span className={styles.meta}>
+                  {book.rating != null ? `${book.rating} 分 · ` : ''}
+                  {Math.round(book.progress * 100)}%
+                </span>
+              </RowButton>
+            ))}
+          </div>
         </div>
-      ) : null}
-      <div className={styles.card}>
-        {booksQuery.isPending ? <p className={styles.note}>正在读取…</p> : null}
-        {!booksQuery.isPending && books.length === 0 ? (
-          <p className={styles.empty}>{query.trim() ? '没有匹配的书。' : '这个书架还是空的。'}</p>
-        ) : null}
-        {books.map((book) => (
-          <RowButton key={book.id} onClick={() => void navigate({ to: PATH.bookReader, params: { bookId: book.id } })}>
-            <span className={styles.rowTitle}>
-              {book.title}
-              {book.author ? ` · ${book.author}` : ''}
-            </span>
-            <span className={styles.meta}>
-              {book.rating != null ? `${book.rating} 分 · ` : ''}
-              {Math.round(book.progress * 100)}%
-            </span>
-          </RowButton>
-        ))}
-      </div>
+      </Scroll>
     </section>
   );
 }

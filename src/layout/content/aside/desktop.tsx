@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router';
 import clsx from 'clsx';
 import { rippleHost, useRipple } from '@/components/ripple';
+import { Scroll } from '@/components/scroll';
 import type { RouteItem, RouteTone } from '@/router/items';
 import { itemsOn, sidebarGroups } from '@/router/items';
 import { useAppStore } from '@/store/app';
@@ -40,18 +41,20 @@ export function DesktopAside() {
 
   return (
     <aside className={styles.nav} data-collapsed={collapsed ? 'true' : undefined}>
-      <div className={styles.paper}>
-        {sidebarGroups.map((group) => (
-          <nav key={group} className={styles.group} aria-label={group}>
-            <div className={styles.groupLabel}>{group}</div>
-            {itemsOn('sidebar')
-              .filter((item) => item.group === group)
-              .map((item) => (
-                <AsideLink key={item.id} item={item} />
-              ))}
-          </nav>
-        ))}
-      </div>
+      <Scroll className={styles.paper}>
+        <div className={styles.stack}>
+          {sidebarGroups.map((group) => (
+            <nav key={group} className={styles.group} aria-label={group}>
+              <div className={styles.groupLabel}>{group}</div>
+              {itemsOn('sidebar')
+                .filter((item) => item.group === group)
+                .map((item) => (
+                  <AsideLink key={item.id} item={item} />
+                ))}
+            </nav>
+          ))}
+        </div>
+      </Scroll>
     </aside>
   );
 }

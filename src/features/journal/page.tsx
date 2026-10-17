@@ -7,6 +7,7 @@ import { Button } from '@/components/button';
 import { RowButton } from '@/components/button/row';
 import { SegmentButton } from '@/components/button/segment';
 import styles from '@/components/record.module.css';
+import { Scroll } from '@/components/scroll';
 import { usePageSearch } from '@/hooks/search';
 import { journalListQuery } from '@/query/journal/query';
 import { PATH } from '@/router/path';
@@ -62,40 +63,44 @@ export function JournalPage() {
           新建
         </Button>
       </header>
-      {creating ? (
-        <div className={styles.card}>
-          <h2 className={styles.cardTitle}>新建手记</h2>
-          <JournalEditor
-            entry={null}
-            kind={kind}
-            onClose={() => setCreating(false)}
-            onSaved={(entry) => {
-              setCreating(false);
-              void navigate({ to: PATH.journalEntry, params: { entryId: entry.id } });
-            }}
-          />
+      <Scroll className={styles.scroll}>
+        <div className={styles.body}>
+          {creating ? (
+            <div className={styles.card}>
+              <h2 className={styles.cardTitle}>新建手记</h2>
+              <JournalEditor
+                entry={null}
+                kind={kind}
+                onClose={() => setCreating(false)}
+                onSaved={(entry) => {
+                  setCreating(false);
+                  void navigate({ to: PATH.journalEntry, params: { entryId: entry.id } });
+                }}
+              />
+            </div>
+          ) : null}
+          {listQuery.error ? <p className={styles.error}>{errorMessage(listQuery.error)}</p> : null}
+          <div className={styles.card}>
+            {listQuery.isPending ? <p className={styles.note}>正在读取…</p> : null}
+            {!listQuery.isPending && entries.length === 0 ? (
+              <p className={styles.empty}>{query.trim() ? '没有匹配的手记。' : '这里还没有记录。'}</p>
+            ) : null}
+            {entries.map((entry) => (
+              <RowButton
+                key={entry.id}
+                onClick={() => void navigate({ to: PATH.journalEntry, params: { entryId: entry.id } })}
+              >
+                <span className={styles.rowTitle}>{entry.title}</span>
+                <span className={styles.meta}>
+                  {entry.highlight ? '高光 · ' : ''}
+                  {entry.locked ? '已锁定 · ' : ''}
+                  {formatMonthDay(entry.occurredAt)}
+                </span>
+              </RowButton>
+            ))}
+          </div>
         </div>
-      ) : null}
-      {listQuery.error ? <p className={styles.error}>{errorMessage(listQuery.error)}</p> : null}
-      <div className={styles.card}>
-        {listQuery.isPending ? <p className={styles.note}>正在读取…</p> : null}
-        {!listQuery.isPending && entries.length === 0 ? (
-          <p className={styles.empty}>{query.trim() ? '没有匹配的手记。' : '这里还没有记录。'}</p>
-        ) : null}
-        {entries.map((entry) => (
-          <RowButton
-            key={entry.id}
-            onClick={() => void navigate({ to: PATH.journalEntry, params: { entryId: entry.id } })}
-          >
-            <span className={styles.rowTitle}>{entry.title}</span>
-            <span className={styles.meta}>
-              {entry.highlight ? '高光 · ' : ''}
-              {entry.locked ? '已锁定 · ' : ''}
-              {formatMonthDay(entry.occurredAt)}
-            </span>
-          </RowButton>
-        ))}
-      </div>
+      </Scroll>
     </section>
   );
 }

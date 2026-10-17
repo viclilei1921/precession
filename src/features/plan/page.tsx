@@ -11,6 +11,7 @@ import { CompleteDialog } from '@/components/complete-dialog';
 import { DateField } from '@/components/date-field';
 import { PlanCheck } from '@/components/plan-check';
 import { Progress } from '@/components/progress';
+import { Scroll } from '@/components/scroll';
 import { usePageSearch } from '@/hooks/search';
 import { calendarCaption, calendarRangeQuery } from '@/query/calendar/query';
 import { useCompletePlan } from '@/query/plan/complete';
@@ -119,140 +120,143 @@ export function PlanPage() {
           新建计划
         </Button>
       </header>
+      <Scroll className={styles.scroll}>
+        <div className={styles.body}>
+          {plansQuery.error ? <p className={styles.error}>{errorMessage(plansQuery.error)}</p> : null}
+          {calendarQuery.error ? <p className={styles.error}>{errorMessage(calendarQuery.error)}</p> : null}
+          {schedule.error ? <p className={styles.error}>{errorMessage(schedule.error)}</p> : null}
+          {plansQuery.isPending ? <p className={styles.note}>正在读取…</p> : null}
 
-      {plansQuery.error ? <p className={styles.error}>{errorMessage(plansQuery.error)}</p> : null}
-      {calendarQuery.error ? <p className={styles.error}>{errorMessage(calendarQuery.error)}</p> : null}
-      {schedule.error ? <p className={styles.error}>{errorMessage(schedule.error)}</p> : null}
-      {plansQuery.isPending ? <p className={styles.note}>正在读取…</p> : null}
-
-      {view === 'todo' ? (
-        <div className={styles.split}>
-          <div className={styles.card}>
-            {groups.overdue.length + groups.today.length + groups.tomorrow.length + groups.later.length === 0 ? (
-              <p className={styles.empty}>
-                {query.trim() ? '没有匹配的计划。' : '没有待办。新建一条，或从收集箱排期。'}
-              </p>
-            ) : (
-              <>
-                <PlanGroup
-                  title="逾期"
-                  plans={groups.overdue}
-                  todayStart={todayStart}
-                  onComplete={setCompleting}
-                  onOpen={setEditing}
-                />
-                <PlanGroup
-                  title={`今天 · ${formatMonthDay(todayStart)}`}
-                  plans={groups.today}
-                  todayStart={todayStart}
-                  onComplete={setCompleting}
-                  onOpen={setEditing}
-                />
-                <PlanGroup
-                  title="明天"
-                  plans={groups.tomorrow}
-                  todayStart={todayStart}
-                  onComplete={setCompleting}
-                  onOpen={setEditing}
-                />
-                <PlanGroup
-                  title="以后"
-                  plans={groups.later}
-                  todayStart={todayStart}
-                  onComplete={setCompleting}
-                  onOpen={setEditing}
-                />
-              </>
-            )}
-          </div>
-          <div className={styles.stack}>
-            <div className={styles.card}>
-              <MonthBoard
-                month={month}
-                selected={selectedDay}
-                marked={marks}
-                days={calendarDays}
-                onMonth={setMonth}
-                onSelect={openDay}
-              />
-              <p className={styles.note}>有计划的日期有圆点。休息日和节日写在日期下面。</p>
+          {view === 'todo' ? (
+            <div className={styles.split}>
+              <div className={styles.card}>
+                {groups.overdue.length + groups.today.length + groups.tomorrow.length + groups.later.length === 0 ? (
+                  <p className={styles.empty}>
+                    {query.trim() ? '没有匹配的计划。' : '没有待办。新建一条，或从收集箱排期。'}
+                  </p>
+                ) : (
+                  <>
+                    <PlanGroup
+                      title="逾期"
+                      plans={groups.overdue}
+                      todayStart={todayStart}
+                      onComplete={setCompleting}
+                      onOpen={setEditing}
+                    />
+                    <PlanGroup
+                      title={`今天 · ${formatMonthDay(todayStart)}`}
+                      plans={groups.today}
+                      todayStart={todayStart}
+                      onComplete={setCompleting}
+                      onOpen={setEditing}
+                    />
+                    <PlanGroup
+                      title="明天"
+                      plans={groups.tomorrow}
+                      todayStart={todayStart}
+                      onComplete={setCompleting}
+                      onOpen={setEditing}
+                    />
+                    <PlanGroup
+                      title="以后"
+                      plans={groups.later}
+                      todayStart={todayStart}
+                      onComplete={setCompleting}
+                      onOpen={setEditing}
+                    />
+                  </>
+                )}
+              </div>
+              <div className={styles.stack}>
+                <div className={styles.card}>
+                  <MonthBoard
+                    month={month}
+                    selected={selectedDay}
+                    marked={marks}
+                    days={calendarDays}
+                    onMonth={setMonth}
+                    onSelect={openDay}
+                  />
+                  <p className={styles.note}>有计划的日期有圆点。休息日和节日写在日期下面。</p>
+                </div>
+                <div className={styles.card}>
+                  <span className={styles.statValue}>{weekRate}%</span>
+                  <span className={styles.statLabel}>
+                    本周完成率 · {week.done}/{week.total}
+                  </span>
+                  <Progress value={weekRate} label="本周完成率" />
+                </div>
+                <RowButton variant="card" onClick={() => setView('inbox')}>
+                  <span className={styles.cardTitle}>收集箱</span>
+                  <span className={styles.note}>{inbox.length} 条未排期，选一天即可排上。</span>
+                </RowButton>
+              </div>
             </div>
-            <div className={styles.card}>
-              <span className={styles.statValue}>{weekRate}%</span>
-              <span className={styles.statLabel}>
-                本周完成率 · {week.done}/{week.total}
-              </span>
-              <Progress value={weekRate} label="本周完成率" />
-            </div>
-            <RowButton variant="card" onClick={() => setView('inbox')}>
-              <span className={styles.cardTitle}>收集箱</span>
-              <span className={styles.note}>{inbox.length} 条未排期，选一天即可排上。</span>
-            </RowButton>
-          </div>
-        </div>
-      ) : null}
-
-      {view === 'inbox' ? (
-        <div className={styles.card}>
-          {inbox.length === 0 ? (
-            <p className={styles.empty}>
-              {query.trim() ? '没有匹配的计划。' : '收集箱是空的。先随手记下，之后再排期。'}
-            </p>
           ) : null}
-          {inbox.map((plan) => (
-            <div key={plan.id} className={styles.inboxRow}>
-              <RowButton variant="title" onClick={() => setEditing(plan)}>
-                {plan.title}
-              </RowButton>
-              <DateField
-                label="安排到"
-                value=""
-                disabled={schedule.isPending}
-                onChange={(value) => {
-                  const day = fromDateInputValue(value);
-                  if (day != null) {
-                    schedule.mutate({ plan, day });
-                  }
-                }}
-              />
-            </div>
-          ))}
-        </div>
-      ) : null}
 
-      {view === 'calendar' ? (
-        <div className={styles.split}>
-          <div className={styles.card}>
-            <MonthBoard
-              month={month}
-              selected={selectedDay}
-              marked={marks}
-              days={calendarDays}
-              onMonth={setMonth}
-              onSelect={(time) => {
-                setSelectedDay(startOfLocalDay(time));
-                setMonth(startOfLocalMonth(time));
-              }}
-            />
-          </div>
-          <div className={styles.card}>
-            <h2 className={styles.cardTitle}>{formatMonthDay(selectedDay)}</h2>
-            {selectedCaption ? <p className={styles.note}>{selectedCaption}</p> : null}
-            {dayPlans.length === 0 ? (
-              <p className={styles.empty}>{query.trim() ? '没有匹配的计划。' : '这一天没有计划。'}</p>
-            ) : null}
-            {dayPlans.map((plan) => (
-              <PlanCheck
-                key={plan.id}
-                plan={plan}
-                meta={planMeta(plan, todayStart)}
-                onComplete={setCompleting}
-                onOpen={setEditing}
-              />
-            ))}
-          </div>
+          {view === 'inbox' ? (
+            <div className={styles.card}>
+              {inbox.length === 0 ? (
+                <p className={styles.empty}>
+                  {query.trim() ? '没有匹配的计划。' : '收集箱是空的。先随手记下，之后再排期。'}
+                </p>
+              ) : null}
+              {inbox.map((plan) => (
+                <div key={plan.id} className={styles.inboxRow}>
+                  <RowButton variant="title" onClick={() => setEditing(plan)}>
+                    {plan.title}
+                  </RowButton>
+                  <DateField
+                    label="安排到"
+                    value=""
+                    disabled={schedule.isPending}
+                    onChange={(value) => {
+                      const day = fromDateInputValue(value);
+                      if (day != null) {
+                        schedule.mutate({ plan, day });
+                      }
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          {view === 'calendar' ? (
+            <div className={styles.split}>
+              <div className={styles.card}>
+                <MonthBoard
+                  month={month}
+                  selected={selectedDay}
+                  marked={marks}
+                  days={calendarDays}
+                  onMonth={setMonth}
+                  onSelect={(time) => {
+                    setSelectedDay(startOfLocalDay(time));
+                    setMonth(startOfLocalMonth(time));
+                  }}
+                />
+              </div>
+              <div className={styles.card}>
+                <h2 className={styles.cardTitle}>{formatMonthDay(selectedDay)}</h2>
+                {selectedCaption ? <p className={styles.note}>{selectedCaption}</p> : null}
+                {dayPlans.length === 0 ? (
+                  <p className={styles.empty}>{query.trim() ? '没有匹配的计划。' : '这一天没有计划。'}</p>
+                ) : null}
+                {dayPlans.map((plan) => (
+                  <PlanCheck
+                    key={plan.id}
+                    plan={plan}
+                    meta={planMeta(plan, todayStart)}
+                    onComplete={setCompleting}
+                    onOpen={setEditing}
+                  />
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
-      ) : null}
+      </Scroll>
 
       {editing !== null ? (
         <PlanForm key={editing === 'new' ? 'new' : editing.id} plan={editingPlan} onClose={() => setEditing(null)} />

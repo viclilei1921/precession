@@ -5,6 +5,7 @@ import type { TimelineKind } from '@/bridge/timeline';
 import { IconButton } from '@/components/button/icon';
 import { LinkButton } from '@/components/button/link';
 import styles from '@/components/record.module.css';
+import { Scroll } from '@/components/scroll';
 import { bookListQuery } from '@/query/library/query';
 import { timelineListQuery } from '@/query/timeline/query';
 import { PATH } from '@/router/path';
@@ -56,45 +57,49 @@ export function YearPage() {
           返回回顾
         </LinkButton>
       </header>
-      {timelineQuery.error ? <p className={styles.error}>{errorMessage(timelineQuery.error)}</p> : null}
-      <div className={styles.card}>
-        <h2 className={styles.cardTitle}>这一年</h2>
-        {items.length === 0 ? <p className={styles.empty}>还没有可以汇总的记录。</p> : null}
-        <div className={styles.chips}>
-          {(Object.keys(kindLabel) as TimelineKind[])
-            .filter((kind) => counts.get(kind))
-            .map((kind) => (
-              <span key={kind} className={styles.chip} data-on="true">
-                {kindLabel[kind]} {counts.get(kind)}
-              </span>
+      <Scroll className={styles.scroll}>
+        <div className={styles.body}>
+          {timelineQuery.error ? <p className={styles.error}>{errorMessage(timelineQuery.error)}</p> : null}
+          <div className={styles.card}>
+            <h2 className={styles.cardTitle}>这一年</h2>
+            {items.length === 0 ? <p className={styles.empty}>还没有可以汇总的记录。</p> : null}
+            <div className={styles.chips}>
+              {(Object.keys(kindLabel) as TimelineKind[])
+                .filter((kind) => counts.get(kind))
+                .map((kind) => (
+                  <span key={kind} className={styles.chip} data-on="true">
+                    {kindLabel[kind]} {counts.get(kind)}
+                  </span>
+                ))}
+            </div>
+          </div>
+          <div className={styles.card}>
+            <h2 className={styles.cardTitle}>高光</h2>
+            {highlights.length === 0 ? <p className={styles.empty}>还没有标成高光的记录。</p> : null}
+            {highlights.map((item) => (
+              <div key={`${item.kind}-${item.id}`} className={styles.row}>
+                <span className={styles.rowTitle}>
+                  {kindLabel[item.kind]} · {item.title.trim() || item.body.trim() || '未命名'}
+                </span>
+                <span className={styles.meta}>{formatMonthDay(item.occurredAt)}</span>
+              </div>
             ))}
+          </div>
+          <div className={styles.card}>
+            <h2 className={styles.cardTitle}>年度书单</h2>
+            {finished.length === 0 ? <p className={styles.empty}>今年还没有标记读完的书。</p> : null}
+            {finished.map((book) => (
+              <div key={book.id} className={styles.row}>
+                <span className={styles.rowTitle}>
+                  {book.title}
+                  {book.author ? ` · ${book.author}` : ''}
+                </span>
+                <span className={styles.meta}>{book.finishedAt != null ? formatMonthDay(book.finishedAt) : ''}</span>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
-      <div className={styles.card}>
-        <h2 className={styles.cardTitle}>高光</h2>
-        {highlights.length === 0 ? <p className={styles.empty}>还没有标成高光的记录。</p> : null}
-        {highlights.map((item) => (
-          <div key={`${item.kind}-${item.id}`} className={styles.row}>
-            <span className={styles.rowTitle}>
-              {kindLabel[item.kind]} · {item.title.trim() || item.body.trim() || '未命名'}
-            </span>
-            <span className={styles.meta}>{formatMonthDay(item.occurredAt)}</span>
-          </div>
-        ))}
-      </div>
-      <div className={styles.card}>
-        <h2 className={styles.cardTitle}>年度书单</h2>
-        {finished.length === 0 ? <p className={styles.empty}>今年还没有标记读完的书。</p> : null}
-        {finished.map((book) => (
-          <div key={book.id} className={styles.row}>
-            <span className={styles.rowTitle}>
-              {book.title}
-              {book.author ? ` · ${book.author}` : ''}
-            </span>
-            <span className={styles.meta}>{book.finishedAt != null ? formatMonthDay(book.finishedAt) : ''}</span>
-          </div>
-        ))}
-      </div>
+      </Scroll>
     </section>
   );
 }
