@@ -1,6 +1,6 @@
 use std::path::Path;
 
-/// 合并、追加视频时，给 drawtext 用的系统默认字体。
+/// 标题和字幕用的系统字体。返回普通路径，滤镜里再转义。
 pub fn get_default_font_path() -> String {
   let candidates = if cfg!(target_os = "windows") {
     vec![
@@ -28,14 +28,20 @@ pub fn get_default_font_path() -> String {
 
   for path in candidates {
     if Path::new(path).exists() {
-      if cfg!(target_os = "windows") {
-        let clean_font_path = path.replace("\\", "/");
-        return clean_font_path.replace(":", "\\\\:");
-      }
-      return path.to_string();
+      return path.replace('\\', "/");
     }
   }
 
   tauri_plugin_log::log::warn!("warn: no default font found, ffmpeg may fail.");
   "arial.ttf".to_string()
+}
+
+/// 默认字体所在目录，给字幕的 `fontsdir` 用。
+pub fn default_fonts_dir() -> String {
+  let font = get_default_font_path();
+  Path::new(&font)
+    .parent()
+    .filter(|path| !path.as_os_str().is_empty())
+    .map(|path| path.to_string_lossy().replace('\\', "/"))
+    .unwrap_or(font)
 }

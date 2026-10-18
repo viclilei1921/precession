@@ -1,4 +1,4 @@
-//! 视频裁剪：按时间段切割后合并
+//! 视频裁剪：按时间段编码后无损拼接
 
 use std::fs::File;
 use std::io::Write;
@@ -6,15 +6,19 @@ use std::io::Write;
 use tauri_plugin_shell::ShellExt;
 use tauri_plugin_shell::process::CommandEvent;
 
-use crate::ffmpeg::models::{TimeSegment, VideoEncode, encode_args};
+use crate::ffmpeg::convert::push_maps;
+use crate::ffmpeg::graph::{GraphRequest, build_video_filter, explicit_size};
+use crate::ffmpeg::info::video_info;
+use crate::ffmpeg::models::{
+  RatePolicy, TimeSegment, VideoContainer, VideoEncode, VideoParams, encode_args, ensure_audio, plan_audio, push_output,
+};
 use crate::ffmpeg::utils::{parse_duration_str, parse_time_from_ffmpeg_output};
 use crate::sidecar::{SidecarError, SidecarResult, clear_current_child, secure_spawn_step};
 use crate::task::JobCtx;
 use crate::utils::cache::{clear_cache_temp_dir, get_cache_temp_dir};
 
-/// 解析片段时长，非法输入按错误返回而不是中断进程
-fn segment_duration(raw: &str) -> SidecarResult<f64> {
-  parse_duration_str(raw).ok_or_else(|| SidecarError::invalid(format!("无效的片段时长: {raw}")))
+fn segment_seconds(raw: &str) -> SidecarResult<f64> {
+  parse_duration_str(raw).ok_or_else(|| SidecarError::invalid(format!("无效的片段时间: {raw}")))
 }
 
 pub async fn run_cut(
@@ -25,46 +29,69 @@ pub async fn run_cut(
   segments: Vec<TimeSegment>,
   encode: &VideoEncode,
 ) -> SidecarResult<()> {
-  let mut temp_files = Vec::new();
-  let temp_dir = get_cache_temp_dir(app)?;
-  let encoded = encode_args(encode, true);
-  let encoded_args: Vec<&str> = encoded.iter().map(String::as_str).collect();
-  let mut duration: f64 = 0.0;
-  let mut cut_time: f64 = 0.0;
-
-  for seg in &segments {
-    duration += segment_duration(&seg.duration)?;
+  let info = video_info(app, video_path).await?;
+  let audio = plan_audio(&encode.audio, &info.audio_tracks, RatePolicy::Source);
+  if audio.fallback {
+    tauri_plugin_log::log::warn!("音轨序号不存在，改用第一条: {video_path}");
   }
+  ensure_audio(encode.audio.mode, &audio, video_path).map_err(SidecarError::invalid)?;
+  let size = explicit_size(encode);
+  let width = size.map(|item| item.width).unwrap_or(info.width);
+  let mut segment_encode = encode.clone();
+  segment_encode.faststart = false;
 
-  for (i, seg) in segments.iter().enumerate() {
+  let mut pieces = Vec::new();
+  for segment in &segments {
+    pieces.push((segment_seconds(&segment.start)?, segment_seconds(&segment.duration)?));
+  }
+  let total: f64 = pieces.iter().map(|(_, duration)| *duration).sum();
+  let temp_dir = get_cache_temp_dir(app)?;
+  let mut temp_files = Vec::new();
+  let mut offset = 0.0;
+
+  for (index, ((start, duration), segment)) in pieces.iter().zip(&segments).enumerate() {
     if job.is_canceled().await {
       let _ = clear_cache_temp_dir(app);
       return Err(SidecarError::canceled());
     }
 
-    let current_temp = temp_dir.join(format!("part_{}.mp4", i));
+    let current_temp = temp_dir.join(format!("part_{index}.{}", extension(encode.container)));
     let temp_name = current_temp.to_string_lossy().into_owned();
+    let filter = build_video_filter(&GraphRequest {
+      encode: &segment_encode,
+      path: video_path,
+      width: info.width,
+      fps: None,
+      size,
+      offset,
+      duration: *duration,
+      source_start: Some(*start),
+    });
 
-    let mut args = Vec::with_capacity(9 + encoded_args.len());
-    args.push("-ss");
-    args.push(&seg.start);
-    args.push("-i");
-    args.push(video_path);
-    args.push("-t");
-    args.push(&seg.duration);
-    args.extend_from_slice(&encoded_args);
-    args.push("-y");
-    args.push(&temp_name);
-    args.push("-hide_banner");
+    let mut args = vec![
+      "-ss".to_string(),
+      segment.start.clone(),
+      "-i".to_string(),
+      video_path.to_string(),
+      "-t".to_string(),
+      segment.duration.clone(),
+    ];
+    if let Some(filter) = &filter {
+      args.push("-vf".to_string());
+      args.push(filter.clone());
+    }
+    push_maps(&mut args, &audio);
+    args.extend(encode_args(&segment_encode, &audio, width));
+    push_output(&mut args, &segment_encode, &temp_name);
 
     tauri_plugin_log::log::info!("ffmpeg {}", args.join(" "));
     let shell = app.shell();
     let (mut rx, child) = shell
       .sidecar("ffmpeg")
-      .map_err(|e| SidecarError::sidecar_spawn("ffmpeg", e))?
-      .args(args)
+      .map_err(|err| SidecarError::sidecar_spawn("ffmpeg", err))?
+      .args(&args)
       .spawn()
-      .map_err(|e| SidecarError::sidecar_spawn("ffmpeg", e))?;
+      .map_err(|err| SidecarError::sidecar_spawn("ffmpeg", err))?;
 
     secure_spawn_step(app, job, child).await?;
 
@@ -75,7 +102,7 @@ pub async fn run_cut(
           match event {
             Some(CommandEvent::Stderr(data)) => {
               if let Some(current_time) = parse_time_from_ffmpeg_output(&data) {
-                job.report_ratio(cut_time + current_time, duration, "转码中...").await;
+                job.report_ratio(offset + current_time, total, "转码中...").await;
               }
             }
             Some(CommandEvent::Terminated(status)) => {
@@ -102,37 +129,55 @@ pub async fn run_cut(
       }
     }
 
-    cut_time += segment_duration(&seg.duration)?;
+    offset += duration;
   }
 
   if temp_files.is_empty() {
     let _ = clear_cache_temp_dir(app);
     return Err(SidecarError::invalid("没有裁出视频"));
   }
-
   if job.is_canceled().await {
     let _ = clear_cache_temp_dir(app);
     return Err(SidecarError::canceled());
   }
 
-  // 创建 concat 列表文件
   let list_file_name = temp_dir.join("concat_list.txt");
   let mut list_file = File::create(&list_file_name)?;
   for path in &temp_files {
-    writeln!(list_file, "file '{}'", path)?;
+    writeln!(list_file, "file '{}'", path.replace('\'', "'\\''"))?;
   }
   list_file.flush()?;
 
-  let shell = app.shell();
   let file_path = list_file_name.to_string_lossy().into_owned();
-  let args =
-    Vec::from(["-f", "concat", "-safe", "0", "-i", &file_path, "-c", "copy", "-y", output_path, "-hide_banner"]);
+  let mut args = vec![
+    "-f".to_string(),
+    "concat".to_string(),
+    "-safe".to_string(),
+    "0".to_string(),
+    "-i".to_string(),
+    file_path,
+    "-c".to_string(),
+    "copy".to_string(),
+  ];
+  if matches!(encode.video, VideoParams::Hevc { .. })
+    && matches!(encode.container, VideoContainer::Mp4 | VideoContainer::Mov)
+  {
+    args.push("-tag:v".to_string());
+    args.push("hvc1".to_string());
+  }
+  if encode.faststart && matches!(encode.container, VideoContainer::Mp4 | VideoContainer::Mov) {
+    args.push("-movflags".to_string());
+    args.push("+faststart".to_string());
+  }
+  push_output(&mut args, encode, output_path);
+
+  let shell = app.shell();
   let (mut rx, child) = shell
     .sidecar("ffmpeg")
-    .map_err(|e| SidecarError::sidecar_spawn("ffmpeg", e))?
-    .args(args)
+    .map_err(|err| SidecarError::sidecar_spawn("ffmpeg", err))?
+    .args(&args)
     .spawn()
-    .map_err(|e| SidecarError::sidecar_spawn("ffmpeg", e))?;
+    .map_err(|err| SidecarError::sidecar_spawn("ffmpeg", err))?;
 
   secure_spawn_step(app, job, child).await?;
 
@@ -141,7 +186,6 @@ pub async fn run_cut(
       CommandEvent::Terminated(status) => {
         clear_current_child(app).await;
         let _ = clear_cache_temp_dir(app);
-
         if let Some(code) = status.code {
           if code == 0 {
             return Ok(());
@@ -157,6 +201,13 @@ pub async fn run_cut(
   if job.is_canceled().await {
     return Err(SidecarError::canceled());
   }
-
   Ok(())
+}
+
+fn extension(container: VideoContainer) -> &'static str {
+  match container {
+    VideoContainer::Mp4 => "mp4",
+    VideoContainer::Mov => "mov",
+    VideoContainer::MpegTs => "ts",
+  }
 }

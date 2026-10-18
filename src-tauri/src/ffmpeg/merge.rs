@@ -1,114 +1,147 @@
-//! 视频智能合并：多文件合并为统一分辨率/帧率
+//! 视频合并：统一分辨率和帧率后拼成一条。
 
 use std::fs::File;
 use std::io::Write;
-use std::path::Path;
 
 use tauri_plugin_shell::ShellExt;
 use tauri_plugin_shell::process::CommandEvent;
 
+use crate::ffmpeg::graph::{GraphRequest, build_video_filter, canvas_size, explicit_size, file_label};
 use crate::ffmpeg::info;
-use crate::ffmpeg::models::{VideoEncode, VideoInfo, encode_args};
+use crate::ffmpeg::models::{
+  AudioMode, AudioPlan, RatePolicy, VideoEncode, VideoInfo, encode_args, plan_audio, push_output,
+};
 use crate::ffmpeg::utils::{calculate_target_params, parse_time_from_ffmpeg_output};
 use crate::sidecar::{SidecarError, SidecarResult, clear_current_child, secure_spawn_step};
 use crate::task::JobCtx;
 use crate::utils::cache::{clear_cache_temp_dir, get_cache_dir};
-use crate::utils::font::get_default_font_path;
+
+struct Piece {
+  path: String,
+  info: VideoInfo,
+  audio: AudioPlan,
+}
 
 pub async fn run_merge_smart(
   app: &tauri::AppHandle,
   job: &JobCtx,
   inputs: Vec<String>,
   output_path: &str,
-  draw_filename: bool,
   encode: &VideoEncode,
 ) -> SidecarResult<()> {
   if inputs.is_empty() {
     return Err(SidecarError::invalid("没有可合并的视频"));
   }
 
-  let mut valid_tasks: Vec<(&str, VideoInfo)> = Vec::new();
+  let mut pieces = Vec::new();
   for input in &inputs {
     match info::video_info(app, input).await {
-      Ok(meta) => valid_tasks.push((input.as_str(), meta)),
-      Err(e) => tauri_plugin_log::log::error!("读取视频失败 {input}: {e}"),
+      Ok(meta) => {
+        let audio = plan_audio(&encode.audio, &meta.audio_tracks, RatePolicy::Force(48000));
+        if audio.fallback {
+          tauri_plugin_log::log::warn!("音轨序号不存在，改用第一条: {input}");
+        }
+        if !matches!(encode.audio.mode, AudioMode::Drop) && audio.stream_index.is_none() {
+          return Err(SidecarError::invalid(format!("没有音轨: {input}")));
+        }
+        pieces.push(Piece { path: input.clone(), info: meta, audio });
+      }
+      Err(err) => tauri_plugin_log::log::error!("读取视频失败 {input}: {err}"),
     }
   }
-
-  if valid_tasks.is_empty() {
+  if pieces.is_empty() {
     return Err(SidecarError::invalid("没有可读取的视频"));
   }
 
-  let videos_info: Vec<VideoInfo> = valid_tasks.iter().map(|(_, m)| m.clone()).collect();
-  let (target_w, target_h, target_fps) = calculate_target_params(&videos_info);
-  let target_duration: f64 = videos_info.iter().map(|m| m.duration).sum();
+  if !matches!(encode.audio.mode, AudioMode::Drop) && encode.audio.channels.is_none() {
+    let channels = if pieces.iter().all(|piece| piece.audio.channels <= 1) { 1 } else { 2 };
+    for piece in &mut pieces {
+      piece.audio.channels = channels;
+    }
+  }
 
-  tauri_plugin_log::log::info!("合并目标 {target_w}x{target_h} | 帧率 {target_fps}");
-
-  // 帧率已经写在滤镜里，不再从配置追加 -r。
-  let mut tuned = encode.clone();
-  tuned.fps = None;
-  let encoded = encode_args(&tuned, true);
-  let encoded_args: Vec<&str> = encoded.iter().map(String::as_str).collect();
+  let infos: Vec<VideoInfo> = pieces.iter().map(|piece| piece.info.clone()).collect();
+  let (max_w, max_h, median_fps) = calculate_target_params(&infos);
+  let size = explicit_size(encode).unwrap_or_else(|| canvas_size(max_w, max_h));
+  let fps = if median_fps > 0.0 { median_fps } else { 30.0 };
+  let total: f64 = pieces.iter().map(|piece| piece.info.duration).sum();
+  tauri_plugin_log::log::info!("合并目标 {}x{} | 帧率 {fps}", size.width, size.height);
 
   let cache_dir = get_cache_dir(app)?;
   let temp_dir = cache_dir.join("temp");
   let _ = std::fs::create_dir(&temp_dir);
-  let filter_file_name = temp_dir.join("filter.txt");
-  let mut filter_file = File::create(&filter_file_name)?;
+  let filter_path = temp_dir.join("filter.txt");
+  let mut filter_file = File::create(&filter_path)?;
+  let mut filter = String::new();
+  let mut offset = 0.0;
+  let keep_audio = pieces.iter().any(|piece| piece.audio.stream_index.is_some());
 
-  let font_path = get_default_font_path();
-  let mut filter_complex = String::new();
-  let mut args = Vec::with_capacity(8 + encoded_args.len() + inputs.len() * 2);
-
-  for (i, input_path) in inputs.iter().enumerate() {
-    args.push("-i");
-    args.push(input_path);
-
-    let drawtext_part = if draw_filename {
-      let filename = Path::new(input_path).file_name().unwrap().to_string_lossy();
-      let clean_name = filename.replace(":", "\\:").replace("'", "");
-      let target_w_f = target_w as f64;
-      let target_h_f = target_h as f64;
-      let font_size = 24.0 * target_w_f / 1920.0;
-      let x = 10.0 * target_w_f / 1920.0;
-      let y = 10.0 * target_h_f / 1080.0;
-      format!(
-        ",drawtext=fontfile={}:text={}:fontcolor=white:fontsize={}:x={}:y={}:box=1:boxcolor=black@0.0",
-        font_path, clean_name, font_size as u32, x as u32, y as u32
-      )
-    } else {
-      String::new()
-    };
-
-    let chain = format!(
-      "[{i}:v]fps={fps},scale='trunc(iw*sar/2)*2':'trunc(ih/2)*2',setsar=1,scale={w}:{h}:force_original_aspect_ratio=decrease,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2,setsar=1{text_filter}[v{i}];[{i}:a]aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo[a{i}];",
-      i = i,
-      fps = target_fps,
-      w = target_w,
-      h = target_h,
-      text_filter = drawtext_part
-    );
-    filter_complex.push_str(&chain);
+  for (index, piece) in pieces.iter().enumerate() {
+    let chain = build_video_filter(&GraphRequest {
+      encode,
+      path: &piece.path,
+      width: piece.info.width,
+      fps: Some(fps),
+      size: Some(size),
+      offset,
+      duration: piece.info.duration,
+      source_start: None,
+    })
+    .ok_or_else(|| SidecarError::invalid("合并滤镜为空"))?;
+    filter.push_str(&format!("[{index}:v]{chain}[v{index}];"));
+    if let Some(stream) = piece.audio.stream_index {
+      let layout = if piece.audio.channels <= 1 { "mono" } else { "stereo" };
+      filter.push_str(&format!(
+        "[{index}:{stream}]aresample=48000,aformat=sample_fmts=fltp:channel_layouts={layout}[a{index}];"
+      ));
+    }
+    offset += piece.info.duration;
   }
 
-  for i in 0..valid_tasks.len() {
-    filter_complex.push_str(&format!("[v{i}][a{i}]", i = i));
+  for index in 0..pieces.len() {
+    filter.push_str(&format!("[v{index}]"));
+    if keep_audio {
+      filter.push_str(&format!("[a{index}]"));
+    }
   }
-  filter_complex.push_str(&format!("concat=n={}:v=1:a=1[outv][outa]", valid_tasks.len()));
-  writeln!(filter_file, "{}", filter_complex)?;
+  if keep_audio {
+    filter.push_str(&format!("concat=n={}:v=1:a=1[outv][outa]", pieces.len()));
+  } else {
+    filter.push_str(&format!("concat=n={}:v=1:a=0[outv]", pieces.len()));
+  }
+  writeln!(filter_file, "{filter}")?;
   filter_file.flush()?;
 
-  let filter_file_name_str = filter_file_name.to_string_lossy();
-  args.push("-/filter_complex");
-  args.push(filter_file_name_str.as_ref());
-  args.push("-map");
-  args.push("[outv]");
-  args.push("-map");
-  args.push("[outa]");
-  args.extend_from_slice(&encoded_args);
-  args.push("-y");
-  args.push(output_path);
+  let mut args = Vec::new();
+  for piece in &pieces {
+    args.push("-i".to_string());
+    args.push(piece.path.clone());
+  }
+  args.push("-filter_complex_script".to_string());
+  args.push(filter_path.to_string_lossy().into_owned());
+  args.push("-map".to_string());
+  args.push("[outv]".to_string());
+  let audio = if keep_audio {
+    args.push("-map".to_string());
+    args.push("[outa]".to_string());
+    AudioPlan {
+      stream_index: Some(0),
+      channels: pieces.first().map(|piece| piece.audio.channels).unwrap_or(2),
+      sample_rate: 48000,
+      bitrate_kbps: encode.audio.bitrate_kbps,
+      fallback: false,
+    }
+  } else {
+    AudioPlan {
+      stream_index: None,
+      channels: 2,
+      sample_rate: 0,
+      bitrate_kbps: encode.audio.bitrate_kbps,
+      fallback: false,
+    }
+  };
+  args.extend(encode_args(encode, &audio, size.width));
+  push_output(&mut args, encode, output_path);
 
   if job.is_canceled().await {
     let _ = clear_cache_temp_dir(app);
@@ -116,14 +149,13 @@ pub async fn run_merge_smart(
   }
 
   tauri_plugin_log::log::info!("ffmpeg {}", args.join(" "));
-
   let shell = app.shell();
   let (mut rx, child) = shell
     .sidecar("ffmpeg")
-    .map_err(|e| SidecarError::sidecar_spawn("ffmpeg", e))?
-    .args(args)
+    .map_err(|err| SidecarError::sidecar_spawn("ffmpeg", err))?
+    .args(&args)
     .spawn()
-    .map_err(|e| SidecarError::sidecar_spawn("ffmpeg", e))?;
+    .map_err(|err| SidecarError::sidecar_spawn("ffmpeg", err))?;
 
   secure_spawn_step(app, job, child).await?;
 
@@ -135,14 +167,13 @@ pub async fn run_merge_smart(
           return Err(SidecarError::canceled());
         }
         if let Some(current_time) = parse_time_from_ffmpeg_output(&line) {
-          let video_name = segment_name_at(&valid_tasks, current_time);
-          job.report_ratio(current_time, target_duration, &format!("正在合并：{video_name}")).await;
+          let name = name_at(&pieces, current_time);
+          job.report_ratio(current_time, total, &format!("正在合并：{name}")).await;
         }
       }
       CommandEvent::Terminated(status) => {
         clear_current_child(app).await;
         let _ = clear_cache_temp_dir(app);
-
         if let Some(code) = status.code {
           if code == 0 {
             return Ok(());
@@ -159,22 +190,16 @@ pub async fn run_merge_smart(
   if job.is_canceled().await {
     return Err(SidecarError::canceled());
   }
-
   Ok(())
 }
 
-/// 按累计时长定位 `current_time` 落在哪个输入文件上，用于进度消息
-fn segment_name_at(valid_tasks: &[(&str, VideoInfo)], current_time: f64) -> String {
+fn name_at(pieces: &[Piece], current_time: f64) -> String {
   let mut elapsed = 0.0;
-  for (_, info) in valid_tasks {
-    elapsed += info.duration;
+  for piece in pieces {
+    elapsed += piece.info.duration;
     if current_time < elapsed {
-      return file_label(&info.path);
+      return file_label(&piece.path);
     }
   }
-  valid_tasks.first().map(|(_, info)| file_label(&info.path)).unwrap_or_default()
-}
-
-fn file_label(path: &str) -> String {
-  Path::new(path).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| path.to_string())
+  pieces.first().map(|piece| file_label(&piece.path)).unwrap_or_default()
 }

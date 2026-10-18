@@ -3,8 +3,9 @@
 use tauri_plugin_shell::ShellExt;
 use tauri_plugin_shell::process::CommandEvent;
 
+use crate::ffmpeg::graph::{GraphRequest, build_video_filter, explicit_size};
 use crate::ffmpeg::info::video_info;
-use crate::ffmpeg::models::{VideoEncode, encode_args};
+use crate::ffmpeg::models::{AudioPlan, RatePolicy, VideoEncode, encode_args, ensure_audio, plan_audio, push_output};
 use crate::ffmpeg::utils::parse_time_from_ffmpeg_output;
 use crate::sidecar::{SidecarError, SidecarResult, clear_current_child, secure_spawn_step};
 use crate::task::JobCtx;
@@ -16,26 +17,42 @@ pub async fn run_convert(
   output_path: &str,
   encode: &VideoEncode,
 ) -> SidecarResult<()> {
-  let video_info = video_info(app, video_path).await?;
-  let total_duration = video_info.duration;
-  let encoded = encode_args(encode, true);
+  let info = video_info(app, video_path).await?;
+  let audio = plan_audio(&encode.audio, &info.audio_tracks, RatePolicy::Source);
+  if audio.fallback {
+    tauri_plugin_log::log::warn!("音轨序号不存在，改用第一条: {video_path}");
+  }
+  ensure_audio(encode.audio.mode, &audio, video_path).map_err(SidecarError::invalid)?;
+  let size = explicit_size(encode);
+  let width = size.map(|item| item.width).unwrap_or(info.width);
+  let filter = build_video_filter(&GraphRequest {
+    encode,
+    path: video_path,
+    width: info.width,
+    fps: None,
+    size,
+    offset: 0.0,
+    duration: info.duration,
+    source_start: None,
+  });
 
-  let mut args: Vec<String> = Vec::with_capacity(8 + encoded.len());
-  args.push("-i".to_string());
-  args.push(video_path.to_string());
-  args.extend(encoded);
-  args.push("-y".to_string());
-  args.push(output_path.to_string());
-  args.push("-hide_banner".to_string());
+  let mut args = vec!["-i".to_string(), video_path.to_string()];
+  if let Some(filter) = &filter {
+    args.push("-vf".to_string());
+    args.push(filter.clone());
+  }
+  push_maps(&mut args, &audio);
+  args.extend(encode_args(encode, &audio, width));
+  push_output(&mut args, encode, output_path);
 
   let shell = app.shell();
   tauri_plugin_log::log::info!("ffmpeg {}", args.join(" "));
   let (mut rx, child) = shell
     .sidecar("ffmpeg")
-    .map_err(|e| SidecarError::sidecar_spawn("ffmpeg", e))?
+    .map_err(|err| SidecarError::sidecar_spawn("ffmpeg", err))?
     .args(&args)
     .spawn()
-    .map_err(|e| SidecarError::sidecar_spawn("ffmpeg", e))?;
+    .map_err(|err| SidecarError::sidecar_spawn("ffmpeg", err))?;
 
   secure_spawn_step(app, job, child).await?;
 
@@ -46,7 +63,7 @@ pub async fn run_convert(
           break;
         }
         if let Some(current_time) = parse_time_from_ffmpeg_output(&line) {
-          job.report_ratio(current_time, total_duration, "转码中...").await;
+          job.report_ratio(current_time, info.duration, "转码中...").await;
         }
       }
       CommandEvent::Terminated(status) => {
@@ -67,4 +84,13 @@ pub async fn run_convert(
   }
 
   Ok(())
+}
+
+pub(crate) fn push_maps(args: &mut Vec<String>, audio: &AudioPlan) {
+  args.push("-map".to_string());
+  args.push("0:v:0".to_string());
+  if let Some(index) = audio.stream_index {
+    args.push("-map".to_string());
+    args.push(format!("0:{index}?"));
+  }
 }

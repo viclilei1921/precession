@@ -62,16 +62,12 @@ pub enum TaskInput {
     inputs: Vec<String>,
     output: String,
     #[serde(default)]
-    draw_filename: bool,
-    #[serde(default)]
     encode: VideoEncode,
   },
   AppendVideo {
     base: String,
     inputs: Vec<String>,
     output: String,
-    #[serde(default)]
-    draw_filename: bool,
     #[serde(default)]
     encode: VideoEncode,
   },

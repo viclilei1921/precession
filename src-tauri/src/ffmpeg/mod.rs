@@ -10,11 +10,13 @@ mod convert;
 #[cfg(desktop)]
 mod cut;
 #[cfg(desktop)]
+mod graph;
+#[cfg(desktop)]
+mod info;
+#[cfg(desktop)]
 mod merge;
 #[cfg(desktop)]
 mod utils;
-#[cfg(desktop)]
-mod info;
 
 #[cfg(desktop)]
 pub(crate) use append::run_append_smart;
@@ -23,6 +25,6 @@ pub(crate) use convert::run_convert;
 #[cfg(desktop)]
 pub(crate) use cut::run_cut;
 #[cfg(desktop)]
-pub(crate) use merge::run_merge_smart;
-#[cfg(desktop)]
 pub(crate) use info::video_info;
+#[cfg(desktop)]
+pub(crate) use merge::run_merge_smart;

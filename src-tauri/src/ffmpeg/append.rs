@@ -1,19 +1,367 @@
-//! 视频智能追加：将新视频追加到基准视频末尾
+//! 视频追加：基准能直接拼就复制，否则连基准一起按同一套参数重编码。
 
 use std::fs::File;
 use std::io::Write;
-use std::path::Path;
 
 use tauri_plugin_shell::ShellExt;
 use tauri_plugin_shell::process::CommandEvent;
 
+use crate::ffmpeg::convert::push_maps;
+use crate::ffmpeg::graph::{GraphRequest, build_video_filter, explicit_size, output_size};
 use crate::ffmpeg::info::video_info;
-use crate::ffmpeg::models::{VideoCodec, VideoContainer, VideoEncode, encode_args};
+use crate::ffmpeg::models::{
+  AudioMode, AudioPlan, RatePolicy, VideoContainer, VideoEncode, VideoInfo, VideoParams, encode_args, plan_audio,
+  push_output, source_codec_matches,
+};
 use crate::ffmpeg::utils::parse_time_from_ffmpeg_output;
 use crate::sidecar::{SidecarError, SidecarResult, clear_current_child, secure_spawn_step};
 use crate::task::JobCtx;
 use crate::utils::cache::{clear_cache_temp_dir, get_cache_temp_dir};
-use crate::utils::font::get_default_font_path;
+
+struct CopyPlan {
+  keep_audio: bool,
+  sample_rate: u32,
+  channels: u8,
+  stream_index: Option<u32>,
+}
+
+pub async fn run_append_smart(
+  app: &tauri::AppHandle,
+  job: &JobCtx,
+  base: &str,
+  inputs: Vec<String>,
+  output_path: &str,
+  encode: &VideoEncode,
+) -> SidecarResult<()> {
+  if inputs.is_empty() {
+    return Err(SidecarError::invalid("没有要追加的视频"));
+  }
+  if job.is_canceled().await {
+    return Err(SidecarError::canceled());
+  }
+
+  let base_info = video_info(app, base).await?;
+  let (width, height) = output_size(encode, &base_info);
+  let fps = if base_info.fps > 0.0 { base_info.fps } else { 30.0 };
+  let copy = copy_plan(&base_info, encode, width, height);
+  let size = explicit_size(encode).or_else(|| {
+    if copy.is_some() { None } else { Some(crate::ffmpeg::graph::canvas_size(width, height)) }
+  });
+  let temp_dir = get_cache_temp_dir(app)?;
+  let (muxer, extension) = intermediate(encode);
+  let mut parts: Vec<String> = Vec::new();
+  let mut segment_encode = encode.clone();
+  segment_encode.faststart = false;
+  segment_encode.container = if muxer == "mp4" { VideoContainer::Mp4 } else { VideoContainer::MpegTs };
+
+  let base_path = temp_dir.join(format!("part_base.{extension}")).to_string_lossy().into_owned();
+  let mut planned: Vec<(String, VideoInfo, AudioPlan, String)> = Vec::new();
+  if let Some(plan) = &copy {
+    remux_base(app, base, &base_info, plan, muxer, &base_path).await?;
+    parts.push(base_path);
+  } else {
+    let audio = segment_audio(encode, &base_info, None)?;
+    planned.push((base.to_string(), base_info.clone(), audio, base_path));
+  }
+
+  for (index, input) in inputs.iter().enumerate() {
+    if job.is_canceled().await {
+      let _ = clear_cache_temp_dir(app);
+      return Err(SidecarError::canceled());
+    }
+    let info = video_info(app, input).await?;
+    let audio = segment_audio(encode, &info, copy.as_ref())?;
+    let part = temp_dir.join(format!("part_new_{index}.{extension}")).to_string_lossy().into_owned();
+    planned.push((input.clone(), info, audio, part));
+  }
+
+  // 重编码时各段声道必须一致，否则后面的无损拼接对不上。
+  if copy.is_none() && encode.audio.channels.is_none() && !matches!(encode.audio.mode, AudioMode::Drop) {
+    let channels = if planned.iter().all(|(_, _, audio, _)| audio.channels <= 1) { 1 } else { 2 };
+    for (_, _, audio, _) in &mut planned {
+      audio.channels = channels;
+    }
+  }
+
+  let mut offset = if copy.is_some() { base_info.duration } else { 0.0 };
+  let new_count = inputs.len();
+  for (index, (input, info, audio, part)) in planned.into_iter().enumerate() {
+    if job.is_canceled().await {
+      let _ = clear_cache_temp_dir(app);
+      return Err(SidecarError::canceled());
+    }
+    let message = if copy.is_none() && index == 0 {
+      "正在处理基准".to_string()
+    } else {
+      let shown = if copy.is_none() { index } else { index + 1 };
+      format!("正在处理第 {shown}/{new_count} 段")
+    };
+    encode_part(
+      app,
+      job,
+      &input,
+      &info,
+      &segment_encode,
+      &audio,
+      size.or_else(|| Some(crate::ffmpeg::graph::canvas_size(width, height))),
+      fps,
+      offset,
+      None,
+      muxer,
+      &part,
+      &message,
+    )
+    .await?;
+    parts.push(part);
+    offset += info.duration;
+  }
+
+  let list_path = temp_dir.join("ts_concat_list.txt");
+  let mut list_file = File::create(&list_path)?;
+  for path in &parts {
+    writeln!(list_file, "file '{}'", path.replace('\'', "'\\''"))?;
+  }
+  list_file.flush()?;
+
+  let list = list_path.to_string_lossy().into_owned();
+  let mut args = vec![
+    "-f".to_string(),
+    "concat".to_string(),
+    "-safe".to_string(),
+    "0".to_string(),
+    "-i".to_string(),
+    list,
+    "-c".to_string(),
+    "copy".to_string(),
+  ];
+  if muxer == "mpegts"
+    && matches!(encode.container, VideoContainer::Mp4 | VideoContainer::Mov)
+    && copy.as_ref().is_none_or(|plan| plan.keep_audio)
+    && !matches!(encode.audio.mode, AudioMode::Drop)
+  {
+    args.extend(["-bsf:a".to_string(), "aac_adtstoasc".to_string()]);
+  }
+  if matches!(encode.video, VideoParams::Hevc { .. })
+    && matches!(encode.container, VideoContainer::Mp4 | VideoContainer::Mov)
+  {
+    args.extend(["-tag:v".to_string(), "hvc1".to_string()]);
+  }
+  if encode.faststart && matches!(encode.container, VideoContainer::Mp4 | VideoContainer::Mov) {
+    args.extend(["-movflags".to_string(), "+faststart".to_string()]);
+  }
+  push_output(&mut args, encode, output_path);
+
+  tauri_plugin_log::log::info!("ffmpeg {}", args.join(" "));
+  let shell = app.shell();
+  let (mut rx, _) = shell
+    .sidecar("ffmpeg")
+    .map_err(|err| SidecarError::sidecar_spawn("ffmpeg", err))?
+    .args(&args)
+    .spawn()
+    .map_err(|err| SidecarError::sidecar_spawn("ffmpeg", err))?;
+
+  while let Some(event) = rx.recv().await {
+    if let CommandEvent::Terminated(status) = event {
+      let _ = clear_cache_temp_dir(app);
+      if status.code == Some(0) {
+        return Ok(());
+      }
+      return Err(SidecarError::sidecar_exit("ffmpeg", format!("退出代码 {:?}", status.code)));
+    }
+  }
+
+  let _ = clear_cache_temp_dir(app);
+  if job.is_canceled().await {
+    return Err(SidecarError::canceled());
+  }
+  Ok(())
+}
+
+fn intermediate(encode: &VideoEncode) -> (&'static str, &'static str) {
+  match encode.video {
+    VideoParams::Vp9 { .. } => ("mp4", "mp4"),
+    _ => ("mpegts", "ts"),
+  }
+}
+
+fn copy_plan(info: &VideoInfo, encode: &VideoEncode, width: u32, height: u32) -> Option<CopyPlan> {
+  if encode.title.is_some() || encode.subtitle.is_some() {
+    return None;
+  }
+  if !source_codec_matches(&info.video_codec, &encode.video) || info.pix_fmt != encode.video.pix_fmt() {
+    return None;
+  }
+  if info.width != width || info.height != height {
+    return None;
+  }
+  if matches!(encode.audio.mode, AudioMode::Drop) {
+    return Some(CopyPlan { keep_audio: false, sample_rate: 0, channels: 2, stream_index: None });
+  }
+  let plan = plan_audio(&encode.audio, &info.audio_tracks, RatePolicy::Source);
+  let track = info.audio_tracks.iter().find(|track| Some(track.index) == plan.stream_index)?;
+  let aac = track.codec.eq_ignore_ascii_case("aac");
+  let channels_ok = track.channels == 1 || track.channels == 2;
+  let rate_ok = track.sample_rate == 44100 || track.sample_rate == 48000;
+  let channels_match = encode.audio.channels.is_none_or(|channels| channels == track.channels as u8);
+  let rate_match = encode.audio.sample_rate.is_none_or(|rate| rate == track.sample_rate);
+  if aac && channels_ok && rate_ok && channels_match && rate_match {
+    Some(CopyPlan {
+      keep_audio: true,
+      sample_rate: track.sample_rate,
+      channels: track.channels as u8,
+      stream_index: Some(track.index),
+    })
+  } else {
+    None
+  }
+}
+
+fn segment_audio(encode: &VideoEncode, info: &VideoInfo, copy: Option<&CopyPlan>) -> SidecarResult<AudioPlan> {
+  if let Some(plan) = copy.filter(|plan| plan.keep_audio) {
+    let mut selection = encode.audio.clone();
+    selection.channels = Some(plan.channels);
+    let audio = plan_audio(&selection, &info.audio_tracks, RatePolicy::Force(plan.sample_rate));
+    if audio.stream_index.is_none() {
+      return Err(SidecarError::invalid(format!("没有音轨: {}", info.path)));
+    }
+    return Ok(audio);
+  }
+  if matches!(encode.audio.mode, AudioMode::Drop) {
+    return Ok(plan_audio(&encode.audio, &info.audio_tracks, RatePolicy::Force(48000)));
+  }
+  let audio = plan_audio(&encode.audio, &info.audio_tracks, RatePolicy::Force(48000));
+  if audio.fallback {
+    tauri_plugin_log::log::warn!("音轨序号不存在，改用第一条: {}", info.path);
+  }
+  if audio.stream_index.is_none() {
+    return Err(SidecarError::invalid(format!("没有音轨: {}", info.path)));
+  }
+  Ok(audio)
+}
+
+async fn remux_base(
+  app: &tauri::AppHandle,
+  base: &str,
+  info: &VideoInfo,
+  plan: &CopyPlan,
+  muxer: &str,
+  output: &str,
+) -> SidecarResult<()> {
+  let mut args = vec!["-i".to_string(), base.to_string(), "-map".to_string(), "0:v:0".to_string()];
+  if plan.keep_audio {
+    if let Some(index) = plan.stream_index {
+      args.push("-map".to_string());
+      args.push(format!("0:{index}"));
+    }
+    args.extend(["-c".to_string(), "copy".to_string()]);
+  } else {
+    args.extend(["-an".to_string(), "-c".to_string(), "copy".to_string()]);
+  }
+  if muxer == "mpegts" {
+    if let Some(bsf) = source_annexb(&info.video_codec) {
+      args.extend(["-bsf:v".to_string(), bsf.to_string()]);
+    }
+  }
+  args.extend(["-f".to_string(), muxer.to_string(), "-y".to_string(), output.to_string(), "-hide_banner".to_string()]);
+
+  tauri_plugin_log::log::info!("ffmpeg {}", args.join(" "));
+  let (mut rx, _) = app
+    .shell()
+    .sidecar("ffmpeg")
+    .map_err(|err| SidecarError::sidecar_spawn("ffmpeg", err))?
+    .args(&args)
+    .spawn()
+    .map_err(|err| SidecarError::sidecar_spawn("ffmpeg", err))?;
+  while let Some(event) = rx.recv().await {
+    if let CommandEvent::Terminated(status) = event {
+      if status.code != Some(0) {
+        let _ = clear_cache_temp_dir(app);
+        return Err(SidecarError::sidecar_exit("ffmpeg", "基准视频封装失败"));
+      }
+      return Ok(());
+    }
+  }
+  Err(SidecarError::sidecar_exit("ffmpeg", "基准视频封装失败"))
+}
+
+async fn encode_part(
+  app: &tauri::AppHandle,
+  job: &JobCtx,
+  input: &str,
+  info: &VideoInfo,
+  encode: &VideoEncode,
+  audio: &AudioPlan,
+  size: Option<crate::ffmpeg::models::VideoSize>,
+  fps: f64,
+  offset: f64,
+  source_start: Option<f64>,
+  muxer: &str,
+  output: &str,
+  message: &str,
+) -> SidecarResult<()> {
+  let filter = build_video_filter(&GraphRequest {
+    encode,
+    path: input,
+    width: info.width,
+    fps: Some(fps),
+    size,
+    offset,
+    duration: info.duration,
+    source_start,
+  });
+  let mut args = vec!["-i".to_string(), input.to_string()];
+  if let Some(filter) = &filter {
+    args.push("-vf".to_string());
+    args.push(filter.clone());
+  }
+  push_maps(&mut args, audio);
+  let width = size.map(|item| item.width).unwrap_or(info.width);
+  args.extend(encode_args(encode, audio, width));
+  if muxer == "mpegts" {
+    if let Some(bsf) = output_annexb(&encode.video) {
+      args.extend(["-bsf:v".to_string(), bsf.to_string()]);
+    }
+  }
+  args.extend(["-f".to_string(), muxer.to_string(), "-y".to_string(), output.to_string(), "-hide_banner".to_string()]);
+
+  tauri_plugin_log::log::info!("ffmpeg {}", args.join(" "));
+  let (mut rx, child) = app
+    .shell()
+    .sidecar("ffmpeg")
+    .map_err(|err| SidecarError::sidecar_spawn("ffmpeg", err))?
+    .args(&args)
+    .spawn()
+    .map_err(|err| SidecarError::sidecar_spawn("ffmpeg", err))?;
+  secure_spawn_step(app, job, child).await?;
+
+  while let Some(event) = rx.recv().await {
+    match event {
+      CommandEvent::Stderr(line) => {
+        if job.is_canceled().await {
+          let _ = clear_cache_temp_dir(app);
+          return Err(SidecarError::canceled());
+        }
+        if let Some(current) = parse_time_from_ffmpeg_output(&line) {
+          job.report_ratio(current, info.duration, message).await;
+        }
+      }
+      CommandEvent::Terminated(status) => {
+        clear_current_child(app).await;
+        if status.code == Some(0) {
+          return Ok(());
+        }
+        let _ = clear_cache_temp_dir(app);
+        return Err(SidecarError::sidecar_exit("ffmpeg", format!("退出代码 {:?}", status.code)));
+      }
+      _ => {}
+    }
+  }
+  if job.is_canceled().await {
+    let _ = clear_cache_temp_dir(app);
+    return Err(SidecarError::canceled());
+  }
+  Ok(())
+}
 
 fn source_annexb(codec: &str) -> Option<&'static str> {
   let codec = codec.to_ascii_lowercase();
@@ -26,195 +374,9 @@ fn source_annexb(codec: &str) -> Option<&'static str> {
   }
 }
 
-fn output_annexb(codec: VideoCodec) -> Option<&'static str> {
-  match codec {
-    VideoCodec::Hevc => Some("hevc_mp4toannexb"),
-    VideoCodec::Av1 | VideoCodec::Vp9 => None,
+fn output_annexb(video: &VideoParams) -> Option<&'static str> {
+  match video {
+    VideoParams::Hevc { .. } => Some("hevc_mp4toannexb"),
+    VideoParams::Av1 { .. } | VideoParams::Vp9 { .. } => None,
   }
-}
-
-pub async fn run_append_smart(
-  app: &tauri::AppHandle,
-  job: &JobCtx,
-  base: &str,
-  inputs: Vec<String>,
-  output_path: &str,
-  draw_filename: bool,
-  encode: &VideoEncode,
-) -> SidecarResult<()> {
-  if inputs.is_empty() {
-    return Err(SidecarError::invalid("没有要追加的视频"));
-  }
-
-  if job.is_canceled().await {
-    return Err(SidecarError::canceled());
-  }
-
-  let base_info = video_info(app, base).await?;
-  let temp_dir = get_cache_temp_dir(app)?;
-  let mut ts_files: Vec<String> = Vec::new();
-
-  // 步骤 1: 将基准视频无损封装为 TS
-  let base_ts_path = temp_dir.join("part_base.ts").to_string_lossy().into_owned();
-  let mut remux_args = vec!["-i", base, "-c", "copy"];
-  if let Some(bsf) = source_annexb(&base_info.video_codec) {
-    remux_args.extend(["-bsf:v", bsf]);
-  }
-  remux_args.extend(["-f", "mpegts", "-y", &base_ts_path, "-hide_banner"]);
-
-  tauri_plugin_log::log::info!("正在把基准视频封装为 TS");
-  let shell = app.shell();
-  let (mut rx, _) = shell
-    .sidecar("ffmpeg")
-    .map_err(|e| SidecarError::sidecar_spawn("ffmpeg", e))?
-    .args(remux_args)
-    .spawn()
-    .map_err(|e| SidecarError::sidecar_spawn("ffmpeg", e))?;
-
-  while let Some(event) = rx.recv().await {
-    if let CommandEvent::Terminated(status) = event {
-      if status.code != Some(0) {
-        let _ = clear_cache_temp_dir(app);
-        return Err(SidecarError::sidecar_exit("ffmpeg", "基准视频封装失败"));
-      }
-      break;
-    }
-  }
-  ts_files.push(base_ts_path);
-
-  // 步骤 2: 处理新视频并转码为 TS。帧率跟基准视频，不从配置再写 -r。
-  let mut tuned = encode.clone();
-  tuned.fps = None;
-  let encoded = encode_args(&tuned, true);
-  let encoded_args: Vec<&str> = encoded.iter().map(String::as_str).collect();
-  let font_path = get_default_font_path();
-
-  for (i, input_path) in inputs.iter().enumerate() {
-    if job.is_canceled().await {
-      let _ = clear_cache_temp_dir(app);
-      return Err(SidecarError::canceled());
-    }
-
-    let current_ts_path = temp_dir.join(format!("part_new_{}.ts", i)).to_string_lossy().into_owned();
-    let input_info = video_info(app, input_path).await.unwrap_or_default();
-    let sample_rate = if base_info.audio_sample_rate > 0 { base_info.audio_sample_rate } else { 48000 };
-
-    let drawtext = if draw_filename {
-      let filename = Path::new(input_path).file_name().unwrap().to_string_lossy();
-      let clean_name = filename.replace(":", "\\:").replace("'", "");
-      let target_w_f = base_info.width as f64;
-      let target_h_f = base_info.height as f64;
-      let font_size = 24.0 * target_w_f / 1920.0;
-      let x = 10.0 * target_w_f / 1920.0;
-      let y = 10.0 * target_h_f / 1080.0;
-      format!(
-        ",drawtext=fontfile={}:text={}:fontcolor=white:fontsize={}:x={}:y={}:box=1:boxcolor=black@0.0",
-        font_path, clean_name, font_size as u32, x as u32, y as u32
-      )
-    } else {
-      String::new()
-    };
-
-    let filter_complex = format!(
-      "[0:v]fps={fps},scale='trunc(iw*sar/2)*2':'trunc(ih/2)*2',setsar=1,scale={w}:{h}:force_original_aspect_ratio=decrease,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2,setsar=1{text}[v];[0:a]aresample={ar},aformat=sample_fmts=fltp:channel_layouts=stereo[a]",
-      fps = base_info.fps,
-      w = base_info.width,
-      h = base_info.height,
-      text = drawtext,
-      ar = sample_rate
-    );
-
-    let mut args = vec!["-i", input_path, "-filter_complex", &filter_complex, "-map", "[v]", "-map", "[a]"];
-    args.extend_from_slice(&encoded_args);
-    if let Some(bsf) = output_annexb(encode.codec) {
-      args.push("-bsf:v");
-      args.push(bsf);
-    }
-    args.push("-f");
-    args.push("mpegts");
-    args.push("-y");
-    args.push(&current_ts_path);
-    args.push("-hide_banner");
-
-    tauri_plugin_log::log::info!("正在转码第 {} 段", i + 1);
-    let shell = app.shell();
-    let (mut rx, child) = shell
-      .sidecar("ffmpeg")
-      .map_err(|e| SidecarError::sidecar_spawn("ffmpeg", e))?
-      .args(args)
-      .spawn()
-      .map_err(|e| SidecarError::sidecar_spawn("ffmpeg", e))?;
-
-    secure_spawn_step(app, job, child).await?;
-
-    while let Some(event) = rx.recv().await {
-      match event {
-        CommandEvent::Stderr(line) => {
-          if job.is_canceled().await {
-            let _ = clear_cache_temp_dir(app);
-            return Err(SidecarError::canceled());
-          }
-          if let Some(current_time) = parse_time_from_ffmpeg_output(&line) {
-            let message = format!("正在处理第 {}/{} 段", i + 1, inputs.len());
-            job.report_ratio(current_time, input_info.duration, &message).await;
-          }
-        }
-        CommandEvent::Terminated(status) => {
-          clear_current_child(app).await;
-          if status.code == Some(0) {
-            ts_files.push(current_ts_path.clone());
-          } else {
-            let _ = clear_cache_temp_dir(app);
-            return Err(SidecarError::sidecar_exit("ffmpeg", format!("退出代码 {:?}", status.code)));
-          }
-          break;
-        }
-        _ => {}
-      }
-    }
-  }
-
-  // 步骤 3: Concat 合并所有 TS 并转回 MP4
-  let list_file_name = temp_dir.join("ts_concat_list.txt");
-  let mut list_file = File::create(&list_file_name)?;
-  for path in &ts_files {
-    writeln!(list_file, "file '{}'", path.replace("'", "'\\''"))?;
-  }
-  list_file.flush()?;
-
-  let list_file_path_str = list_file_name.to_string_lossy().into_owned();
-  let mut concat_args = vec!["-f", "concat", "-safe", "0", "-i", &list_file_path_str, "-c", "copy"];
-  if encode.codec == VideoCodec::Hevc && matches!(encode.container, VideoContainer::Mp4 | VideoContainer::Mov) {
-    concat_args.extend(["-tag:v", "hvc1"]);
-  }
-  concat_args.extend(["-bsf:a", "aac_adtstoasc", "-y", output_path, "-hide_banner"]);
-
-  tauri_plugin_log::log::info!("正在合并为 MP4");
-  let shell = app.shell();
-  let (mut rx, _) = shell
-    .sidecar("ffmpeg")
-    .map_err(|e| SidecarError::sidecar_spawn("ffmpeg", e))?
-    .args(concat_args)
-    .spawn()
-    .map_err(|e| SidecarError::sidecar_spawn("ffmpeg", e))?;
-
-  while let Some(event) = rx.recv().await {
-    if let CommandEvent::Terminated(status) = event {
-      let _ = clear_cache_temp_dir(app);
-
-      if let Some(code) = status.code {
-        if code == 0 {
-          return Ok(());
-        }
-        return Err(SidecarError::sidecar_exit("ffmpeg", format!("退出代码 {code}")));
-      }
-    }
-  }
-
-  let _ = clear_cache_temp_dir(app);
-  if job.is_canceled().await {
-    return Err(SidecarError::canceled());
-  }
-
-  Ok(())
 }

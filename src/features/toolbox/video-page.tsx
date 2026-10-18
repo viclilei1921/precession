@@ -11,14 +11,13 @@ import {
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { ffmpegProbe, taskEnqueue } from '@/bridge';
-import type { EncodeSpeed, TimeSegment, VideoCodec, VideoContainer, VideoEncode, VideoInfo } from '@/bridge/task';
+import type { TimeSegment, VideoEncode, VideoInfo } from '@/bridge/task';
 import { Button } from '@/components/button';
 import { SegmentButton } from '@/components/button/segment';
 import { Checkbox } from '@/components/checkbox';
 import { FileDrop } from '@/components/file-drop';
 import styles from '@/components/record.module.css';
 import { Scroll } from '@/components/scroll';
-import { Select } from '@/components/select';
 import { TextField } from '@/components/text-field';
 import { TimeField } from '@/components/time-field';
 import { formatTime } from '@/components/time-field/format';
@@ -27,6 +26,7 @@ import { useAppStore } from '@/store/app';
 import { errorMessage } from '@/utils/error';
 import { TaskQueue } from './components/task-queue';
 import { containerExtension, withSuffix } from './path';
+import { buildEncode, initialEncodeDraft, VideoEncodeFields } from './video-encode-fields';
 
 const videoExtensions = ['mp4', 'm4v', 'mov', 'mkv', 'webm', 'ts', 'm2ts', 'mpeg', 'mpg'];
 
@@ -56,10 +56,10 @@ type VideoFile = {
 };
 
 const hints: Record<VideoOp, string> = {
-  convert: '默认转成 AV1 的 MP4。自定义可以选择容器、编码和速度。',
+  convert: '默认导出 MP4，AV1，速度 6，质量 35。',
   cut: '按开始和结束时间裁出片段，再合成一个视频。',
   merge: '合成一个视频。尺寸取最大，帧率取中位数。',
-  append: '第一段作为基准，后面的对齐后按顺序接上。'
+  append: '第一段作为基准。编码对不齐时，基准也会重编码。'
 };
 
 let fileKey = 0;
@@ -87,25 +87,19 @@ function formatDuration(seconds: number) {
   return hours > 0 ? `${hours}:${clock}` : clock;
 }
 
-function optionalInt(value: string, max: number) {
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return null;
+function audioSummary(tracks: { codec: string }[]) {
+  if (tracks.length === 0) {
+    return ' · 无音轨';
   }
-  const parsed = Number(trimmed);
-  if (!Number.isFinite(parsed)) {
-    return null;
-  }
-  return Math.min(max, Math.max(0, Math.round(parsed)));
+  const first = tracks[0]?.codec;
+  return tracks.length === 1 ? ` · ${first}` : ` · ${tracks.length} 条音轨`;
 }
 
-function positiveInt(value: string, max: number) {
-  const next = optionalInt(value, max);
-  return next != null && next > 0 ? next : null;
-}
-
-function outputExtension(mode: 'default' | 'custom', container: VideoContainer) {
-  return mode === 'custom' ? containerExtension(container) : '.mp4';
+function outputExtension(mode: 'default' | 'custom', container: 'mp4' | 'mov' | 'mpegTs', codec: string) {
+  if (mode !== 'custom') {
+    return '.mp4';
+  }
+  return containerExtension(codec === 'vp9' && container === 'mpegTs' ? 'mp4' : container);
 }
 
 export function VideoToolboxPage() {
@@ -127,17 +121,13 @@ function VideoToolbox() {
   const queryClient = useQueryClient();
   const [op, setOp] = useState<VideoOp>('convert');
   const [mode, setMode] = useState<'default' | 'custom'>('default');
-  const [container, setContainer] = useState<VideoContainer>('mp4');
-  const [codec, setCodec] = useState<VideoCodec>('av1');
-  const [speed, setSpeed] = useState<EncodeSpeed>('balanced');
-  const [crf, setCrf] = useState('');
-  const [fps, setFps] = useState('');
+  const [draft, setDraft] = useState(initialEncodeDraft);
   const [files, setFiles] = useState<VideoFile[]>([]);
   const [output, setOutput] = useState('');
   const [outputEdited, setOutputEdited] = useState(false);
   const [drawFilename, setDrawFilename] = useState(false);
   const [formError, setFormError] = useState('');
-  const extension = outputExtension(mode, container);
+  const extension = outputExtension(mode, draft.container, draft.codec);
   const firstInput = files[0]?.input;
   const perFile = op === 'convert' || op === 'cut';
 
@@ -206,15 +196,12 @@ function VideoToolbox() {
 
   function encode(): VideoEncode | undefined {
     if (mode === 'default') {
+      if (!perFile && drawFilename) {
+        return { title: { source: 'filename', text: '', anchor: 'topStart', fontSize: 0 } };
+      }
       return undefined;
     }
-    return {
-      container,
-      codec,
-      speed,
-      crf: optionalInt(crf, 63),
-      fps: perFile ? positiveInt(fps, 240) : null
-    };
+    return buildEncode(draft, perFile);
   }
 
   const enqueue = useMutation({
@@ -265,7 +252,6 @@ function VideoToolbox() {
           kind: 'mergeVideo',
           inputs: files.map((file) => file.input),
           output: output.trim(),
-          drawFilename,
           encode: profile
         });
         return;
@@ -279,7 +265,6 @@ function VideoToolbox() {
         base: base.input,
         inputs: rest.map((file) => file.input),
         output: output.trim(),
-        drawFilename,
         encode: profile
       });
     },
@@ -339,73 +324,30 @@ function VideoToolbox() {
           <div className={styles.card}>
             <FileDrop accept={videoExtensions} onFiles={addFiles} />
             {mode === 'custom' ? (
-              <>
-                <div className={styles.pair}>
-                  <Select
-                    label="输出格式"
-                    value={container}
-                    onChange={(event) => setContainer(event.target.value as VideoContainer)}
-                  >
-                    <option value="mp4">MP4</option>
-                    <option value="mov">MOV</option>
-                    <option value="mpegTs">MPEG-TS</option>
-                  </Select>
-                  <Select
-                    label="视频编码"
-                    value={codec}
-                    onChange={(event) => setCodec(event.target.value as VideoCodec)}
-                  >
-                    <option value="av1">AV1</option>
-                    <option value="hevc">HEVC</option>
-                    <option value="vp9">VP9</option>
-                  </Select>
-                </div>
-                <div className={styles.pair}>
-                  <Select
-                    label="处理速度"
-                    value={speed}
-                    onChange={(event) => setSpeed(event.target.value as EncodeSpeed)}
-                  >
-                    <option value="fast">快</option>
-                    <option value="balanced">均衡</option>
-                    <option value="slow">慢</option>
-                  </Select>
-                  <TextField
-                    label="质量 CRF"
-                    value={crf}
-                    inputMode="numeric"
-                    hint="留空使用默认"
-                    onChange={(event) => setCrf(event.target.value)}
-                  />
-                </div>
-                {perFile ? (
-                  <TextField
-                    label="帧率"
-                    value={fps}
-                    inputMode="numeric"
-                    hint="留空保留源帧率"
-                    onChange={(event) => setFps(event.target.value)}
-                  />
-                ) : null}
-              </>
+              <VideoEncodeFields
+                draft={draft}
+                perFile={perFile}
+                tracks={files.find((file) => file.info)?.info?.audioTracks ?? []}
+                onChange={setDraft}
+              />
             ) : null}
             {!perFile ? (
-              <>
-                <TextField
-                  label="输出路径"
-                  value={output}
-                  required
-                  onChange={(event) => {
-                    setOutput(event.target.value);
-                    setOutputEdited(true);
-                  }}
-                />
-                <Checkbox
-                  label="在画面上写文件名"
-                  checked={drawFilename}
-                  onChange={(event) => setDrawFilename(event.target.checked)}
-                />
-              </>
+              <TextField
+                label="输出路径"
+                value={output}
+                required
+                onChange={(event) => {
+                  setOutput(event.target.value);
+                  setOutputEdited(true);
+                }}
+              />
+            ) : null}
+            {!perFile && mode === 'default' ? (
+              <Checkbox
+                label="在画面上写文件名"
+                checked={drawFilename}
+                onChange={(event) => setDrawFilename(event.target.checked)}
+              />
             ) : null}
             {formError ? <p className={styles.error}>{formError}</p> : null}
           </div>
@@ -415,7 +357,11 @@ function VideoToolbox() {
                 {op === 'append' && index === 0 ? '基准' : file.input.split(/[/\\]/).pop()}
                 <span className={styles.extra}>{file.info ? `${file.info.width}×${file.info.height}` : null}</span>
               </h2>
-              <p className={styles.meta}>{file.info ? formatDuration(file.info.duration) : file.input}</p>
+              <p className={styles.meta}>
+                {file.info
+                  ? `${formatDuration(file.info.duration)} · ${file.info.videoCodec || '视频'}${audioSummary(file.info.audioTracks)}`
+                  : file.input}
+              </p>
               {file.probeError ? <p className={styles.error}>{file.probeError}</p> : null}
               {perFile ? (
                 <TextField

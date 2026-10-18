@@ -40,21 +40,94 @@ export type TimeSegment = {
 /** 写出容器。侧车只打开了这三种。 */
 export type VideoContainer = 'mp4' | 'mov' | 'mpegTs';
 
-/** 软件视频编码。 */
-export type VideoCodec = 'av1' | 'hevc' | 'vp9';
+/** 位深。只有 AV1 和 HEVC 有这一项。 */
+export type BitDepth = 'eight' | 'ten';
 
-/** 处理速度。各编码器再映射到自己的 preset。 */
-export type EncodeSpeed = 'fast' | 'balanced' | 'slow';
+export type HevcPreset = 'veryFast' | 'fast' | 'medium' | 'slow' | 'slower';
 
-/** 一次转码的编码配置。缺省是 MP4、AV1、均衡。 */
+export type HevcTune = 'none' | 'animation' | 'grain';
+
+export type Vp9Content = 'general' | 'screen' | 'film';
+
+export type Fit = 'contain' | 'fill' | 'cover';
+
+export type TitleSource = 'text' | 'filename';
+
+export type TitleAnchor =
+  | 'topStart'
+  | 'topCenter'
+  | 'topEnd'
+  | 'centerStart'
+  | 'center'
+  | 'centerEnd'
+  | 'bottomStart'
+  | 'bottomCenter'
+  | 'bottomEnd';
+
+export type SubtitleSource = 'externalFile' | 'embeddedTrack';
+
+/** 当前编码和它自己的速度、质量。缺省是 AV1，preset 6，CRF 35。 */
+export type VideoParams =
+  | { codec: 'av1'; preset?: number; crf?: number; bitDepth?: BitDepth }
+  | { codec: 'hevc'; preset?: HevcPreset; crf?: number; tune?: HevcTune; bitDepth?: BitDepth }
+  | { codec: 'vp9'; cpuUsed?: number; crf?: number; content?: Vp9Content };
+
+export type AudioMode = { kind: 'first' } | { kind: 'index'; index: number } | { kind: 'drop' };
+
+export type AudioSelection = {
+  mode?: AudioMode;
+  channels?: number | null;
+  sampleRate?: number | null;
+  bitrateKbps?: number;
+};
+
+export type VideoSize = {
+  width: number;
+  height: number;
+  fit?: Fit;
+};
+
+export type TitleOverlay = {
+  source?: TitleSource;
+  text?: string;
+  anchor?: TitleAnchor;
+  fontSize?: number;
+  fontFile?: string | null;
+  start?: number | null;
+  end?: number | null;
+};
+
+export type SubtitleOverlay = {
+  source?: SubtitleSource;
+  file?: string | null;
+  trackIndex?: number | null;
+  fontsDir?: string | null;
+  forceStyle?: string | null;
+};
+
+/** 一次转码的编码配置。缺省是 MP4、AV1、第一条音轨。 */
 export type VideoEncode = {
   container?: VideoContainer;
-  codec?: VideoCodec;
-  speed?: EncodeSpeed;
-  /** 空则按编码器取默认 CRF。 */
-  crf?: number | null;
-  /** 空则保留源帧率。合并和追加不使用这个字段。 */
+  video?: VideoParams;
+  /** 只对转码和裁剪生效。空则保留源帧率。 */
   fps?: number | null;
+  size?: VideoSize | null;
+  audio?: AudioSelection;
+  faststart?: boolean;
+  title?: TitleOverlay | null;
+  subtitle?: SubtitleOverlay | null;
+};
+
+/** 一条音轨。index 是流序号。 */
+export type AudioTrack = {
+  index: number;
+  codec: string;
+  sampleRate: number;
+  channels: number;
+  channelLayout: string;
+  bitrateKbps: number;
+  language: string;
+  title: string;
 };
 
 /** 读取到的视频信息。 */
@@ -65,9 +138,9 @@ export type VideoInfo = {
   fps: number;
   duration: number;
   videoCodec: string;
-  audioCodec: string;
-  audioSampleRate: number;
+  pixFmt: string;
   bitrateKbps: number;
+  audioTracks: AudioTrack[];
 };
 
 export type JxlColorEncoding = 'srgb' | 'linearSrgb' | 'srgbLuma' | 'linearSrgbLuma';
@@ -135,13 +208,12 @@ export type TaskInput =
   | { kind: 'decryptMedia'; mediaId: string; password: string }
   | { kind: 'convertVideo'; input: string; output: string; encode?: VideoEncode }
   | { kind: 'cutVideo'; input: string; output: string; segments: TimeSegment[]; encode?: VideoEncode }
-  | { kind: 'mergeVideo'; inputs: string[]; output: string; drawFilename?: boolean; encode?: VideoEncode }
+  | { kind: 'mergeVideo'; inputs: string[]; output: string; encode?: VideoEncode }
   | {
       kind: 'appendVideo';
       base: string;
       inputs: string[];
       output: string;
-      drawFilename?: boolean;
       encode?: VideoEncode;
     }
   | { kind: 'convertAvif'; input: string; output: string; params?: AvifEncodeParams }

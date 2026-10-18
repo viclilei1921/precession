@@ -1,4 +1,4 @@
-//! 视频信息解析：从 FFmpeg 输出中提取元数据
+//! 视频信息解析：从 FFmpeg 输出中提取画面和全部音轨。
 
 use std::sync::OnceLock;
 
@@ -6,88 +6,132 @@ use regex::Regex;
 use tauri_plugin_shell::ShellExt;
 use tauri_plugin_shell::process::CommandEvent;
 
-use crate::ffmpeg::models::VideoInfo;
+use crate::ffmpeg::models::{AudioTrack, VideoInfo};
 use crate::ffmpeg::utils::parse_duration_str;
 use crate::sidecar::{SidecarError, SidecarResult};
 
-// 正则表达式：模块级 OnceLock，只编译一次，避免 video_info 每次调用重复编译
 static RE_RES: OnceLock<Regex> = OnceLock::new();
 static RE_FPS: OnceLock<Regex> = OnceLock::new();
 static RE_DURATION: OnceLock<Regex> = OnceLock::new();
 static RE_BITRATE_KB: OnceLock<Regex> = OnceLock::new();
 static RE_VCODEC: OnceLock<Regex> = OnceLock::new();
-static RE_ACODEC: OnceLock<Regex> = OnceLock::new();
+static RE_PIX: OnceLock<Regex> = OnceLock::new();
+static RE_AUDIO: OnceLock<Regex> = OnceLock::new();
+static RE_AUDIO_BITRATE: OnceLock<Regex> = OnceLock::new();
+static RE_TITLE: OnceLock<Regex> = OnceLock::new();
 
-fn re_res() -> &'static Regex {
-  RE_RES.get_or_init(|| Regex::new(r"Video:.*?\s(\d{3,})x(\d{3,})").expect("ffmpeg video_info regex: res"))
+fn regex(slot: &'static OnceLock<Regex>, pattern: &'static str) -> &'static Regex {
+  slot.get_or_init(|| Regex::new(pattern).expect("ffmpeg video_info regex"))
 }
-fn re_fps() -> &'static Regex {
-  RE_FPS.get_or_init(|| Regex::new(r",\s*(\d+(?:\.\d+)?)\s*fps").expect("ffmpeg video_info regex: fps"))
+
+fn channels_of(layout: &str) -> u32 {
+  let layout = layout.to_ascii_lowercase();
+  if layout.contains("mono") {
+    1
+  } else if layout.contains("7.1") {
+    8
+  } else if layout.contains("6.1") {
+    7
+  } else if layout.contains("5.1") {
+    6
+  } else if layout.contains("5.0") {
+    5
+  } else if layout.contains("4.0") || layout.contains("quad") {
+    4
+  } else if layout.contains("2.1") {
+    3
+  } else {
+    2
+  }
 }
-fn re_duration() -> &'static Regex {
-  RE_DURATION
-    .get_or_init(|| Regex::new(r"Duration:\s*(\d+:\d{2}:\d{2}\.\d+)").expect("ffmpeg video_info regex: duration"))
-}
-fn re_bitrate_kb() -> &'static Regex {
-  RE_BITRATE_KB.get_or_init(|| Regex::new(r"bitrate:\s*(\d+)\s*kb/s").expect("ffmpeg video_info regex: bitrate_kb"))
-}
-fn re_vcodec() -> &'static Regex {
-  RE_VCODEC.get_or_init(|| Regex::new(r"Video:\s*([a-zA-Z0-9_]+)").expect("ffmpeg video_info regex: vcodec"))
-}
-fn re_acodec() -> &'static Regex {
-  RE_ACODEC
-    .get_or_init(|| Regex::new(r"Audio:\s*([a-zA-Z0-9_]+).*?(\d+)\s*Hz").expect("ffmpeg video_info regex: acodec"))
+
+fn parse_line(info: &mut VideoInfo, audio_open: &mut bool, line: &str) {
+  if line.contains("Stream #") {
+    *audio_open = false;
+  }
+
+  if line.contains("Video:") && info.video_codec.is_empty() {
+    if let Some(caps) = regex(&RE_RES, r"(\d{2,5})x(\d{2,5})").captures(line) {
+      info.width = caps[1].parse().unwrap_or(0);
+      info.height = caps[2].parse().unwrap_or(0);
+    }
+    if let Some(caps) = regex(&RE_FPS, r",\s*(\d+(?:\.\d+)?)\s*fps").captures(line) {
+      info.fps = caps[1].parse().unwrap_or(0.0);
+    }
+    if let Some(caps) = regex(&RE_VCODEC, r"Video:\s*([A-Za-z0-9_]+)").captures(line) {
+      info.video_codec = caps[1].to_string();
+    }
+    if let Some(caps) = regex(&RE_PIX, r"Video:.*?,\s*([a-z0-9]+)").captures(line) {
+      info.pix_fmt = caps[1].to_string();
+    }
+  }
+
+  if line.contains("Audio:") {
+    if let Some(caps) = regex(
+      &RE_AUDIO,
+      r"Stream #\d+:(\d+)(?:\[[^\]]*\])?(?:\(([^)]*)\))?: Audio:\s*([A-Za-z0-9_]+).*?,\s*(\d+)\s*Hz,\s*([^,]+)",
+    )
+    .captures(line)
+    {
+      let layout = caps[5].trim().to_string();
+      let bitrate =
+        regex(&RE_AUDIO_BITRATE, r"(\d+)\s*kb/s").captures(line).and_then(|caps| caps[1].parse().ok()).unwrap_or(0);
+      info.audio_tracks.push(AudioTrack {
+        index: caps[1].parse().unwrap_or(0),
+        codec: caps[3].to_string(),
+        sample_rate: caps[4].parse().unwrap_or(0),
+        channels: channels_of(&layout),
+        channel_layout: layout,
+        bitrate_kbps: bitrate,
+        language: caps.get(2).map(|item| item.as_str().to_string()).unwrap_or_default(),
+        title: String::new(),
+      });
+      *audio_open = true;
+    }
+  }
+
+  if *audio_open {
+    if let Some(caps) = regex(&RE_TITLE, r"title\s*:\s*(.+)$").captures(line) {
+      if let Some(track) = info.audio_tracks.last_mut() {
+        if track.title.is_empty() {
+          track.title = caps[1].trim().to_string();
+        }
+      }
+    }
+  }
+
+  if line.contains("Duration:") {
+    if let Some(caps) = regex(&RE_DURATION, r"Duration:\s*(\d+:\d{2}:\d{2}\.\d+)").captures(line) {
+      if let Some(duration) = parse_duration_str(&caps[1]) {
+        info.duration = duration;
+      }
+    }
+    if let Some(caps) = regex(&RE_BITRATE_KB, r"bitrate:\s*(\d+)\s*kb/s").captures(line) {
+      info.bitrate_kbps = caps[1].parse().unwrap_or(0);
+    }
+  }
 }
 
 pub async fn video_info(app: &tauri::AppHandle, path: &str) -> SidecarResult<VideoInfo> {
   let shell = app.shell();
   let (mut rx, _child) = shell
     .sidecar("ffmpeg")
-    .map_err(|e| SidecarError::sidecar_spawn("ffmpeg", e))?
-    .args(&["-i", path, "-hide_banner"])
+    .map_err(|err| SidecarError::sidecar_spawn("ffmpeg", err))?
+    .args(["-i", path, "-hide_banner"])
     .spawn()
-    .map_err(|e| SidecarError::sidecar_spawn("ffmpeg", e))?;
+    .map_err(|err| SidecarError::sidecar_spawn("ffmpeg", err))?;
 
-  let mut video_info = VideoInfo { path: path.to_string(), ..Default::default() };
+  let mut info = VideoInfo { path: path.to_string(), ..Default::default() };
+  let mut audio_open = false;
 
   while let Some(event) = rx.recv().await {
     match event {
       CommandEvent::Stderr(data) => {
-        let line = String::from_utf8_lossy(&data).trim().to_string();
-
-        // 1. 解析基础视频信息 (分辨率, 编码)
-        if line.contains("Video:") {
-          if let Some(caps) = re_res().captures(&line) {
-            video_info.width = caps[1].parse().unwrap_or(0);
-            video_info.height = caps[2].parse().unwrap_or(0);
-          }
-          if let Some(caps) = re_fps().captures(&line) {
-            video_info.fps = caps[1].parse().unwrap_or(0.0);
-          }
-          if video_info.video_codec.is_empty() {
-            if let Some(caps) = re_vcodec().captures(&line) {
-              video_info.video_codec = caps[1].to_string();
-            }
-          }
-        }
-
-        // 2. 解析音频信息
-        if line.contains("Audio:") && video_info.audio_codec.is_empty() {
-          if let Some(caps) = re_acodec().captures(&line) {
-            video_info.audio_codec = caps[1].to_string();
-            video_info.audio_sample_rate = caps[2].parse().unwrap_or(0);
-          }
-        }
-
-        // 3. 解析时长与码率（分开匹配：浏览器 WebM 常为 Duration 有效但 bitrate: N/A，旧正则会整行失败）
-        if line.contains("Duration:") {
-          if let Some(caps) = re_duration().captures(&line) {
-            if let Some(duration) = parse_duration_str(&caps[1]) {
-              video_info.duration = duration;
-            }
-          }
-          if let Some(caps) = re_bitrate_kb().captures(&line) {
-            video_info.bitrate_kbps = caps[1].parse().unwrap_or(0);
+        let chunk = String::from_utf8_lossy(&data);
+        for raw in chunk.lines() {
+          let line = raw.trim();
+          if !line.is_empty() {
+            parse_line(&mut info, &mut audio_open, line);
           }
         }
       }
@@ -104,14 +148,39 @@ pub async fn video_info(app: &tauri::AppHandle, path: &str) -> SidecarResult<Vid
     }
   }
 
-  if video_info.duration > 0.0 {
-    return Ok(video_info);
-  }
-
-  // 部分 WebM（如 Chrome/MediaRecorder）容器里无总时长，ffmpeg 报 Duration: N/A，但视频流仍可读；转码可正常完成，仅进度条无百分比
-  if video_info.width > 0 || !video_info.video_codec.is_empty() {
-    return Ok(video_info);
+  if info.duration > 0.0 || info.width > 0 || !info.video_codec.is_empty() {
+    return Ok(info);
   }
 
   Err(SidecarError::invalid("无法读取视频时长"))
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn audio_line_with_program_id_is_kept() {
+    let sample = "\
+Stream #0:0[0x1](und): Video: hevc (hvc1 / 0x31637668), yuv420p(tv, bt709), 1920x1080, 3601 kb/s, 29.96 fps
+Stream #0:1[0x2](und): Audio: aac (mp4a / 0x6134706D), 48000 Hz, stereo, fltp, 127 kb/s (default)
+    Metadata:
+      handler_name    : SoundHandler
+";
+    let mut info = VideoInfo::default();
+    let mut audio_open = false;
+    for line in sample.lines() {
+      parse_line(&mut info, &mut audio_open, line.trim());
+    }
+    assert_eq!(info.video_codec, "hevc");
+    assert_eq!(info.pix_fmt, "yuv420p");
+    assert_eq!(info.audio_tracks.len(), 1);
+    let track = &info.audio_tracks[0];
+    assert_eq!(track.index, 1);
+    assert_eq!(track.codec, "aac");
+    assert_eq!(track.sample_rate, 48000);
+    assert_eq!(track.channels, 2);
+    assert_eq!(track.language, "und");
+    assert!(track.title.is_empty());
+  }
 }
