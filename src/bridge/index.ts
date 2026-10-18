@@ -1,5 +1,6 @@
 export * from './calendar';
 export * from './db';
+export * from './files';
 export * from './growth';
 export * from './invoke';
 export * from './journal';

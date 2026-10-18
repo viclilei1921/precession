@@ -1,6 +1,7 @@
 .field {
   display: grid;
   gap: var(--space-1);
+  align-content: start;
   min-width: 0;
   font-size: var(--text-sm);
 }

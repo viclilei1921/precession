@@ -9,6 +9,7 @@ pub struct TimeSegment {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct VideoInfo {
   pub path: String,
   pub width: u32,
@@ -21,84 +22,201 @@ pub struct VideoInfo {
   pub bitrate_kbps: u32,
 }
 
-/// 编码器预设
-#[derive(Debug)]
-pub enum EncoderPreset {
-  Nvidia(String), // hevc_nvenc
-  Intel(String),  // hevc_qsv
-  Amd(String),    // hevc_amf
-  Apple(String),  // hevc_videotoolbox
-  Cpu(String),    // libx265
+/// 写出容器。侧车只打开了这三种封装。
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum VideoContainer {
+  Mp4,
+  Mov,
+  MpegTs,
 }
 
-impl EncoderPreset {
-  /// 将编码器预设转换为 FFmpeg 参数
-  pub fn to_ffmpeg_args(&self) -> Vec<&str> {
-    // 1. 基础兼容性参数 (所有编码器通用)
-    // -pix_fmt yuv420p: 强制 8位 色深，防止转码成 10位 导致浏览器黑屏
-    // -tag:v hvc1: 苹果生态 (Safari/Finder) 识别 HEVC 的必要标签
-    let common_args = vec!["-c:a", "aac", "-ac", "2", "-pix_fmt", "yuv420p", "-tag:v", "hvc1"];
+/// 视频编码器。都是软件编码。
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum VideoCodec {
+  Av1,
+  Hevc,
+  Vp9,
+}
 
-    // 2. 根据硬件添加特定编码参数
-    let encoder_args = match self {
-      EncoderPreset::Nvidia(name) => vec![
-        "-c:v",
-        name.as_str(),
-        // -cq: 恒定质量模式 (Constant Quality), 范围 1-51, 越小越清晰
-        "-cq",
-        "25",
-        // -preset: p1(最快)-p7(最慢/质量最好), p4 是平衡点
-        "-preset",
-        "p5",
-      ],
-      EncoderPreset::Intel(name) => vec![
-        "-c:v",
-        name.as_str(),
-        // -global_quality: ICQ 模式, 类似 CRF
-        "-global_quality",
-        "23",
-        "-load_plugin",
-        "hevc_hw", // 显式加载插件有时能避免报错
-      ],
-      EncoderPreset::Apple(name) => vec![
-        "-c:v",
-        name.as_str(),
-        // -q:v: 质量控制, 0-100, 这里的 60 大约对应 CRF 26-28
-        "-q:v",
-        "68",
-        // 确保 Apple 编码器不自动用 10bit
-        "-profile:v",
-        "main",
-      ],
-      EncoderPreset::Amd(name) => vec![
-        "-c:v",
-        name.as_str(),
-        // AMD AMF 比较特殊，通常用 -rc cqp 来控制质量
-        "-usage",
-        "transcoding",
-        "-rc",
-        "cqp",
-        "-qp_i",
-        "24",
-        "-qp_p",
-        "24",
-        "-quality",
-        "quality",
-      ],
-      EncoderPreset::Cpu(name) => vec![
-        "-c:v",
-        name.as_str(),
-        // -crf: 软件编码标准质量控制
-        "-crf",
-        "24",
-        // -preset: medium 是默认, fast 编码更快
-        "-preset",
-        "medium",
-      ],
+/// 处理速度。各编码器再映射到自己的 preset。
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum EncodeSpeed {
+  Fast,
+  Balanced,
+  Slow,
+}
+
+/// 一次转码用的编码配置。缺省就是默认模式：MP4、AV1、均衡。
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default, rename_all = "camelCase")]
+pub struct VideoEncode {
+  pub container: VideoContainer,
+  pub codec: VideoCodec,
+  pub speed: EncodeSpeed,
+  /// 空则按编码器取默认 CRF。
+  pub crf: Option<u8>,
+  /// 空则保留源帧率。合并和追加在滤镜里决定帧率，调用前会清掉这个字段。
+  pub fps: Option<u32>,
+}
+
+impl Default for VideoEncode {
+  fn default() -> Self {
+    Self { container: VideoContainer::Mp4, codec: VideoCodec::Av1, speed: EncodeSpeed::Balanced, crf: None, fps: None }
+  }
+}
+
+impl Default for VideoContainer {
+  fn default() -> Self {
+    Self::Mp4
+  }
+}
+
+impl Default for VideoCodec {
+  fn default() -> Self {
+    Self::Av1
+  }
+}
+
+impl Default for EncodeSpeed {
+  fn default() -> Self {
+    Self::Balanced
+  }
+}
+
+fn default_crf(codec: VideoCodec) -> u8 {
+  match codec {
+    VideoCodec::Av1 => 32,
+    VideoCodec::Hevc => 24,
+    VideoCodec::Vp9 => 32,
+  }
+}
+
+fn push_pair(args: &mut Vec<String>, key: &str, value: impl Into<String>) {
+  args.push(key.to_string());
+  args.push(value.into());
+}
+
+/// 把编码配置变成 ffmpeg 参数。`audio` 为假时只写 `-an`，不再改返回值。
+pub fn encode_args(profile: &VideoEncode, audio: bool) -> Vec<String> {
+  let mut args = Vec::new();
+  let crf = profile.crf.unwrap_or(default_crf(profile.codec)).min(63);
+
+  match profile.codec {
+    VideoCodec::Av1 => {
+      let preset = match profile.speed {
+        EncodeSpeed::Fast => "8",
+        EncodeSpeed::Balanced => "6",
+        EncodeSpeed::Slow => "4",
+      };
+      push_pair(&mut args, "-c:v", "libsvtav1");
+      push_pair(&mut args, "-crf", crf.to_string());
+      push_pair(&mut args, "-preset", preset);
+    }
+    VideoCodec::Hevc => {
+      let preset = match profile.speed {
+        EncodeSpeed::Fast => "fast",
+        EncodeSpeed::Balanced => "medium",
+        EncodeSpeed::Slow => "slow",
+      };
+      push_pair(&mut args, "-c:v", "libx265");
+      push_pair(&mut args, "-crf", crf.to_string());
+      push_pair(&mut args, "-preset", preset);
+    }
+    VideoCodec::Vp9 => {
+      let cpu_used = match profile.speed {
+        EncodeSpeed::Fast => "4",
+        EncodeSpeed::Balanced => "2",
+        EncodeSpeed::Slow => "1",
+      };
+      push_pair(&mut args, "-c:v", "libvpx-vp9");
+      push_pair(&mut args, "-crf", crf.to_string());
+      push_pair(&mut args, "-b:v", "0");
+      push_pair(&mut args, "-deadline", "good");
+      push_pair(&mut args, "-cpu-used", cpu_used);
+    }
+  }
+
+  push_pair(&mut args, "-pix_fmt", "yuv420p");
+
+  if audio {
+    push_pair(&mut args, "-c:a", "aac");
+    push_pair(&mut args, "-ac", "2");
+  } else {
+    args.push("-an".to_string());
+  }
+
+  if let Some(fps) = profile.fps.filter(|fps| *fps > 0 && *fps <= 240) {
+    push_pair(&mut args, "-fps_mode", "cfr");
+    push_pair(&mut args, "-r", fps.to_string());
+  }
+
+  if profile.codec == VideoCodec::Hevc && matches!(profile.container, VideoContainer::Mp4 | VideoContainer::Mov) {
+    push_pair(&mut args, "-tag:v", "hvc1");
+  }
+
+  args
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn default_encode_is_av1_without_hardware() {
+    let joined = encode_args(&VideoEncode::default(), true).join(" ");
+    assert!(joined.contains("libsvtav1"), "{joined}");
+    assert!(joined.contains("-preset 6"), "{joined}");
+    assert!(joined.contains("-crf 32"), "{joined}");
+    assert!(joined.contains("-c:a aac"), "{joined}");
+    assert!(joined.contains("-pix_fmt yuv420p"), "{joined}");
+    for banned in ["nvenc", "qsv", "amf", "videotoolbox", "hvc1", "libx265", "libvpx"] {
+      assert!(!joined.contains(banned), "{joined} 含有 {banned}");
+    }
+  }
+
+  #[test]
+  fn hevc_mp4_adds_hvc1_and_can_drop_audio() {
+    let profile = VideoEncode {
+      container: VideoContainer::Mp4,
+      codec: VideoCodec::Hevc,
+      speed: EncodeSpeed::Fast,
+      crf: None,
+      fps: Some(30),
     };
+    let joined = encode_args(&profile, false).join(" ");
+    assert!(joined.contains("libx265"), "{joined}");
+    assert!(joined.contains("-preset fast"), "{joined}");
+    assert!(joined.contains("-crf 24"), "{joined}");
+    assert!(joined.contains("-tag:v hvc1"), "{joined}");
+    assert!(joined.contains("-an"), "{joined}");
+    assert!(joined.contains("-r 30"), "{joined}");
+    assert!(!joined.contains("-c:a"), "{joined}");
+  }
 
-    // 3. 转换 Vec<&str> 为 Vec<String> 并合并
+  #[test]
+  fn hevc_mpegts_skips_hvc1() {
+    let profile = VideoEncode { container: VideoContainer::MpegTs, codec: VideoCodec::Hevc, ..VideoEncode::default() };
+    let joined = encode_args(&profile, true).join(" ");
+    assert!(!joined.contains("hvc1"), "{joined}");
+  }
 
-    [&common_args[..], &encoder_args[..]].concat()
+  #[test]
+  fn vp9_slow_uses_cpu_used() {
+    let profile = VideoEncode {
+      container: VideoContainer::MpegTs,
+      codec: VideoCodec::Vp9,
+      speed: EncodeSpeed::Slow,
+      crf: Some(40),
+      fps: None,
+    };
+    let joined = encode_args(&profile, true).join(" ");
+    assert!(joined.contains("libvpx-vp9"), "{joined}");
+    assert!(joined.contains("-cpu-used 1"), "{joined}");
+    assert!(joined.contains("-b:v 0"), "{joined}");
+    assert!(joined.contains("-crf 40"), "{joined}");
+    assert!(!joined.contains("hvc1"), "{joined}");
   }
 }

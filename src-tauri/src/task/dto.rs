@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::ffmpeg::models::TimeSegment;
+use crate::ffmpeg::models::{TimeSegment, VideoEncode};
 use crate::image::params::{AvifEncodeParams, JxlEncodeParams};
 
 /// 队列里的一条任务。密码不会出现在这里。
@@ -49,18 +49,22 @@ pub enum TaskInput {
     input: String,
     output: String,
     #[serde(default)]
-    target_fps: Option<u32>,
+    encode: VideoEncode,
   },
   CutVideo {
     input: String,
     output: String,
     segments: Vec<TimeSegment>,
+    #[serde(default)]
+    encode: VideoEncode,
   },
   MergeVideo {
     inputs: Vec<String>,
     output: String,
     #[serde(default)]
     draw_filename: bool,
+    #[serde(default)]
+    encode: VideoEncode,
   },
   AppendVideo {
     base: String,
@@ -68,6 +72,8 @@ pub enum TaskInput {
     output: String,
     #[serde(default)]
     draw_filename: bool,
+    #[serde(default)]
+    encode: VideoEncode,
   },
   ConvertAvif {
     input: String,

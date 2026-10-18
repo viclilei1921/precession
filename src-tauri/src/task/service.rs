@@ -20,7 +20,7 @@ use super::job::JobCtx;
 use super::queue::{TaskQueue, Ticket};
 use super::step::{self, Step};
 use crate::db::state::DbState;
-use crate::ffmpeg::models::TimeSegment;
+use crate::ffmpeg::models::{TimeSegment, VideoEncode};
 use crate::image::params::{AvifEncodeParams, JxlEncodeParams};
 use crate::media::{KIND_IMAGE, KIND_VIDEO};
 use crate::utils::id::new_uuid_v4;
@@ -29,10 +29,10 @@ pub(super) enum Spec {
   File { input: PathBuf, output: PathBuf, encrypt: bool },
   Import { source: PathBuf, owner: String, owner_id: String, media_kind: String, encrypt: bool },
   Media { media_id: String, encrypt: bool },
-  ConvertVideo { input: String, output: String, target_fps: Option<u32> },
-  CutVideo { input: String, output: String, segments: Vec<TimeSegment> },
-  MergeVideo { inputs: Vec<String>, output: String, draw_filename: bool },
-  AppendVideo { base: String, inputs: Vec<String>, output: String, draw_filename: bool },
+  ConvertVideo { input: String, output: String, encode: VideoEncode },
+  CutVideo { input: String, output: String, segments: Vec<TimeSegment>, encode: VideoEncode },
+  MergeVideo { inputs: Vec<String>, output: String, draw_filename: bool, encode: VideoEncode },
+  AppendVideo { base: String, inputs: Vec<String>, output: String, draw_filename: bool, encode: VideoEncode },
   ConvertAvif { input: String, output: String, params: AvifEncodeParams },
   ConvertJxl { input: String, output: String, params: JxlEncodeParams },
 }
@@ -128,17 +128,15 @@ fn run_sidecar(app: &AppHandle, ticket: &Ticket) -> Result<Option<String>, TaskE
 #[cfg(desktop)]
 async fn dispatch_sidecar(app: &AppHandle, job: &JobCtx, spec: &Spec) -> Result<(), crate::sidecar::SidecarError> {
   match spec {
-    Spec::ConvertVideo { input, output, target_fps } => {
-      crate::ffmpeg::run_convert(app, job, input, output, *target_fps).await
+    Spec::ConvertVideo { input, output, encode } => crate::ffmpeg::run_convert(app, job, input, output, encode).await,
+    Spec::CutVideo { input, output, segments, encode } => {
+      crate::ffmpeg::run_cut(app, job, input, output, segments.clone(), encode).await
     }
-    Spec::CutVideo { input, output, segments } => {
-      crate::ffmpeg::run_cut(app, job, input, output, segments.clone()).await
+    Spec::MergeVideo { inputs, output, draw_filename, encode } => {
+      crate::ffmpeg::run_merge_smart(app, job, inputs.clone(), output, *draw_filename, encode).await
     }
-    Spec::MergeVideo { inputs, output, draw_filename } => {
-      crate::ffmpeg::run_merge_smart(app, job, inputs.clone(), output, *draw_filename).await
-    }
-    Spec::AppendVideo { base, inputs, output, draw_filename } => {
-      crate::ffmpeg::run_append_smart(app, job, base, inputs.clone(), output, *draw_filename).await
+    Spec::AppendVideo { base, inputs, output, draw_filename, encode } => {
+      crate::ffmpeg::run_append_smart(app, job, base, inputs.clone(), output, *draw_filename, encode).await
     }
     Spec::ConvertAvif { input, output, params } => {
       crate::image::run_convert_avif(app, job, input, output, params.clone()).await
@@ -321,21 +319,23 @@ fn prepare(db: &DbState, input: TaskInput) -> Result<Prepared, TaskError> {
     }
     TaskInput::EncryptMedia { media_id, password } => prepare_media(db, KIND_ENCRYPT_MEDIA, media_id, password, true),
     TaskInput::DecryptMedia { media_id, password } => prepare_media(db, KIND_DECRYPT_MEDIA, media_id, password, false),
-    TaskInput::ConvertVideo { input, output, target_fps } => prepare_convert_video(input, output, target_fps),
-    TaskInput::CutVideo { input, output, segments } => prepare_cut_video(input, output, segments),
-    TaskInput::MergeVideo { inputs, output, draw_filename } => prepare_merge_video(inputs, output, draw_filename),
-    TaskInput::AppendVideo { base, inputs, output, draw_filename } => {
-      prepare_append_video(base, inputs, output, draw_filename)
+    TaskInput::ConvertVideo { input, output, encode } => prepare_convert_video(input, output, encode),
+    TaskInput::CutVideo { input, output, segments, encode } => prepare_cut_video(input, output, segments, encode),
+    TaskInput::MergeVideo { inputs, output, draw_filename, encode } => {
+      prepare_merge_video(inputs, output, draw_filename, encode)
+    }
+    TaskInput::AppendVideo { base, inputs, output, draw_filename, encode } => {
+      prepare_append_video(base, inputs, output, draw_filename, encode)
     }
     TaskInput::ConvertAvif { input, output, params } => prepare_convert_avif(input, output, params),
     TaskInput::ConvertJxl { input, output, params } => prepare_convert_jxl(input, output, params),
   }
 }
 
-fn prepare_convert_video(input: String, output: String, target_fps: Option<u32>) -> Result<Prepared, TaskError> {
+fn prepare_convert_video(input: String, output: String, encode: VideoEncode) -> Result<Prepared, TaskError> {
   #[cfg(not(desktop))]
   {
-    let _ = (input, output, target_fps);
+    let _ = (input, output, encode);
     return Err(TaskError::DesktopOnly);
   }
   #[cfg(desktop)]
@@ -345,15 +345,20 @@ fn prepare_convert_video(input: String, output: String, target_fps: Option<u32>)
     Ok(sidecar_job(
       KIND_CONVERT_VIDEO,
       output.clone(),
-      Spec::ConvertVideo { input, output, target_fps },
+      Spec::ConvertVideo { input, output, encode },
     ))
   }
 }
 
-fn prepare_cut_video(input: String, output: String, segments: Vec<TimeSegment>) -> Result<Prepared, TaskError> {
+fn prepare_cut_video(
+  input: String,
+  output: String,
+  segments: Vec<TimeSegment>,
+  encode: VideoEncode,
+) -> Result<Prepared, TaskError> {
   #[cfg(not(desktop))]
   {
-    let _ = (input, output, segments);
+    let _ = (input, output, segments, encode);
     return Err(TaskError::DesktopOnly);
   }
   #[cfg(desktop)]
@@ -366,15 +371,20 @@ fn prepare_cut_video(input: String, output: String, segments: Vec<TimeSegment>) 
     Ok(sidecar_job(
       KIND_CUT_VIDEO,
       output.clone(),
-      Spec::CutVideo { input, output, segments },
+      Spec::CutVideo { input, output, segments, encode },
     ))
   }
 }
 
-fn prepare_merge_video(inputs: Vec<String>, output: String, draw_filename: bool) -> Result<Prepared, TaskError> {
+fn prepare_merge_video(
+  inputs: Vec<String>,
+  output: String,
+  draw_filename: bool,
+  encode: VideoEncode,
+) -> Result<Prepared, TaskError> {
   #[cfg(not(desktop))]
   {
-    let _ = (inputs, output, draw_filename);
+    let _ = (inputs, output, draw_filename, encode);
     return Err(TaskError::DesktopOnly);
   }
   #[cfg(desktop)]
@@ -384,7 +394,7 @@ fn prepare_merge_video(inputs: Vec<String>, output: String, draw_filename: bool)
     Ok(sidecar_job(
       KIND_MERGE_VIDEO,
       output.clone(),
-      Spec::MergeVideo { inputs, output, draw_filename },
+      Spec::MergeVideo { inputs, output, draw_filename, encode },
     ))
   }
 }
@@ -394,10 +404,11 @@ fn prepare_append_video(
   inputs: Vec<String>,
   output: String,
   draw_filename: bool,
+  encode: VideoEncode,
 ) -> Result<Prepared, TaskError> {
   #[cfg(not(desktop))]
   {
-    let _ = (base, inputs, output, draw_filename);
+    let _ = (base, inputs, output, draw_filename, encode);
     return Err(TaskError::DesktopOnly);
   }
   #[cfg(desktop)]
@@ -411,7 +422,7 @@ fn prepare_append_video(
     Ok(sidecar_job(
       KIND_APPEND_VIDEO,
       output.clone(),
-      Spec::AppendVideo { base, inputs, output, draw_filename },
+      Spec::AppendVideo { base, inputs, output, draw_filename, encode },
     ))
   }
 }

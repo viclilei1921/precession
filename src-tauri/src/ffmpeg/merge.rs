@@ -7,14 +7,13 @@ use std::path::Path;
 use tauri_plugin_shell::ShellExt;
 use tauri_plugin_shell::process::CommandEvent;
 
-use crate::ffmpeg::models::VideoInfo;
-use crate::ffmpeg::utils::{calculate_target_params, parse_time_from_ffmpeg_output, select_best_encoder};
-use crate::ffmpeg::video_info;
+use crate::ffmpeg::info;
+use crate::ffmpeg::models::{VideoEncode, VideoInfo, encode_args};
+use crate::ffmpeg::utils::{calculate_target_params, parse_time_from_ffmpeg_output};
 use crate::sidecar::{SidecarError, SidecarResult, clear_current_child, secure_spawn_step};
 use crate::task::JobCtx;
 use crate::utils::cache::{clear_cache_temp_dir, get_cache_dir};
 use crate::utils::font::get_default_font_path;
-use crate::utils::gpu::get_gpu_info;
 
 pub async fn run_merge_smart(
   app: &tauri::AppHandle,
@@ -22,6 +21,7 @@ pub async fn run_merge_smart(
   inputs: Vec<String>,
   output_path: &str,
   draw_filename: bool,
+  encode: &VideoEncode,
 ) -> SidecarResult<()> {
   if inputs.is_empty() {
     return Err(SidecarError::invalid("没有可合并的视频"));
@@ -29,7 +29,7 @@ pub async fn run_merge_smart(
 
   let mut valid_tasks: Vec<(&str, VideoInfo)> = Vec::new();
   for input in &inputs {
-    match video_info(app, input).await {
+    match info::video_info(app, input).await {
       Ok(meta) => valid_tasks.push((input.as_str(), meta)),
       Err(e) => tauri_plugin_log::log::error!("读取视频失败 {input}: {e}"),
     }
@@ -45,12 +45,11 @@ pub async fn run_merge_smart(
 
   tauri_plugin_log::log::info!("合并目标 {target_w}x{target_h} | 帧率 {target_fps}");
 
-  let gpus = get_gpu_info().await;
-  let best = select_best_encoder(&gpus);
-  let mut best_args = best.to_ffmpeg_args();
-  best_args.pop();
-  best_args.pop();
-  best_args.push("-an");
+  // 帧率已经写在滤镜里，不再从配置追加 -r。
+  let mut tuned = encode.clone();
+  tuned.fps = None;
+  let encoded = encode_args(&tuned, true);
+  let encoded_args: Vec<&str> = encoded.iter().map(String::as_str).collect();
 
   let cache_dir = get_cache_dir(app)?;
   let temp_dir = cache_dir.join("temp");
@@ -60,7 +59,7 @@ pub async fn run_merge_smart(
 
   let font_path = get_default_font_path();
   let mut filter_complex = String::new();
-  let mut args = Vec::with_capacity(8 + best_args.len() + inputs.len() * 2);
+  let mut args = Vec::with_capacity(8 + encoded_args.len() + inputs.len() * 2);
 
   for (i, input_path) in inputs.iter().enumerate() {
     args.push("-i");
@@ -107,7 +106,7 @@ pub async fn run_merge_smart(
   args.push("[outv]");
   args.push("-map");
   args.push("[outa]");
-  args.extend_from_slice(&best_args);
+  args.extend_from_slice(&encoded_args);
   args.push("-y");
   args.push(output_path);
 

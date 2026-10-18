@@ -3,39 +3,27 @@
 use tauri_plugin_shell::ShellExt;
 use tauri_plugin_shell::process::CommandEvent;
 
-use crate::ffmpeg::utils::{parse_time_from_ffmpeg_output, select_best_encoder};
-use crate::ffmpeg::video_info;
+use crate::ffmpeg::info::video_info;
+use crate::ffmpeg::models::{VideoEncode, encode_args};
+use crate::ffmpeg::utils::parse_time_from_ffmpeg_output;
 use crate::sidecar::{SidecarError, SidecarResult, clear_current_child, secure_spawn_step};
 use crate::task::JobCtx;
-use crate::utils::gpu::get_gpu_info;
 
 pub async fn run_convert(
   app: &tauri::AppHandle,
   job: &JobCtx,
   video_path: &str,
   output_path: &str,
-  target_fps: Option<u32>,
+  encode: &VideoEncode,
 ) -> SidecarResult<()> {
   let video_info = video_info(app, video_path).await?;
   let total_duration = video_info.duration;
+  let encoded = encode_args(encode, true);
 
-  let gpus = get_gpu_info().await;
-  let best = select_best_encoder(&gpus);
-  let best_args = best.to_ffmpeg_args();
-
-  let mut args: Vec<String> = Vec::with_capacity(8 + best_args.len());
+  let mut args: Vec<String> = Vec::with_capacity(8 + encoded.len());
   args.push("-i".to_string());
   args.push(video_path.to_string());
-  for a in &best_args {
-    args.push((*a).to_string());
-  }
-  if let Some(fps) = target_fps.filter(|f| *f > 0 && *f <= 240) {
-    // WebM（MediaRecorder）常见 VFR/PTS 异常，不指定时 HEVC 封装后常表现为约 23fps
-    args.push("-fps_mode".to_string());
-    args.push("cfr".to_string());
-    args.push("-r".to_string());
-    args.push(fps.to_string());
-  }
+  args.extend(encoded);
   args.push("-y".to_string());
   args.push(output_path.to_string());
   args.push("-hide_banner".to_string());

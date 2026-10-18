@@ -37,6 +37,39 @@ export type TimeSegment = {
   duration: string;
 };
 
+/** 写出容器。侧车只打开了这三种。 */
+export type VideoContainer = 'mp4' | 'mov' | 'mpegTs';
+
+/** 软件视频编码。 */
+export type VideoCodec = 'av1' | 'hevc' | 'vp9';
+
+/** 处理速度。各编码器再映射到自己的 preset。 */
+export type EncodeSpeed = 'fast' | 'balanced' | 'slow';
+
+/** 一次转码的编码配置。缺省是 MP4、AV1、均衡。 */
+export type VideoEncode = {
+  container?: VideoContainer;
+  codec?: VideoCodec;
+  speed?: EncodeSpeed;
+  /** 空则按编码器取默认 CRF。 */
+  crf?: number | null;
+  /** 空则保留源帧率。合并和追加不使用这个字段。 */
+  fps?: number | null;
+};
+
+/** 读取到的视频信息。 */
+export type VideoInfo = {
+  path: string;
+  width: number;
+  height: number;
+  fps: number;
+  duration: number;
+  videoCodec: string;
+  audioCodec: string;
+  audioSampleRate: number;
+  bitrateKbps: number;
+};
+
 export type JxlColorEncoding = 'srgb' | 'linearSrgb' | 'srgbLuma' | 'linearSrgbLuma';
 
 /** 缺省字段由后端补上：质量 60、速度 6、自动分块。 */
@@ -100,10 +133,17 @@ export type TaskInput =
     }
   | { kind: 'encryptMedia'; mediaId: string; password: string }
   | { kind: 'decryptMedia'; mediaId: string; password: string }
-  | { kind: 'convertVideo'; input: string; output: string; targetFps?: number | null }
-  | { kind: 'cutVideo'; input: string; output: string; segments: TimeSegment[] }
-  | { kind: 'mergeVideo'; inputs: string[]; output: string; drawFilename?: boolean }
-  | { kind: 'appendVideo'; base: string; inputs: string[]; output: string; drawFilename?: boolean }
+  | { kind: 'convertVideo'; input: string; output: string; encode?: VideoEncode }
+  | { kind: 'cutVideo'; input: string; output: string; segments: TimeSegment[]; encode?: VideoEncode }
+  | { kind: 'mergeVideo'; inputs: string[]; output: string; drawFilename?: boolean; encode?: VideoEncode }
+  | {
+      kind: 'appendVideo';
+      base: string;
+      inputs: string[];
+      output: string;
+      drawFilename?: boolean;
+      encode?: VideoEncode;
+    }
   | { kind: 'convertAvif'; input: string; output: string; params?: AvifEncodeParams }
   | { kind: 'convertJxl'; input: string; output: string; params?: JxlEncodeParams };
 
@@ -120,6 +160,11 @@ export function taskList() {
 /** 取消队列里的任务 */
 export function taskCancel(id: string) {
   return invokeCommand<void>('task_cancel', { id });
+}
+
+/** 读取视频时长和分辨率 */
+export function ffmpegProbe(path: string) {
+  return invokeCommand<VideoInfo>('ffmpeg_probe', { path });
 }
 
 /** 监听单条任务的进度 */

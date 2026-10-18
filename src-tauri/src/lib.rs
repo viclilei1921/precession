@@ -36,7 +36,7 @@ pub fn run() {
 
   // 桌面：初始化 shell 插件(为了侧车功能)
   #[cfg(desktop)]
-  let builder = builder.plugin(tauri_plugin_shell::init());
+  let builder = builder.plugin(tauri_plugin_shell::init()).plugin(tauri_plugin_dialog::init());
 
   // android端：初始化设备插槽插件(为了设备锁功能)
   #[cfg(target_os = "android")]
@@ -151,6 +151,7 @@ pub fn run() {
     media::commands::media_list,
     media::commands::media_create,
     media::commands::media_delete,
+    ffmpeg::commands::ffmpeg_probe,
     task::commands::task_enqueue,
     task::commands::task_list,
     task::commands::task_cancel,

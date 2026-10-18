@@ -6,12 +6,11 @@ use std::io::Write;
 use tauri_plugin_shell::ShellExt;
 use tauri_plugin_shell::process::CommandEvent;
 
-use crate::ffmpeg::models::TimeSegment;
-use crate::ffmpeg::utils::{parse_duration_str, parse_time_from_ffmpeg_output, select_best_encoder};
+use crate::ffmpeg::models::{TimeSegment, VideoEncode, encode_args};
+use crate::ffmpeg::utils::{parse_duration_str, parse_time_from_ffmpeg_output};
 use crate::sidecar::{SidecarError, SidecarResult, clear_current_child, secure_spawn_step};
 use crate::task::JobCtx;
 use crate::utils::cache::{clear_cache_temp_dir, get_cache_temp_dir};
-use crate::utils::gpu::get_gpu_info;
 
 /// 解析片段时长，非法输入按错误返回而不是中断进程
 fn segment_duration(raw: &str) -> SidecarResult<f64> {
@@ -24,13 +23,12 @@ pub async fn run_cut(
   video_path: &str,
   output_path: &str,
   segments: Vec<TimeSegment>,
+  encode: &VideoEncode,
 ) -> SidecarResult<()> {
   let mut temp_files = Vec::new();
   let temp_dir = get_cache_temp_dir(app)?;
-
-  let gpus = get_gpu_info().await;
-  let best = select_best_encoder(&gpus);
-  let best_args = best.to_ffmpeg_args();
+  let encoded = encode_args(encode, true);
+  let encoded_args: Vec<&str> = encoded.iter().map(String::as_str).collect();
   let mut duration: f64 = 0.0;
   let mut cut_time: f64 = 0.0;
 
@@ -47,14 +45,14 @@ pub async fn run_cut(
     let current_temp = temp_dir.join(format!("part_{}.mp4", i));
     let temp_name = current_temp.to_string_lossy().into_owned();
 
-    let mut args = Vec::with_capacity(9 + best_args.len());
+    let mut args = Vec::with_capacity(9 + encoded_args.len());
     args.push("-ss");
     args.push(&seg.start);
     args.push("-i");
     args.push(video_path);
     args.push("-t");
     args.push(&seg.duration);
-    args.extend_from_slice(&best_args);
+    args.extend_from_slice(&encoded_args);
     args.push("-y");
     args.push(&temp_name);
     args.push("-hide_banner");

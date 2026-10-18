@@ -7,13 +7,31 @@ use std::path::Path;
 use tauri_plugin_shell::ShellExt;
 use tauri_plugin_shell::process::CommandEvent;
 
-use crate::ffmpeg::utils::{parse_time_from_ffmpeg_output, select_best_encoder};
-use crate::ffmpeg::video_info;
+use crate::ffmpeg::info::video_info;
+use crate::ffmpeg::models::{VideoCodec, VideoContainer, VideoEncode, encode_args};
+use crate::ffmpeg::utils::parse_time_from_ffmpeg_output;
 use crate::sidecar::{SidecarError, SidecarResult, clear_current_child, secure_spawn_step};
 use crate::task::JobCtx;
 use crate::utils::cache::{clear_cache_temp_dir, get_cache_temp_dir};
 use crate::utils::font::get_default_font_path;
-use crate::utils::gpu::get_gpu_info;
+
+fn source_annexb(codec: &str) -> Option<&'static str> {
+  let codec = codec.to_ascii_lowercase();
+  if codec.contains("hevc") || codec.contains("h265") {
+    Some("hevc_mp4toannexb")
+  } else if codec.contains("h264") || codec.contains("avc") {
+    Some("h264_mp4toannexb")
+  } else {
+    None
+  }
+}
+
+fn output_annexb(codec: VideoCodec) -> Option<&'static str> {
+  match codec {
+    VideoCodec::Hevc => Some("hevc_mp4toannexb"),
+    VideoCodec::Av1 | VideoCodec::Vp9 => None,
+  }
+}
 
 pub async fn run_append_smart(
   app: &tauri::AppHandle,
@@ -22,6 +40,7 @@ pub async fn run_append_smart(
   inputs: Vec<String>,
   output_path: &str,
   draw_filename: bool,
+  encode: &VideoEncode,
 ) -> SidecarResult<()> {
   if inputs.is_empty() {
     return Err(SidecarError::invalid("没有要追加的视频"));
@@ -37,14 +56,11 @@ pub async fn run_append_smart(
 
   // 步骤 1: 将基准视频无损封装为 TS
   let base_ts_path = temp_dir.join("part_base.ts").to_string_lossy().into_owned();
-  let bsf_filter = if base_info.video_codec.contains("hevc") || base_info.video_codec.contains("h265") {
-    "hevc_mp4toannexb"
-  } else {
-    "h264_mp4toannexb"
-  };
-
-  let remux_args =
-    vec!["-i", base, "-c", "copy", "-bsf:v", bsf_filter, "-f", "mpegts", "-y", &base_ts_path, "-hide_banner"];
+  let mut remux_args = vec!["-i", base, "-c", "copy"];
+  if let Some(bsf) = source_annexb(&base_info.video_codec) {
+    remux_args.extend(["-bsf:v", bsf]);
+  }
+  remux_args.extend(["-f", "mpegts", "-y", &base_ts_path, "-hide_banner"]);
 
   tauri_plugin_log::log::info!("正在把基准视频封装为 TS");
   let shell = app.shell();
@@ -66,10 +82,11 @@ pub async fn run_append_smart(
   }
   ts_files.push(base_ts_path);
 
-  // 步骤 2: 处理新视频并转码为 TS
-  let gpus = get_gpu_info().await;
-  let best = select_best_encoder(&gpus);
-  let best_args = best.to_ffmpeg_args();
+  // 步骤 2: 处理新视频并转码为 TS。帧率跟基准视频，不从配置再写 -r。
+  let mut tuned = encode.clone();
+  tuned.fps = None;
+  let encoded = encode_args(&tuned, true);
+  let encoded_args: Vec<&str> = encoded.iter().map(String::as_str).collect();
   let font_path = get_default_font_path();
 
   for (i, input_path) in inputs.iter().enumerate() {
@@ -108,9 +125,11 @@ pub async fn run_append_smart(
     );
 
     let mut args = vec!["-i", input_path, "-filter_complex", &filter_complex, "-map", "[v]", "-map", "[a]"];
-    args.extend_from_slice(&best_args);
-    args.push("-bsf:v");
-    args.push(bsf_filter);
+    args.extend_from_slice(&encoded_args);
+    if let Some(bsf) = output_annexb(encode.codec) {
+      args.push("-bsf:v");
+      args.push(bsf);
+    }
     args.push("-f");
     args.push("mpegts");
     args.push("-y");
@@ -164,23 +183,11 @@ pub async fn run_append_smart(
   list_file.flush()?;
 
   let list_file_path_str = list_file_name.to_string_lossy().into_owned();
-  let concat_args = vec![
-    "-f",
-    "concat",
-    "-safe",
-    "0",
-    "-i",
-    &list_file_path_str,
-    "-c",
-    "copy",
-    "-tag:v",
-    "hvc1",
-    "-bsf:a",
-    "aac_adtstoasc",
-    "-y",
-    output_path,
-    "-hide_banner",
-  ];
+  let mut concat_args = vec!["-f", "concat", "-safe", "0", "-i", &list_file_path_str, "-c", "copy"];
+  if encode.codec == VideoCodec::Hevc && matches!(encode.container, VideoContainer::Mp4 | VideoContainer::Mov) {
+    concat_args.extend(["-tag:v", "hvc1"]);
+  }
+  concat_args.extend(["-bsf:a", "aac_adtstoasc", "-y", output_path, "-hide_banner"]);
 
   tauri_plugin_log::log::info!("正在合并为 MP4");
   let shell = app.shell();

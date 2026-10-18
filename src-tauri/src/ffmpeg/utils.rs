@@ -1,7 +1,4 @@
-use crate::{
-  ffmpeg::models::{EncoderPreset, VideoInfo},
-  utils::gpu::GpuInfo,
-};
+use crate::ffmpeg::models::VideoInfo;
 
 /// 将 HH:MM:SS.ms 转换为秒
 pub fn parse_duration_str(duration_str: &str) -> Option<f64> {
@@ -45,40 +42,6 @@ pub fn parse_time_from_ffmpeg_output(line: &Vec<u8>) -> Option<f64> {
   } else {
     None
   }
-}
-
-/// 匹配厂商到编码器预设
-pub fn match_vendor_to_encoder(name: &str) -> EncoderPreset {
-  let name_lower = name.to_lowercase();
-
-  if name_lower.contains("nvidia") {
-    EncoderPreset::Nvidia("hevc_nvenc".to_string())
-  } else if name_lower.contains("intel") {
-    EncoderPreset::Intel("hevc_qsv".to_string())
-  } else if name_lower.contains("amd") || name_lower.contains("radeon") {
-    EncoderPreset::Amd("hevc_amf".to_string())
-  } else if name_lower.contains("apple") {
-    EncoderPreset::Apple("hevc_videotoolbox".to_string())
-  } else {
-    // 未知厂商，兜底回 CPU
-    EncoderPreset::Cpu("libx265".to_string())
-  }
-}
-
-/// 选择最佳编码器
-pub fn select_best_encoder(gpus: &[GpuInfo]) -> EncoderPreset {
-  // 1. 优先寻找独立显卡 (DiscreteGpu)
-  if let Some(gpu) = gpus.iter().find(|g| g.device_type == "DiscreteGpu") {
-    return match_vendor_to_encoder(&gpu.name);
-  }
-
-  // 2. 如果没有独显，寻找集成显卡 (IntegratedGpu)
-  if let Some(gpu) = gpus.iter().find(|g| g.device_type == "IntegratedGpu") {
-    return match_vendor_to_encoder(&gpu.name);
-  }
-
-  // 3. 都没有，返回 CPU 软解
-  EncoderPreset::Cpu("libx265".to_string())
 }
 
 /// 用于计算多个视频合并后的目标参数 <br>
