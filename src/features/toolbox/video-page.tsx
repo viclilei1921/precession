@@ -56,7 +56,7 @@ type VideoFile = {
 };
 
 const hints: Record<VideoOp, string> = {
-  convert: '默认导出 MP4，AV1，速度 6，质量 35。',
+  convert: '默认导出 MP4，AV1，速度 6，质量 35，10-bit。',
   cut: '按开始和结束时间裁出片段，再合成一个视频。',
   merge: '合成一个视频。尺寸取最大，帧率取中位数。',
   append: '第一段作为基准。编码对不齐时，基准也会重编码。'

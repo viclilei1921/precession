@@ -64,8 +64,8 @@ impl Default for VideoContainer {
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub enum BitDepth {
-  #[default]
   Eight,
+  #[default]
   Ten,
 }
 
@@ -176,7 +176,7 @@ pub enum VideoParams {
     preset: u8,
     #[serde(default = "av1_crf")]
     crf: u8,
-    #[serde(default)]
+    #[serde(rename = "bitDepth", default)]
     bit_depth: BitDepth,
   },
   Hevc {
@@ -186,11 +186,11 @@ pub enum VideoParams {
     crf: u8,
     #[serde(default)]
     tune: HevcTune,
-    #[serde(default)]
+    #[serde(rename = "bitDepth", default)]
     bit_depth: BitDepth,
   },
   Vp9 {
-    #[serde(default = "vp9_cpu_used")]
+    #[serde(rename = "cpuUsed", default = "vp9_cpu_used")]
     cpu_used: u8,
     #[serde(default = "vp9_crf")]
     crf: u8,
@@ -201,7 +201,7 @@ pub enum VideoParams {
 
 impl Default for VideoParams {
   fn default() -> Self {
-    Self::Av1 { preset: av1_preset(), crf: av1_crf(), bit_depth: BitDepth::Eight }
+    Self::Av1 { preset: av1_preset(), crf: av1_crf(), bit_depth: BitDepth::Ten }
   }
 }
 
@@ -768,7 +768,7 @@ mod tests {
     assert!(joined.contains("libsvtav1"), "{joined}");
     assert!(joined.contains("-preset 6"), "{joined}");
     assert!(joined.contains("-crf 35"), "{joined}");
-    assert!(joined.contains("-pix_fmt yuv420p"), "{joined}");
+    assert!(joined.contains("-pix_fmt yuv420p10le"), "{joined}");
     assert!(joined.contains("-c:a aac"), "{joined}");
     assert!(joined.contains("-b:a 128k"), "{joined}");
     assert!(joined.contains("-movflags +faststart"), "{joined}");
@@ -783,10 +783,24 @@ mod tests {
         assert_eq!(preset, HevcPreset::Medium);
         assert_eq!(crf, 26);
         assert_eq!(tune, HevcTune::None);
-        assert_eq!(bit_depth, BitDepth::Eight);
+        assert_eq!(bit_depth, BitDepth::Ten);
       }
       other => panic!("应是 hevc: {other:?}"),
     }
+  }
+
+  #[test]
+  fn av1_ten_bit_json_reaches_yuv420p10le() {
+    let raw = r#"{
+      "container": "mp4",
+      "video": { "codec": "av1", "preset": 6, "crf": 35, "bitDepth": "ten" },
+      "audio": { "mode": { "kind": "first" }, "channels": null, "sampleRate": null, "bitrateKbps": 128 },
+      "faststart": true
+    }"#;
+    let encode: VideoEncode = serde_json::from_str(raw).expect("界面提交的 10-bit");
+    let joined = encode_args(&encode, &stereo(), 1920).join(" ");
+    assert!(joined.contains("-pix_fmt yuv420p10le"), "{joined}");
+    assert!(!joined.contains("yuv420p "), "{joined}");
   }
 
   #[test]

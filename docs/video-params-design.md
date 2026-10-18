@@ -23,7 +23,7 @@ MOV 是 QuickTime 容器，和 MP4 同族。侧车已经能写。默认导出仍
 | 项 | 默认 |
 | --- | --- |
 | 封装 | MP4 |
-| 视频 | AV1，`preset 6`，CRF 35，8-bit。AV1 和 HEVC 可改成 10-bit |
+| 视频 | AV1，`preset 6`，CRF 35，10-bit。AV1 和 HEVC 可改回 8-bit |
 | 分辨率 / 帧率 | 跟源。合并、追加另有对齐规则，见第 6 节 |
 | 音频 | 第一条音轨。单声道保持单声道，两声道以上混成立体声。AAC 128 kbps |
 | faststart | 开。MPEG-TS 忽略 |
@@ -63,7 +63,7 @@ CRF 每加大约 2，体积大约少 15–25%，只供估算。
 
 默认 CRF 35，是这个编码器常用的质量点。
 
-`bit_depth` 默认 8。选 10 时像素格式用 `yuv420p10le`，渐变更干净，体积通常接近 8-bit。播放器对 10-bit AV1 的支持比 8-bit 少，所以默认仍是 8。屏幕内容检测继续固定关闭。
+`bit_depth` 默认 10，像素格式用 `yuv420p10le`，渐变更干净，体积通常接近 8-bit。要兼容更多播放器时再改回 8。屏幕内容检测继续固定关闭。
 
 ### 3.2 HEVC
 
@@ -82,7 +82,7 @@ CRF 每加大约 2，体积大约少 15–25%，只供估算。
 另有两项：
 
 - `tune`：默认不传。`animation` 适合动画和线稿，边缘更干净，往往更小。`grain` 保留颗粒，文件变大。不提供 `psnr`、`ssim`、`zerolatency`、`fastdecode`，前两个是评测用的，后两个会让文件变大或只适合直播。
-- `bit_depth`：和 AV1 同一套，默认 8，可选 10。10-bit 用 `yuv420p10le` 和 `main10`。MP4、MOV 自动加 `-tag:v hvc1`。
+- `bit_depth`：和 AV1 同一套，默认 10，可改回 8。10-bit 用 `yuv420p10le` 和 `main10`。MP4、MOV 自动加 `-tag:v hvc1`。
 
 界面上的 preset 只给上表五档。`ultrafast`、`placebo` 不进界面。
 
@@ -120,19 +120,19 @@ pub enum VideoParams {
   Vp9(Vp9Params),
 }
 
-pub enum BitDepth { Eight, Ten } // 默认 Eight。只有 AV1 和 HEVC 有这个字段
+pub enum BitDepth { Eight, Ten } // 默认 Ten。只有 AV1 和 HEVC 有这个字段
 
 pub struct Av1Params {
   pub preset: u8,         // 默认 6，范围 0–13
   pub crf: u8,            // 默认 35，范围 0–63
-  pub bit_depth: BitDepth, // 默认 Eight
+  pub bit_depth: BitDepth, // 默认 Ten
 }
 
 pub struct HevcParams {
   pub preset: HevcPreset, // 默认 Medium
   pub crf: u8,            // 默认 26，范围 0–51
   pub tune: HevcTune,     // 默认 None
-  pub bit_depth: BitDepth, // 默认 Eight
+  pub bit_depth: BitDepth, // 默认 Ten
 }
 
 pub enum HevcPreset { VeryFast, Fast, Medium, Slow, Slower }
@@ -158,7 +158,7 @@ pub struct VideoEncode {
 }
 ```
 
-`VideoParams` 的默认变体是 `Av1`。某个变体内部缺字段时，用该结构体的默认值。例如 `{ "codec": "hevc" }` 等于 medium、CRF 26、不调优、8-bit。`{ "codec": "av1", "bitDepth": "ten" }` 才写出 10-bit AV1。
+`VideoParams` 的默认变体是 `Av1`。某个变体内部缺字段时，用该结构体的默认值。例如 `{ "codec": "hevc" }` 等于 medium、CRF 26、不调优、10-bit。`{ "codec": "av1", "bitDepth": "eight" }` 才写回 8-bit AV1。
 
 ### 4.1 音频
 

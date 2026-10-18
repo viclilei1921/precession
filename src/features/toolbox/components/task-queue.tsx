@@ -1,11 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import type { Task, TaskKind } from '@/bridge/task';
-import { onTaskQueueUpdated, taskCancel } from '@/bridge/task';
+import { onTaskQueueUpdated, onTaskUpdate, taskCancel } from '@/bridge/task';
 import { Button } from '@/components/button';
 import styles from '@/components/record.module.css';
 import { usePageSearch } from '@/hooks/search';
-import { refreshTasks, taskListQuery } from '@/query/task/query';
+import { applyTaskUpdate, refreshTasks, taskListQuery } from '@/query/task/query';
 import { errorMessage } from '@/utils/error';
 import { matchesQuery } from '@/utils/search';
 
@@ -35,7 +35,7 @@ type TaskQueueProps = {
   kinds: TaskKind[];
 };
 
-/** 当前页相关的任务队列。进度来自队列事件。 */
+/** 当前页相关的任务队列。入队和结束刷新整队，编码过程中的进度直接改这一条。 */
 export function TaskQueue({ kinds }: TaskQueueProps) {
   const queryClient = useQueryClient();
   const tasksQuery = useQuery(taskListQuery);
@@ -46,7 +46,8 @@ export function TaskQueue({ kinds }: TaskQueueProps) {
   );
 
   useEffect(() => {
-    let unlisten: (() => void) | undefined;
+    let stopQueue: (() => void) | undefined;
+    let stopTask: (() => void) | undefined;
     let cancelled = false;
     void onTaskQueueUpdated(() => {
       void refreshTasks(queryClient);
@@ -55,11 +56,21 @@ export function TaskQueue({ kinds }: TaskQueueProps) {
         stop();
         return;
       }
-      unlisten = stop;
+      stopQueue = stop;
+    });
+    void onTaskUpdate((task) => {
+      applyTaskUpdate(queryClient, task);
+    }).then((stop) => {
+      if (cancelled) {
+        stop();
+        return;
+      }
+      stopTask = stop;
     });
     return () => {
       cancelled = true;
-      unlisten?.();
+      stopQueue?.();
+      stopTask?.();
     };
   }, [queryClient]);
 
