@@ -1,0 +1,385 @@
+# =============================================================================
+# Precession 跨平台构建 — GitHub Actions
+# =============================================================================
+# 触发条件：推送 tag（v*）时自动构建，也可手动触发。
+# 构建矩阵：Windows (NSIS)、macOS Apple Silicon (DMG)。
+# 产物：每个平台的安装包上传为 Artifacts，tag 推送时额外创建 GitHub Release 草稿。
+#
+# 侧车（ffmpeg / cjxl / avifenc）提交在 Git LFS，以仓库中的裁剪静态构建为准。
+# 检出后若文件缺失、或仍是 LFS 指针，才按平台下载兜底。
+# =============================================================================
+
+name: Cross-Platform Build
+
+on:
+  # 推送 v 开头的 tag 时触发（如 v0.1.0）
+  push:
+    tags:
+      - "v*"
+
+  # 支持手动触发，方便调试
+  workflow_dispatch:
+
+# 整个工作流级别的环境变量
+env:
+  CARGO_INCREMENTAL: 0          # CI 中关闭增量编译，避免缓存膨胀
+  RUST_BACKTRACE: short         # 出错时打印简短的堆栈信息
+
+# 同一分支 / tag 只保留最新的运行，节省 CI 资源
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    # GITHUB_TOKEN 默认只读，创建 Release 和上传产物需要 contents 写权限
+    permissions:
+      contents: write
+
+    strategy:
+      # 即使某平台失败，其余平台继续构建
+      fail-fast: false
+      matrix:
+        include:
+          # ---- Windows x86_64 ----
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            bundle: nsis                           # Windows 使用 NSIS 安装包
+            ffmpeg_ext: .exe                       # Windows 可执行文件后缀
+            # BtbN 静态构建包名（GPL、非 shared → 单文件无外部依赖）
+            ffmpeg_archive: ffmpeg-master-latest-win64-gpl.zip
+
+          # ---- macOS Apple Silicon (aarch64) ----
+          - os: macos-latest                       # macos-latest = ARM runner
+            target: aarch64-apple-darwin
+            bundle: dmg
+            ffmpeg_ext: ""
+            ffmpeg_archive: ""                     # macOS 通过 Homebrew 安装，无需下载包
+
+          # ---- Linux x86_64 ----
+          # - os: ubuntu-22.04
+          #   target: x86_64-unknown-linux-gnu
+          #   bundle: deb,appimage
+          #   ffmpeg_ext: ""
+          #   ffmpeg_archive: ffmpeg-master-latest-linux64-gpl.tar.xz
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      # =====================================================================
+      # 1. 检出代码（含 Git LFS 侧车）
+      # =====================================================================
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          lfs: true
+
+      # =====================================================================
+      # 2. 安装系统级依赖（仅 Linux 需要）
+      # =====================================================================
+      # Tauri 在 Linux 上需要 GTK3、WebKit2GTK 等系统库
+      # - name: Install Linux dependencies
+      #   if: runner.os == 'Linux'
+      #   run: |
+      #     sudo apt-get update
+      #     sudo apt-get install -y \
+      #       libwebkit2gtk-4.1-dev \
+      #       libappindicator3-dev \
+      #       librsvg2-dev \
+      #       patchelf \
+      #       libgtk-3-dev \
+      #       libsoup-3.0-dev \
+      #       libjavascriptcoregtk-4.1-dev
+
+      # =====================================================================
+      # 3. 安装 Rust 工具链并添加对应 target
+      # =====================================================================
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      # =====================================================================
+      # 4. 缓存 Rust 编译产物，显著加快后续构建
+      # =====================================================================
+      - name: Cache Rust
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target     # 指定 Cargo 工作目录
+          shared-key: ${{ matrix.target }}     # 按 target 区分缓存
+
+      # =====================================================================
+      # 5. 安装 pnpm / Node.js 并缓存依赖
+      # =====================================================================
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+
+      # =====================================================================
+      # 6. 安装前端依赖
+      # =====================================================================
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # =====================================================================
+      # 7. 准备 FFmpeg sidecar 二进制
+      # =====================================================================
+      # Tauri externalBin 按 target triple 查找：
+      #   src-tauri/binaries/ffmpeg-{target_triple}[.exe]
+      # 仓库内的文件是按 docs/mac-ffmpeg.md、docs/window-ffmpeg.md 裁剪的静态构建。
+      # 已存在且不是 LFS 指针时跳过下载。
+      #
+      # 兜底下载源：
+      #   Windows / Linux → BtbN/FFmpeg-Builds (GPL 静态链接，单文件无外部依赖)
+      #   macOS           → Homebrew（BtbN 不提供 macOS 构建）
+      - name: Prepare FFmpeg sidecar
+        shell: bash
+        run: |
+          mkdir -p src-tauri/binaries
+          BINARY_NAME="ffmpeg-${{ matrix.target }}${{ matrix.ffmpeg_ext }}"
+          BINARY_PATH="src-tauri/binaries/${BINARY_NAME}"
+
+          HEADER="$(head -c 80 "${BINARY_PATH}" 2>/dev/null || true)"
+          case "${HEADER}" in
+            "version https://git-lfs.github.com/spec/v1"*) HEADER_IS_POINTER=1 ;;
+            *) HEADER_IS_POINTER=0 ;;
+          esac
+          if [ -f "${BINARY_PATH}" ] && [ "${HEADER_IS_POINTER}" -eq 0 ]; then
+            echo "✅ FFmpeg sidecar 已存在: ${BINARY_PATH}，跳过下载"
+            chmod +x "${BINARY_PATH}" 2>/dev/null || true
+            exit 0
+          fi
+
+          echo "⬇️  仓库中没有可用的 FFmpeg sidecar，开始下载兜底版本 …"
+
+          case "${{ runner.os }}" in
+            # -----------------------------------------------------------
+            # Windows / Linux: 从 BtbN/FFmpeg-Builds 下载 GPL 静态构建
+            # https://github.com/BtbN/FFmpeg-Builds/releases/tag/latest
+            # -----------------------------------------------------------
+            Windows)
+              ARCHIVE="${{ matrix.ffmpeg_archive }}"
+              URL="https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/${ARCHIVE}"
+              echo "  下载: ${URL}"
+              curl -L -o "/tmp/${ARCHIVE}" "${URL}"
+
+              # ZIP 内部结构: ffmpeg-master-latest-win64-gpl/bin/ffmpeg.exe
+              INNER_DIR="${ARCHIVE%.zip}"
+              unzip -q "/tmp/${ARCHIVE}" "${INNER_DIR}/bin/ffmpeg.exe" -d /tmp
+              mv "/tmp/${INNER_DIR}/bin/ffmpeg.exe" "${BINARY_PATH}"
+              ;;
+
+            Linux)
+              ARCHIVE="${{ matrix.ffmpeg_archive }}"
+              URL="https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/${ARCHIVE}"
+              echo "  下载: ${URL}"
+              curl -L -o "/tmp/${ARCHIVE}" "${URL}"
+
+              # tar.xz 内部结构: ffmpeg-master-latest-linux64-gpl/bin/ffmpeg
+              INNER_DIR="${ARCHIVE%.tar.xz}"
+              tar -xf "/tmp/${ARCHIVE}" -C /tmp "${INNER_DIR}/bin/ffmpeg"
+              mv "/tmp/${INNER_DIR}/bin/ffmpeg" "${BINARY_PATH}"
+              ;;
+
+            # -----------------------------------------------------------
+            # macOS: BtbN 不提供 macOS 构建，通过 Homebrew 安装后复制二进制
+            # 注意: Homebrew 版本为动态链接，目标机器也需要对应 dylib。
+            # 正式发布应使用仓库 LFS 中的静态构建。
+            # -----------------------------------------------------------
+            macOS)
+              brew install --quiet ffmpeg
+              BREW_FFMPEG="$(brew --prefix ffmpeg)/bin/ffmpeg"
+              echo "  复制 Homebrew FFmpeg: ${BREW_FFMPEG}"
+              cp "${BREW_FFMPEG}" "${BINARY_PATH}"
+              ;;
+          esac
+
+          chmod +x "${BINARY_PATH}"
+          echo "✅ FFmpeg sidecar 就绪: ${BINARY_PATH}"
+          file "${BINARY_PATH}" || true
+
+      # =====================================================================
+      # 7b. 准备 cjxl sidecar 二进制（JPEG XL 编码）
+      # =====================================================================
+      # Tauri externalBin: src-tauri/binaries/cjxl-{target_triple}[.exe]
+      # Windows → libjxl release 静态包（单文件 .exe）
+      # macOS   → scripts/build-cjxl-macos-static.sh 静态编译（单文件，仅系统库）
+      - name: Prepare cjxl sidecar
+        shell: bash
+        run: |
+          mkdir -p src-tauri/binaries
+          CJXL_EXT=""
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            CJXL_EXT=".exe"
+          fi
+          BINARY_NAME="cjxl-${{ matrix.target }}${CJXL_EXT}"
+          BINARY_PATH="src-tauri/binaries/${BINARY_NAME}"
+
+          HEADER="$(head -c 80 "${BINARY_PATH}" 2>/dev/null || true)"
+          case "${HEADER}" in
+            "version https://git-lfs.github.com/spec/v1"*) HEADER_IS_POINTER=1 ;;
+            *) HEADER_IS_POINTER=0 ;;
+          esac
+          if [ -f "${BINARY_PATH}" ] && [ "${HEADER_IS_POINTER}" -eq 0 ]; then
+            echo "✅ cjxl sidecar 已存在: ${BINARY_PATH}，跳过下载"
+            chmod +x "${BINARY_PATH}" 2>/dev/null || true
+            exit 0
+          fi
+
+          echo "⬇️  开始准备 cjxl sidecar …"
+          LIBJXL_VERSION="v0.12.0"
+
+          case "${{ runner.os }}" in
+            Windows)
+              ARCHIVE="jxl-x64-windows-static.zip"
+              URL="https://github.com/libjxl/libjxl/releases/download/${LIBJXL_VERSION}/${ARCHIVE}"
+              echo "  下载: ${URL}"
+              curl -L -o "/tmp/${ARCHIVE}" "${URL}"
+              unzip -q "/tmp/${ARCHIVE}" -d /tmp/jxl-extract
+              CJXL_SRC="$(find /tmp/jxl-extract -type f -name 'cjxl.exe' | head -n 1)"
+              if [ -z "${CJXL_SRC}" ]; then
+                echo "❌ 未在解压产物中找到 cjxl.exe"
+                exit 1
+              fi
+              mv "${CJXL_SRC}" "${BINARY_PATH}"
+              ;;
+
+            macOS)
+              brew install --quiet cmake ninja brotli giflib jpeg-turbo libpng little-cms2
+              TRIPLE="${{ matrix.target }}" LIBJXL_VERSION="${LIBJXL_VERSION}" \
+                bash scripts/build-cjxl-macos-static.sh
+              ;;
+
+            *)
+              echo "❌ 当前 runner 未配置 cjxl 获取方式: ${{ runner.os }}"
+              exit 1
+              ;;
+          esac
+
+          chmod +x "${BINARY_PATH}"
+          echo "✅ cjxl sidecar 就绪: ${BINARY_PATH}"
+          file "${BINARY_PATH}" || true
+          "${BINARY_PATH}" --version || true
+
+      # =====================================================================
+      # 7c. 准备 avifenc sidecar 二进制（AVIF 编码）
+      # =====================================================================
+      # Tauri externalBin: src-tauri/binaries/avifenc-{target_triple}[.exe]
+      # 官方 artifacts：https://github.com/AOMediaCodec/libavif/releases
+      - name: Prepare avifenc sidecar
+        shell: bash
+        run: |
+          mkdir -p src-tauri/binaries
+          AVIF_EXT=""
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            AVIF_EXT=".exe"
+          fi
+          BINARY_NAME="avifenc-${{ matrix.target }}${AVIF_EXT}"
+          BINARY_PATH="src-tauri/binaries/${BINARY_NAME}"
+
+          HEADER="$(head -c 80 "${BINARY_PATH}" 2>/dev/null || true)"
+          case "${HEADER}" in
+            "version https://git-lfs.github.com/spec/v1"*) HEADER_IS_POINTER=1 ;;
+            *) HEADER_IS_POINTER=0 ;;
+          esac
+          if [ -f "${BINARY_PATH}" ] && [ "${HEADER_IS_POINTER}" -eq 0 ]; then
+            echo "✅ avifenc sidecar 已存在: ${BINARY_PATH}，跳过下载"
+            chmod +x "${BINARY_PATH}" 2>/dev/null || true
+            exit 0
+          fi
+
+          echo "⬇️  开始准备 avifenc sidecar …"
+          LIBAVIF_VERSION="v1.4.2"
+
+          case "${{ runner.os }}" in
+            Windows)
+              ARCHIVE="windows-artifacts.zip"
+              URL="https://github.com/AOMediaCodec/libavif/releases/download/${LIBAVIF_VERSION}/${ARCHIVE}"
+              echo "  下载: ${URL}"
+              curl -L -o "/tmp/${ARCHIVE}" "${URL}"
+              unzip -q "/tmp/${ARCHIVE}" -d /tmp/avif-extract
+              AVIF_SRC="$(find /tmp/avif-extract -type f -name 'avifenc.exe' | head -n 1)"
+              if [ -z "${AVIF_SRC}" ]; then
+                echo "❌ 未在解压产物中找到 avifenc.exe"
+                exit 1
+              fi
+              mv "${AVIF_SRC}" "${BINARY_PATH}"
+              ;;
+
+            macOS)
+              ARCHIVE="macOS-artifacts.zip"
+              URL="https://github.com/AOMediaCodec/libavif/releases/download/${LIBAVIF_VERSION}/${ARCHIVE}"
+              echo "  下载: ${URL}"
+              curl -L -o "/tmp/${ARCHIVE}" "${URL}"
+              unzip -q "/tmp/${ARCHIVE}" -d /tmp/avif-extract
+              AVIF_SRC="$(find /tmp/avif-extract -type f -name 'avifenc' | head -n 1)"
+              if [ -z "${AVIF_SRC}" ]; then
+                echo "❌ 未在解压产物中找到 avifenc"
+                exit 1
+              fi
+              mv "${AVIF_SRC}" "${BINARY_PATH}"
+              ;;
+
+            *)
+              echo "❌ 当前 runner 未配置 avifenc 获取方式: ${{ runner.os }}"
+              exit 1
+              ;;
+          esac
+
+          chmod +x "${BINARY_PATH}"
+          echo "✅ avifenc sidecar 就绪: ${BINARY_PATH}"
+          file "${BINARY_PATH}" || true
+          "${BINARY_PATH}" --version || true
+
+      # =====================================================================
+      # 8. 使用 tauri-action 构建 + 打包
+      # =====================================================================
+      # tauri-action 会自动执行 beforeBuildCommand（pnpm build）并调用 cargo build
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # macOS 签名（可选，不签名也能构建）
+          # APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          # APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          # APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          # APPLE_ID: ${{ secrets.APPLE_ID }}
+          # APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          # APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          #
+          # Windows 签名（可选）
+          # TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          # TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          # 仅推送 tag 时创建 Release。手动触发只构建并上传 Artifact，
+          # 避免把分支名（如 main）当成 tag 去建一个发布。
+          tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+          releaseName: ${{ github.ref_type == 'tag' && format('Precession {0}', github.ref_name) || '' }}
+          releaseBody: ${{ github.ref_type == 'tag' && format('Precession {0} 桌面安装包。', github.ref_name) || '' }}
+          releaseDraft: true                   # 先创建为草稿，确认后手动发布
+          prerelease: false
+          args: --target ${{ matrix.target }} --bundles ${{ matrix.bundle }}
+
+      # =====================================================================
+      # 9. 上传构建产物为 Artifact（即使不是 tag 触发也能下载）
+      # =====================================================================
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: precession-${{ matrix.target }}
+          path: |
+            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.exe
+            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.msi
+            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.nsis*
+            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.dmg
+            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.deb
+            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.AppImage
+          if-no-files-found: warn              # 找不到文件时发出警告而非失败
+          retention-days: 30                   # 产物保留 30 天
