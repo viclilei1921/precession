@@ -1,8 +1,5 @@
 //! 视频合并：统一分辨率和帧率后拼成一条。
 
-use std::fs::File;
-use std::io::Write;
-
 use tauri_plugin_shell::ShellExt;
 use tauri_plugin_shell::process::CommandEvent;
 
@@ -14,7 +11,7 @@ use crate::ffmpeg::models::{
 use crate::ffmpeg::utils::{calculate_target_params, parse_time_from_ffmpeg_output};
 use crate::sidecar::{SidecarError, SidecarResult, clear_current_child, secure_spawn_step};
 use crate::task::JobCtx;
-use crate::utils::cache::{clear_cache_temp_dir, get_cache_dir};
+use crate::utils::cache::clear_cache_temp_dir;
 
 struct Piece {
   path: String,
@@ -67,11 +64,6 @@ pub async fn run_merge_smart(
   let total: f64 = pieces.iter().map(|piece| piece.info.duration).sum();
   tauri_plugin_log::log::info!("合并目标 {}x{} | 帧率 {fps}", size.width, size.height);
 
-  let cache_dir = get_cache_dir(app)?;
-  let temp_dir = cache_dir.join("temp");
-  let _ = std::fs::create_dir(&temp_dir);
-  let filter_path = temp_dir.join("filter.txt");
-  let mut filter_file = File::create(&filter_path)?;
   let mut filter = String::new();
   let mut offset = 0.0;
   let keep_audio = pieces.iter().any(|piece| piece.audio.stream_index.is_some());
@@ -109,16 +101,13 @@ pub async fn run_merge_smart(
   } else {
     filter.push_str(&format!("concat=n={}:v=1:a=0[outv]", pieces.len()));
   }
-  writeln!(filter_file, "{filter}")?;
-  filter_file.flush()?;
-
   let mut args = Vec::new();
   for piece in &pieces {
     args.push("-i".to_string());
     args.push(piece.path.clone());
   }
-  args.push("-filter_complex_script".to_string());
-  args.push(filter_path.to_string_lossy().into_owned());
+  args.push("-filter_complex".to_string());
+  args.push(filter);
   args.push("-map".to_string());
   args.push("[outv]".to_string());
   let audio = if keep_audio {
