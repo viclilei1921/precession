@@ -1,0 +1,25 @@
+.fields {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+.segments {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 3px;
+  background: var(--muted);
+  border-radius: var(--radius-md);
+}
+
+.summary {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--muted-foreground);
+}

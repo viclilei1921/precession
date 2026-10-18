@@ -13,7 +13,7 @@ use crate::ffmpeg::models::{
   AudioMode, AudioPlan, RatePolicy, VideoContainer, VideoEncode, VideoInfo, VideoParams, encode_args, plan_audio,
   push_output, source_codec_matches,
 };
-use crate::ffmpeg::utils::parse_time_from_ffmpeg_output;
+use crate::ffmpeg::utils::{FfmpegNotes, parse_time_from_ffmpeg_output};
 use crate::sidecar::{SidecarError, SidecarResult, clear_current_child, secure_spawn_step};
 use crate::task::JobCtx;
 use crate::utils::cache::{clear_cache_temp_dir, get_cache_temp_dir};
@@ -160,13 +160,19 @@ pub async fn run_append_smart(
     .spawn()
     .map_err(|err| SidecarError::sidecar_spawn("ffmpeg", err))?;
 
+  let mut notes = FfmpegNotes::default();
   while let Some(event) = rx.recv().await {
-    if let CommandEvent::Terminated(status) = event {
-      let _ = clear_cache_temp_dir(app);
-      if status.code == Some(0) {
-        return Ok(());
+    match event {
+      CommandEvent::Stderr(line) | CommandEvent::Stdout(line) => notes.push(&line),
+      CommandEvent::Terminated(status) => {
+        let _ = clear_cache_temp_dir(app);
+        if status.code == Some(0) {
+          return Ok(());
+        }
+        let detail = status.code.map(|code| notes.failure(code)).unwrap_or_else(|| "异常退出".to_string());
+        return Err(SidecarError::sidecar_exit("ffmpeg", detail));
       }
-      return Err(SidecarError::sidecar_exit("ffmpeg", format!("退出代码 {:?}", status.code)));
+      _ => {}
     }
   }
 
@@ -272,13 +278,19 @@ async fn remux_base(
     .args(&args)
     .spawn()
     .map_err(|err| SidecarError::sidecar_spawn("ffmpeg", err))?;
+  let mut notes = FfmpegNotes::default();
   while let Some(event) = rx.recv().await {
-    if let CommandEvent::Terminated(status) = event {
-      if status.code != Some(0) {
-        let _ = clear_cache_temp_dir(app);
-        return Err(SidecarError::sidecar_exit("ffmpeg", "基准视频封装失败"));
+    match event {
+      CommandEvent::Stderr(line) | CommandEvent::Stdout(line) => notes.push(&line),
+      CommandEvent::Terminated(status) => {
+        if status.code != Some(0) {
+          let _ = clear_cache_temp_dir(app);
+          let detail = status.code.map(|code| notes.failure(code)).unwrap_or_else(|| "异常退出".to_string());
+          return Err(SidecarError::sidecar_exit("ffmpeg", format!("基准视频封装失败：{detail}")));
+        }
+        return Ok(());
       }
-      return Ok(());
+      _ => {}
     }
   }
   Err(SidecarError::sidecar_exit("ffmpeg", "基准视频封装失败"))
@@ -334,9 +346,11 @@ async fn encode_part(
     .map_err(|err| SidecarError::sidecar_spawn("ffmpeg", err))?;
   secure_spawn_step(app, job, child).await?;
 
+  let mut notes = FfmpegNotes::default();
   while let Some(event) = rx.recv().await {
     match event {
       CommandEvent::Stderr(line) => {
+        notes.push(&line);
         if job.is_canceled().await {
           let _ = clear_cache_temp_dir(app);
           return Err(SidecarError::canceled());
@@ -351,7 +365,8 @@ async fn encode_part(
           return Ok(());
         }
         let _ = clear_cache_temp_dir(app);
-        return Err(SidecarError::sidecar_exit("ffmpeg", format!("退出代码 {:?}", status.code)));
+        let detail = status.code.map(|code| notes.failure(code)).unwrap_or_else(|| "异常退出".to_string());
+        return Err(SidecarError::sidecar_exit("ffmpeg", detail));
       }
       _ => {}
     }

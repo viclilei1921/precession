@@ -1,5 +1,7 @@
 import { createHashHistory, createRootRoute, createRoute, createRouter, redirect } from '@tanstack/react-router';
+import { CipherPage } from '@/features/cipher/page';
 import { GrowthPage } from '@/features/growth/page';
+import { ImagePage } from '@/features/image/page';
 import { JournalEntryPage } from '@/features/journal/entry-page';
 import { JournalPage } from '@/features/journal/page';
 import { LibraryPage } from '@/features/library/page';
@@ -9,9 +11,7 @@ import { ReviewPage } from '@/features/review/page';
 import { YearPage } from '@/features/review/year-page';
 import { SettingsPage } from '@/features/settings/page';
 import { TodayPage } from '@/features/today/page';
-import { ImageToolboxPage } from '@/features/toolbox/image-page';
-import { ToolboxPage } from '@/features/toolbox/page';
-import { VideoToolboxPage } from '@/features/toolbox/video-page';
+import { VideoPage } from '@/features/video/page';
 import { ContentLayout } from '@/layout/content';
 import { useAppStore } from '@/store/app';
 import { PATH } from './path';
@@ -133,30 +133,54 @@ const readerRoute = createRoute({
   component: ReaderPage
 });
 
+const videoRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: PATH.video,
+  component: VideoPage
+});
+
+const imageRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: PATH.image,
+  component: ImagePage
+});
+
+const cipherRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: PATH.cipher,
+  component: CipherPage
+});
+
 const toolboxRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: PATH.toolbox,
   beforeLoad: () => {
-    throw redirect({ to: PATH.toolboxVideo });
+    throw redirect({ to: PATH.video });
   }
 });
 
 const toolboxFileRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: PATH.toolboxFile,
-  component: ToolboxPage
+  beforeLoad: () => {
+    throw redirect({ to: PATH.cipher });
+  }
 });
 
 const toolboxImageRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: PATH.toolboxImage,
-  component: ImageToolboxPage
+  beforeLoad: () => {
+    throw redirect({ to: PATH.image });
+  }
 });
 
 const toolboxVideoRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: PATH.toolboxVideo,
-  component: VideoToolboxPage
+  beforeLoad: () => {
+    throw redirect({ to: PATH.video });
+  }
 });
 
 const reviewRoute = createRoute({
@@ -186,6 +210,9 @@ const routeTree = rootRoute.addChildren([
   growthRoute,
   libraryRoute,
   readerRoute,
+  videoRoute,
+  imageRoute,
+  cipherRoute,
   toolboxRoute,
   toolboxFileRoute,
   toolboxImageRoute,

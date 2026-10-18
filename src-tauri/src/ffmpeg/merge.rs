@@ -8,7 +8,7 @@ use crate::ffmpeg::info;
 use crate::ffmpeg::models::{
   AudioMode, AudioPlan, RatePolicy, VideoEncode, VideoInfo, encode_args, plan_audio, push_output,
 };
-use crate::ffmpeg::utils::{calculate_target_params, parse_time_from_ffmpeg_output};
+use crate::ffmpeg::utils::{FfmpegNotes, calculate_target_params, parse_time_from_ffmpeg_output};
 use crate::sidecar::{SidecarError, SidecarResult, clear_current_child, secure_spawn_step};
 use crate::task::JobCtx;
 use crate::utils::cache::clear_cache_temp_dir;
@@ -148,9 +148,11 @@ pub async fn run_merge_smart(
 
   secure_spawn_step(app, job, child).await?;
 
+  let mut notes = FfmpegNotes::default();
   while let Some(event) = rx.recv().await {
     match event {
       CommandEvent::Stderr(line) => {
+        notes.push(&line);
         if job.is_canceled().await {
           let _ = clear_cache_temp_dir(app);
           return Err(SidecarError::canceled());
@@ -167,7 +169,7 @@ pub async fn run_merge_smart(
           if code == 0 {
             return Ok(());
           }
-          return Err(SidecarError::sidecar_exit("ffmpeg", format!("退出代码 {code}")));
+          return Err(SidecarError::sidecar_exit("ffmpeg", notes.failure(code)));
         }
         break;
       }

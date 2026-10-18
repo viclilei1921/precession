@@ -1,29 +1,26 @@
 import { FileImageIcon } from '@phosphor-icons/react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { taskEnqueue } from '@/bridge';
+import type { Task } from '@/bridge/task';
 import { Button } from '@/components/button';
 import { SegmentButton } from '@/components/button/segment';
+import { Card } from '@/components/card';
 import { FileDrop } from '@/components/file-drop';
-import styles from '@/components/record.module.css';
 import { Scroll } from '@/components/scroll';
-import { TextField } from '@/components/text-field';
+import { TaskQueue } from '@/features/task/task-queue';
 import { refreshTasks } from '@/query/task/query';
 import { useAppStore } from '@/store/app';
 import { errorMessage } from '@/utils/error';
-import { TaskQueue } from './components/task-queue';
+import type { ImageFile } from './components/file-list';
+import { FileList } from './components/file-list';
+import { FormatFields } from './components/format-fields';
+import styles from './page.module.css';
 import { imageOutput } from './path';
 
 const imageExtensions = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tif', 'tiff'];
 
 type ImageFormat = 'avif' | 'jxl';
-
-type ImageFile = {
-  key: string;
-  input: string;
-  output: string;
-  edited: boolean;
-};
 
 let fileKey = 0;
 
@@ -37,7 +34,7 @@ function numberOr(value: string, fallback: number) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-export function ImageToolboxPage() {
+export function ImagePage() {
   const mobile = useAppStore((state) => state.isMobile());
   if (mobile) {
     return (
@@ -49,19 +46,24 @@ export function ImageToolboxPage() {
       </section>
     );
   }
-  return <ImageToolbox />;
+  return <ImageWorkspace />;
 }
 
-function ImageToolbox() {
+function ImageWorkspace() {
   const queryClient = useQueryClient();
   const [format, setFormat] = useState<ImageFormat>('avif');
   const [quality, setQuality] = useState('60');
   const [speed, setSpeed] = useState('6');
   const [files, setFiles] = useState<ImageFile[]>([]);
   const [formError, setFormError] = useState('');
+  const keepFormat = useRef(false);
   const extension = format === 'avif' ? '.avif' : '.jxl';
 
   useEffect(() => {
+    if (keepFormat.current) {
+      keepFormat.current = false;
+      return;
+    }
     setQuality(format === 'avif' ? '60' : '1');
     setSpeed(format === 'avif' ? '6' : '7');
   }, [format]);
@@ -83,6 +85,27 @@ function ImageToolbox() {
       return changed ? next : current;
     });
   }, [extension]);
+
+  function restore(task: Task) {
+    const draft = task.draft;
+    if (!draft || (draft.kind !== 'convertAvif' && draft.kind !== 'convertJxl')) {
+      return;
+    }
+    const next = draft.kind === 'convertAvif' ? 'avif' : 'jxl';
+    if (next !== format) {
+      keepFormat.current = true;
+    }
+    setFormat(next);
+    if (draft.kind === 'convertAvif') {
+      setQuality(String(draft.params.qcolor ?? 60));
+      setSpeed(String(draft.params.speed ?? 6));
+    } else {
+      setQuality(String(draft.params.quality ?? 1));
+      setSpeed(String(draft.params.effort ?? 7));
+    }
+    setFiles([{ key: nextFileKey(), input: draft.input, output: draft.output, edited: true }]);
+    setFormError('');
+  }
 
   function addFiles(paths: string[]) {
     const known = new Set(files.map((file) => file.input));
@@ -154,67 +177,47 @@ function ImageToolbox() {
             ? '质量 60、速度 6 是常用起点。速度越高编码越快。'
             : '距离 1、effort 7 是常用起点。距离越大画面越糊。'}
         </p>
-        <div className={styles.segments} role="tablist" aria-label="图片格式">
-          <SegmentButton selected={format === 'avif'} onClick={() => setFormat('avif')}>
-            <FileImageIcon weight="regular" />
-            AVIF
-          </SegmentButton>
-          <SegmentButton selected={format === 'jxl'} onClick={() => setFormat('jxl')}>
-            <FileImageIcon weight="regular" />
-            JXL
-          </SegmentButton>
-        </div>
-        <Button className={styles.trailing} disabled={enqueue.isPending} onClick={() => enqueue.mutate()}>
+        <Button disabled={enqueue.isPending} onClick={() => enqueue.mutate()}>
           加入队列
         </Button>
       </header>
-      <Scroll className={styles.scroll}>
-        <div className={styles.body}>
-          <div className={styles.card}>
-            <FileDrop accept={imageExtensions} onFiles={addFiles} />
-            <div className={styles.pair}>
-              <TextField
-                label={format === 'avif' ? '质量' : '距离'}
-                value={quality}
-                inputMode="decimal"
-                onChange={(event) => setQuality(event.target.value)}
-              />
-              <TextField
-                label={format === 'avif' ? '速度' : 'effort'}
-                value={speed}
-                inputMode="numeric"
-                hint={format === 'avif' ? '0 到 10' : '1 到 10'}
-                onChange={(event) => setSpeed(event.target.value)}
-              />
-            </div>
-            {formError ? <p className={styles.error}>{formError}</p> : null}
-          </div>
-          {files.map((file) => (
-            <div key={file.key} className={styles.card}>
-              <h2 className={styles.cardTitle}>{file.input.split(/[/\\]/).pop()}</h2>
-              <TextField
-                label="输出路径"
-                value={file.output}
-                required
-                onChange={(event) => {
-                  const value = event.target.value;
+      <div className={styles.workspace}>
+        <div className={styles.main}>
+          <Scroll className={styles.scroll}>
+            <div className={styles.stage}>
+              <div className={styles.group} role="tablist" aria-label="图片格式">
+                <SegmentButton selected={format === 'avif'} onClick={() => setFormat('avif')}>
+                  <FileImageIcon weight="regular" />
+                  AVIF
+                </SegmentButton>
+                <SegmentButton selected={format === 'jxl'} onClick={() => setFormat('jxl')}>
+                  <FileImageIcon weight="regular" />
+                  JXL
+                </SegmentButton>
+              </div>
+              <Card>
+                <FileDrop accept={imageExtensions} onFiles={addFiles} />
+              </Card>
+              <FormatFields format={format} quality={quality} speed={speed} onQuality={setQuality} onSpeed={setSpeed} />
+              {formError ? <p className={styles.error}>{formError}</p> : null}
+              <FileList
+                files={files}
+                onOutput={(key, value) =>
                   setFiles((current) =>
-                    current.map((item) => (item.key === file.key ? { ...item, output: value, edited: true } : item))
-                  );
-                }}
+                    current.map((item) => (item.key === key ? { ...item, output: value, edited: true } : item))
+                  )
+                }
+                onRemove={(key) => setFiles((current) => current.filter((item) => item.key !== key))}
               />
-              <Button
-                variant="text"
-                tone="destructive"
-                onClick={() => setFiles((current) => current.filter((item) => item.key !== file.key))}
-              >
-                移除
-              </Button>
             </div>
-          ))}
-          <TaskQueue kinds={['convertAvif', 'convertJxl']} />
+          </Scroll>
         </div>
-      </Scroll>
+        <aside className={styles.rail}>
+          <Scroll className={styles.scroll}>
+            <TaskQueue kinds={['convertAvif', 'convertJxl']} onEdit={restore} />
+          </Scroll>
+        </aside>
+      </div>
     </section>
   );
 }

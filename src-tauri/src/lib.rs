@@ -155,6 +155,8 @@ pub fn run() {
     task::commands::task_enqueue,
     task::commands::task_list,
     task::commands::task_cancel,
+    task::commands::task_remove,
+    task::commands::task_reveal,
     plan::commands::plan_list,
     plan::commands::plan_get,
     plan::commands::plan_create,

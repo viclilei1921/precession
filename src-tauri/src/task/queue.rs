@@ -7,7 +7,7 @@ use std::sync::{Arc, Condvar, Mutex};
 use zeroize::Zeroize;
 
 use super::constants::{STATUS_CANCELED, STATUS_COMPLETED, STATUS_FAILED, STATUS_PENDING, STATUS_PROCESSING};
-use super::dto::Task;
+use super::dto::{Task, TaskDraft};
 use super::error::TaskError;
 #[cfg(test)]
 use super::service;
@@ -26,6 +26,9 @@ struct Job {
   cancel: Arc<AtomicBool>,
   media_id: Option<String>,
   target: String,
+  title: String,
+  output: String,
+  draft: Option<TaskDraft>,
 }
 
 impl Drop for Job {
@@ -78,7 +81,7 @@ impl TaskQueue {
   }
 
   pub(super) fn push(&self, prepared: Prepared) -> Result<Task, TaskError> {
-    let Prepared { kind, spec, mut password, media_id, target } = prepared;
+    let Prepared { kind, spec, mut password, media_id, target, title, output, draft } = prepared;
     let mut jobs = match self.lock() {
       Ok(jobs) => jobs,
       Err(err) => {
@@ -103,6 +106,9 @@ impl TaskQueue {
       cancel: Arc::new(AtomicBool::new(false)),
       media_id,
       target,
+      title,
+      output,
+      draft,
     };
     let view = view(&job);
     jobs.push(job);
@@ -134,6 +140,19 @@ impl TaskQueue {
       Status::Completed | Status::Failed | Status::Canceled => false,
     };
     Ok(CancelOutcome { task: view(job), kill_child })
+  }
+
+  /// 从队列拿掉一条。正在处理的不能删，避免工人还拿着这条的载荷。
+  pub(super) fn remove(&self, id: &str) -> Result<(), TaskError> {
+    let mut jobs = self.lock()?;
+    let Some(index) = jobs.iter().position(|job| job.id == id) else {
+      return Err(TaskError::NotFound);
+    };
+    if jobs[index].status == Status::Processing {
+      return Err(TaskError::Running);
+    }
+    jobs.remove(index);
+    Ok(())
   }
 
   pub(super) fn wait_ticket(&self) -> Result<Ticket, TaskError> {
@@ -228,6 +247,47 @@ fn take_ticket(job: &mut Job) -> Ticket {
   }
 }
 
+#[cfg(test)]
+mod tests {
+  use std::path::PathBuf;
+
+  use super::super::constants::KIND_ENCRYPT_FILE;
+  use super::super::service::{Prepared, Spec};
+  use super::{Status, TaskError, TaskQueue};
+
+  fn prepared(target: &str) -> Prepared {
+    Prepared {
+      kind: KIND_ENCRYPT_FILE.into(),
+      spec: Spec::File { input: PathBuf::from("in"), output: PathBuf::from(target), encrypt: true },
+      password: "secret".into(),
+      media_id: None,
+      target: target.into(),
+      title: "in".into(),
+      output: target.into(),
+      draft: None,
+    }
+  }
+
+  #[test]
+  fn remove_drops_pending() {
+    let queue = TaskQueue::default();
+    let pending = queue.push(prepared("a")).expect("push");
+    queue.remove(&pending.id).expect("remove");
+    assert!(queue.list().expect("list").is_empty());
+  }
+
+  #[test]
+  fn remove_rejects_processing() {
+    let queue = TaskQueue::default();
+    let pending = queue.push(prepared("a")).expect("push");
+    let _ticket = queue.try_ticket().expect("ticket").expect("pending");
+    assert!(matches!(queue.remove(&pending.id), Err(TaskError::Running)));
+    let jobs = queue.lock().expect("lock");
+    assert_eq!(jobs.len(), 1);
+    assert!(matches!(jobs[0].status, Status::Processing));
+  }
+}
+
 fn view(job: &Job) -> Task {
   Task {
     id: job.id.clone(),
@@ -243,5 +303,8 @@ fn view(job: &Job) -> Task {
     progress: job.progress,
     message: job.message.clone(),
     media_id: job.media_id.clone(),
+    title: job.title.clone(),
+    output: job.output.clone(),
+    draft: job.draft.clone(),
   }
 }

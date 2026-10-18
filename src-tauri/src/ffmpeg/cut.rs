@@ -12,7 +12,7 @@ use crate::ffmpeg::info::video_info;
 use crate::ffmpeg::models::{
   RatePolicy, TimeSegment, VideoContainer, VideoEncode, VideoParams, encode_args, ensure_audio, plan_audio, push_output,
 };
-use crate::ffmpeg::utils::{parse_duration_str, parse_time_from_ffmpeg_output};
+use crate::ffmpeg::utils::{FfmpegNotes, parse_duration_str, parse_time_from_ffmpeg_output};
 use crate::sidecar::{SidecarError, SidecarResult, clear_current_child, secure_spawn_step};
 use crate::task::JobCtx;
 use crate::utils::cache::{clear_cache_temp_dir, get_cache_temp_dir};
@@ -95,12 +95,14 @@ pub async fn run_cut(
 
     secure_spawn_step(app, job, child).await?;
 
+    let mut notes = FfmpegNotes::default();
     let mut segment_done = false;
     while !segment_done {
       tokio::select! {
         event = rx.recv() => {
           match event {
             Some(CommandEvent::Stderr(data)) => {
+              notes.push(&data);
               if let Some(current_time) = parse_time_from_ffmpeg_output(&data) {
                 job.report_ratio(offset + current_time, total, "转码中...").await;
               }
@@ -112,7 +114,8 @@ pub async fn run_cut(
                 segment_done = true;
               } else {
                 let _ = clear_cache_temp_dir(app);
-                return Err(SidecarError::sidecar_exit("ffmpeg", format!("退出代码 {:?}", status.code)));
+                let detail = status.code.map(|code| notes.failure(code)).unwrap_or_else(|| "异常退出".to_string());
+                return Err(SidecarError::sidecar_exit("ffmpeg", detail));
               }
             }
             None => segment_done = true,
@@ -181,8 +184,10 @@ pub async fn run_cut(
 
   secure_spawn_step(app, job, child).await?;
 
+  let mut notes = FfmpegNotes::default();
   while let Some(event) = rx.recv().await {
     match event {
+      CommandEvent::Stderr(line) | CommandEvent::Stdout(line) => notes.push(&line),
       CommandEvent::Terminated(status) => {
         clear_current_child(app).await;
         let _ = clear_cache_temp_dir(app);
@@ -190,7 +195,7 @@ pub async fn run_cut(
           if code == 0 {
             return Ok(());
           }
-          return Err(SidecarError::sidecar_exit("ffmpeg", format!("退出代码 {code}")));
+          return Err(SidecarError::sidecar_exit("ffmpeg", notes.failure(code)));
         }
       }
       _ => {}

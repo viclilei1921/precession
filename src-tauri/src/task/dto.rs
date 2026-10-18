@@ -3,6 +3,20 @@ use serde::{Deserialize, Serialize};
 use crate::ffmpeg::models::{TimeSegment, VideoEncode};
 use crate::image::params::{AvifEncodeParams, JxlEncodeParams};
 
+/// 失败或取消后用来还原界面。密码不会出现在这里。
+#[derive(Clone, Debug, Serialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum TaskDraft {
+  EncryptFile { input: String, output: String },
+  DecryptFile { input: String, output: String },
+  ConvertVideo { input: String, output: String, encode: VideoEncode },
+  CutVideo { input: String, output: String, segments: Vec<TimeSegment>, encode: VideoEncode },
+  MergeVideo { inputs: Vec<String>, output: String, encode: VideoEncode },
+  AppendVideo { base: String, inputs: Vec<String>, output: String, encode: VideoEncode },
+  ConvertAvif { input: String, output: String, params: AvifEncodeParams },
+  ConvertJxl { input: String, output: String, params: JxlEncodeParams },
+}
+
 /// 队列里的一条任务。密码不会出现在这里。
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -13,6 +27,11 @@ pub struct Task {
   pub progress: f64,
   pub message: String,
   pub media_id: Option<String>,
+  /// 文件名。多文件时带上数量。
+  pub title: String,
+  /// 输出文件。空则没有可打开的结果。
+  pub output: String,
+  pub draft: Option<TaskDraft>,
 }
 
 /// 入队参数。密码只在这一次传入。

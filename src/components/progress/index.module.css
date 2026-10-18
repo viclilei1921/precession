@@ -26,6 +26,14 @@
   background: var(--library);
 }
 
+.track[data-tone="toolbox"] {
+  background: var(--toolbox-soft);
+}
+
+.track[data-tone="toolbox"] .fill {
+  background: var(--toolbox);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .fill {
     transition: none;

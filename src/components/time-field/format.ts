@@ -33,3 +33,14 @@ export function secondsOf(parts: { hour: string; minute: string; second: string;
 export function formatTime(total: number) {
   return joinTime(splitSeconds(total));
 }
+
+/** 把 `HH:MM:SS` 或 `HH:MM:SS.mmm` 还原成秒。无法识别时返回 0。 */
+export function parseTime(value: string) {
+  const match = /^(\d+):(\d{1,2}):(\d{1,2})(?:\.(\d{1,3}))?$/.exec(value.trim());
+  if (!match) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  const fraction = (match[4] ?? '0').padEnd(3, '0');
+  return Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3]) + Number(fraction) / 1000;
+}

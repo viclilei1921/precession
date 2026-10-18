@@ -15,13 +15,19 @@ export const PATH = {
   library: '/library',
   /* 阅读器 */
   bookReader: '/library/$bookId',
-  /* 工具箱入口，转到视频处理 */
-  toolbox: '/toolbox',
-  /* 文件加密 */
-  toolboxFile: '/toolbox/file',
-  /* 图片转码 */
-  toolboxImage: '/toolbox/image',
   /* 视频处理 */
+  video: '/video',
+  /* 图片转码 */
+  image: '/image',
+  /* 文件加密 */
+  cipher: '/cipher',
+  /* 旧工具箱地址，转到视频处理 */
+  toolbox: '/toolbox',
+  /* 旧文件加密地址 */
+  toolboxFile: '/toolbox/file',
+  /* 旧图片转码地址 */
+  toolboxImage: '/toolbox/image',
+  /* 旧视频处理地址 */
   toolboxVideo: '/toolbox/video',
   /* 回顾 */
   review: '/review',

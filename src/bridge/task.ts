@@ -21,6 +21,17 @@ export type TaskKind =
   | 'convertAvif'
   | 'convertJxl';
 
+/** 失败或取消后还原界面用。不含密码。 */
+export type TaskDraft =
+  | { kind: 'encryptFile'; input: string; output: string }
+  | { kind: 'decryptFile'; input: string; output: string }
+  | { kind: 'convertVideo'; input: string; output: string; encode: VideoEncode }
+  | { kind: 'cutVideo'; input: string; output: string; segments: TimeSegment[]; encode: VideoEncode }
+  | { kind: 'mergeVideo'; inputs: string[]; output: string; encode: VideoEncode }
+  | { kind: 'appendVideo'; base: string; inputs: string[]; output: string; encode: VideoEncode }
+  | { kind: 'convertAvif'; input: string; output: string; params: AvifEncodeParams }
+  | { kind: 'convertJxl'; input: string; output: string; params: JxlEncodeParams };
+
 /** 队列里的一条任务 */
 export type Task = {
   id: string;
@@ -29,6 +40,11 @@ export type Task = {
   progress: number;
   message: string;
   mediaId: string | null;
+  /** 文件名。多文件时带上数量。 */
+  title: string;
+  /** 输出文件。空字符串表示没有可打开的结果。 */
+  output: string;
+  draft: TaskDraft | null;
 };
 
 /** 裁剪片段。start / duration 为 `HH:MM:SS` 或秒数。 */
@@ -232,6 +248,16 @@ export function taskList() {
 /** 取消队列里的任务 */
 export function taskCancel(id: string) {
   return invokeCommand<void>('task_cancel', { id });
+}
+
+/** 从队列删掉一条。正在处理的不能删。 */
+export function taskRemove(id: string) {
+  return invokeCommand<void>('task_remove', { id });
+}
+
+/** 在系统文件管理器里打开输出文件所在目录，并选中该文件。 */
+export function taskReveal(path: string) {
+  return invokeCommand<void>('task_reveal', { path });
 }
 
 /** 读取视频时长和分辨率 */

@@ -38,6 +38,9 @@ pub enum TaskError {
   /// 这个文件正在处理
   #[error("这个文件正在处理")]
   Busy,
+  /// 正在处理，不能删除
+  #[error("正在处理，不能删除")]
+  Running,
   /// 无效的加密格式
   #[error("无效的加密格式")]
   BadFormat,

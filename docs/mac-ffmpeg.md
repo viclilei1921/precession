@@ -278,7 +278,7 @@ git checkout n9.0.2
 与 Windows 指南相同，从 `--disable-everything` 开始，再按名打开组件：
 
 - 视频编码：`libx265`、`libsvtav1`、`libvpx-vp9`
-- 音频编码：内置 `aac`。多条音轨只保留一条时用 `-map` 选出，再编成 AAC
+- 音频：源音轨解码后再编成内置 AAC。解码包含 AAC、MP3、Opus、Vorbis，以及成片常见的 AC3、E-AC3、DTS、TrueHD、FLAC、PCM
 - 字幕：文本字幕可解码。写入 MP4/MOV 时编成 `mov_text`；烧进画面用滤镜 `subtitles`、`ass`
 - 封装写出：MP4、MOV、MPEG-TS
 - 封装读入：MOV（同时覆盖 MP4）、WebM、Matroska（MKV 只读不写）、MPEG-TS、concat，以及外挂字幕 SRT、ASS、WebVTT
@@ -333,8 +333,8 @@ cd "$HOME/src/ffmpeg-build/ffmpeg"
   --enable-muxer=mp4,mov,mpegts \
   --enable-demuxer=mov,webm,matroska,mpegts,concat,srt,ass,webvtt \
   --enable-encoder=libx265,libsvtav1,libvpx_vp9,aac,movtext \
-  --enable-decoder=h264,hevc,vp8,vp9,av1,aac,opus,vorbis,mp3,ass,ssa,subrip,webvtt,movtext,text \
-  --enable-parser=h264,hevc,vp8,vp9,av1,aac,aac_latm,opus,vorbis,mpegaudio \
+  --enable-decoder=h264,hevc,vp8,vp9,av1,aac,opus,vorbis,mp3,ac3,eac3,dca,truehd,flac,pcm_s16le,pcm_s24le,pcm_s32le,ass,ssa,subrip,webvtt,movtext,text \
+  --enable-parser=h264,hevc,vp8,vp9,av1,aac,aac_latm,opus,vorbis,mpegaudio,ac3,dca,mlp,flac \
   --enable-bsf=h264_mp4toannexb,hevc_mp4toannexb,aac_adtstoasc,extract_extradata,vp9_superframe,av1_metadata,null \
   --enable-filter=fps,scale,setsar,pad,drawtext,aresample,aformat,concat,format,subtitles,ass \
   --enable-static \
@@ -428,6 +428,7 @@ otool -L ./ffmpeg
 # 7. 软件编码器。这里的 libvpx-vp9、mov_text 是命令行名字
 ./ffmpeg -encoders | grep -E "libx265|libsvtav1|libvpx-vp9| aac |mov_text"
 ./ffmpeg -decoders | grep mov_text
+./ffmpeg -decoders | awk '$2 ~ /^(ac3|eac3|dca|truehd|flac|pcm_s16le)$/'
 # libx265 应同时接受 8 bit 和 10 bit。没有 yuv420p10le 说明合成库没装上
 ./ffmpeg -h encoder=libx265 | awk '/Supported pixel formats:/ {print}'
 
@@ -444,7 +445,7 @@ otool -L ./ffmpeg
 
 `file` 应显示 `Mach-O 64-bit executable arm64`。`otool -L` 里应只有 `/usr/lib/` 和 `/System/Library/` 下的系统库，例如 `libSystem.B.dylib`、`libc++.1.dylib`。出现 `/opt/homebrew` 或 `/usr/local/opt` 说明某个依赖被动态链接了，回到第二节检查 `PKG_CONFIG_LIBDIR`，然后 `make distclean` 再配置。
 
-裁剪结果与 Windows 相同。`-formats` 里除点名的封装外，还会多出只写的 `adts` 和 `latm`。`-hwaccels` 只有标题、没有方法名。滤镜说明和编码器描述会是 `(null)` 或 `(codec ...)`，因为开了 `--enable-small`。编码器 grep 要同时看到 `libsvtav1`、`libx265`、`libvpx-vp9`、`aac`、`mov_text`，解码器里也要有 `mov_text`。`libx265` 的像素格式里要同时有 `yuv420p` 和 `yuv420p10le`。第 8、9、10 条没有输出。
+裁剪结果与 Windows 相同。`-formats` 里除点名的封装外，还会多出只写的 `adts` 和 `latm`。`-hwaccels` 只有标题、没有方法名。滤镜说明和编码器描述会是 `(null)` 或 `(codec ...)`，因为开了 `--enable-small`。编码器 grep 要同时看到 `libsvtav1`、`libx265`、`libvpx-vp9`、`aac`、`mov_text`，解码器里也要有 `mov_text`。音轨解码器要有 `ac3`、`eac3`、`dca`、`truehd`、`flac`、`pcm_s16le`。`libx265` 的像素格式里要同时有 `yuv420p` 和 `yuv420p10le`。第 8、9、10 条没有输出。
 
 ---
 

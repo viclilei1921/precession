@@ -88,7 +88,7 @@ git checkout n9.0.2
 配置从 `--disable-everything` 开始，再按名打开本仓库转码实际用到的组件。范围是现有的转码、裁剪、合并、追加，以及即将添加的单音轨选择、单字幕保留和字幕烧录。
 
 - 视频编码：`libx265`、`libsvtav1`、`libvpx-vp9`
-- 音频编码：内置 `aac`。多条音轨只保留一条时用 `-map` 选出，再编成 AAC
+- 音频：源音轨解码后再编成内置 AAC。解码包含 AAC、MP3、Opus、Vorbis，以及成片常见的 AC3、E-AC3、DTS、TrueHD、FLAC、PCM
 - 字幕：文本字幕可解码。写入 MP4/MOV 时编成 `mov_text`；烧进画面用滤镜 `subtitles`、`ass`
 - 封装写出：MP4、MOV、MPEG-TS
 - 封装读入：MOV（同时覆盖 MP4）、WebM、Matroska（MKV 的封装器名是 `matroska`，这版只读不写）、MPEG-TS、concat，以及外挂字幕 SRT、ASS、WebVTT
@@ -141,8 +141,8 @@ git checkout n9.0.2
   --enable-muxer=mp4,mov,mpegts \
   --enable-demuxer=mov,webm,matroska,mpegts,concat,srt,ass,webvtt \
   --enable-encoder=libx265,libsvtav1,libvpx_vp9,aac,movtext \
-  --enable-decoder=h264,hevc,vp8,vp9,av1,aac,opus,vorbis,mp3,ass,ssa,subrip,webvtt,movtext,text \
-  --enable-parser=h264,hevc,vp8,vp9,av1,aac,aac_latm,opus,vorbis,mpegaudio \
+  --enable-decoder=h264,hevc,vp8,vp9,av1,aac,opus,vorbis,mp3,ac3,eac3,dca,truehd,flac,pcm_s16le,pcm_s24le,pcm_s32le,ass,ssa,subrip,webvtt,movtext,text \
+  --enable-parser=h264,hevc,vp8,vp9,av1,aac,aac_latm,opus,vorbis,mpegaudio,ac3,dca,mlp,flac \
   --enable-bsf=h264_mp4toannexb,hevc_mp4toannexb,aac_adtstoasc,extract_extradata,vp9_superframe,av1_metadata,null \
   --enable-filter=fps,scale,setsar,pad,drawtext,aresample,aformat,concat,format,subtitles,ass \
   --enable-static \
@@ -243,6 +243,7 @@ cd /usr/local/ffmpeg-custom/bin
 # 6. 软件编码器。这里的 libvpx-vp9、mov_text 是命令行名字
 ./ffmpeg -encoders | grep -E "libx265|libsvtav1|libvpx-vp9| aac |mov_text"
 ./ffmpeg -decoders | grep mov_text
+./ffmpeg -decoders | awk '$2 ~ /^(ac3|eac3|dca|truehd|flac|pcm_s16le)$/'
 
 # 7. 硬件编码器应为空
 ./ffmpeg -encoders | awk '$2 ~ /_(nvenc|amf|qsv|cuvid)$/'
@@ -260,7 +261,7 @@ cd /usr/local/ffmpeg-custom/bin
 - `-formats`：MP4、MOV 可写，读 MP4 走 `mov` 那一行。MPEG-TS 读写都有。Matroska、WebM、concat、SRT、ASS、WebVTT 只读。还会多出只写的 `adts` 和 `latm`，这是 MPEG-TS 封装 AAC 时自动带上的。
 - `-hwaccels`：只有标题 `Hardware acceleration methods:`，下面没有方法名。出现 `vaapi` 说明少了 `--disable-vaapi`。
 - `-filters`：要有 `ass`、`drawtext`、`fps`、`scale`、`subtitles`、`concat`。说明文字是 `(null)`，因为开了 `--enable-small`。`drawtext` 前面的 `T` 表示可以按时间轴开关。
-- `-encoders`：五行都要有，名字是 `libsvtav1`、`libx265`、`libvpx-vp9`、`aac`、`mov_text`。行尾的 `D` 是直接渲染能力。描述可能是 `(codec ...)` 或 `(null)`。`-decoders` 里也要有 `mov_text`。
+- `-encoders`：五行都要有，名字是 `libsvtav1`、`libx265`、`libvpx-vp9`、`aac`、`mov_text`。行尾的 `D` 是直接渲染能力。描述可能是 `(codec ...)` 或 `(null)`。`-decoders` 里也要有 `mov_text`，以及 `ac3`、`eac3`、`dca`、`truehd`、`flac`、`pcm_s16le`。
 - 第 7、8、9 条没有输出。
 
 ---

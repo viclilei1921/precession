@@ -29,9 +29,9 @@ export type NavPath =
   | typeof PATH.journal
   | typeof PATH.growth
   | typeof PATH.library
-  | typeof PATH.toolboxFile
-  | typeof PATH.toolboxImage
-  | typeof PATH.toolboxVideo
+  | typeof PATH.cipher
+  | typeof PATH.image
+  | typeof PATH.video
   | typeof PATH.review
   | typeof PATH.settings;
 
@@ -96,27 +96,27 @@ export const routeItems: RouteItem[] = [
     fold: 'more'
   },
   {
-    id: 'toolbox-file',
+    id: 'cipher',
     label: '文件加密',
-    to: PATH.toolboxFile,
+    to: PATH.cipher,
     group: '工具箱',
     surfaces: ['sidebar'],
     icon: LockKeyIcon,
     tone: 'toolbox'
   },
   {
-    id: 'toolbox-image',
+    id: 'image',
     label: '图片转码',
-    to: PATH.toolboxImage,
+    to: PATH.image,
     group: '工具箱',
     surfaces: ['sidebar'],
     icon: ImageIcon,
     tone: 'toolbox'
   },
   {
-    id: 'toolbox-video',
+    id: 'video',
     label: '视频处理',
-    to: PATH.toolboxVideo,
+    to: PATH.video,
     group: '工具箱',
     surfaces: ['sidebar'],
     icon: VideoCameraIcon,

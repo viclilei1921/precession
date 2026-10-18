@@ -13,7 +13,7 @@ use super::constants::{
   KIND_APPEND_VIDEO, KIND_CONVERT_AVIF, KIND_CONVERT_JXL, KIND_CONVERT_VIDEO, KIND_CUT_VIDEO, KIND_DECRYPT_FILE,
   KIND_DECRYPT_MEDIA, KIND_ENCRYPT_FILE, KIND_ENCRYPT_MEDIA, KIND_IMPORT_MEDIA, KIND_MERGE_VIDEO, PROGRESS_STEP,
 };
-use super::dto::{Task, TaskInput};
+use super::dto::{Task, TaskDraft, TaskInput};
 use super::error::TaskError;
 #[cfg(desktop)]
 use super::job::JobCtx;
@@ -43,6 +43,9 @@ pub(super) struct Prepared {
   pub password: String,
   pub media_id: Option<String>,
   pub target: String,
+  pub title: String,
+  pub output: String,
+  pub draft: Option<TaskDraft>,
 }
 
 pub(super) fn enqueue(db: &DbState, queue: &TaskQueue, input: TaskInput) -> Result<Task, TaskError> {
@@ -458,7 +461,90 @@ fn prepare_convert_jxl(input: String, output: String, params: JxlEncodeParams) -
 }
 
 fn sidecar_job(kind: &str, target: String, spec: Spec) -> Prepared {
-  Prepared { kind: kind.to_string(), target, spec, password: String::new(), media_id: None }
+  finish(kind, target, spec, String::new(), None)
+}
+
+fn finish(kind: &str, target: String, spec: Spec, password: String, media_id: Option<String>) -> Prepared {
+  let (title, output, draft) = describe(&spec);
+  Prepared { kind: kind.to_string(), spec, password, media_id, target, title, output, draft }
+}
+
+fn describe(spec: &Spec) -> (String, String, Option<TaskDraft>) {
+  match spec {
+    Spec::File { input, output, encrypt } => {
+      let input = input.display().to_string();
+      let output = output.display().to_string();
+      let draft = if *encrypt {
+        TaskDraft::EncryptFile { input: input.clone(), output: output.clone() }
+      } else {
+        TaskDraft::DecryptFile { input: input.clone(), output: output.clone() }
+      };
+      (file_name(&input), output, Some(draft))
+    }
+    Spec::ConvertVideo { input, output, encode } => (
+      file_name(input),
+      output.clone(),
+      Some(TaskDraft::ConvertVideo { input: input.clone(), output: output.clone(), encode: encode.clone() }),
+    ),
+    Spec::CutVideo { input, output, segments, encode } => (
+      file_name(input),
+      output.clone(),
+      Some(TaskDraft::CutVideo {
+        input: input.clone(),
+        output: output.clone(),
+        segments: segments.clone(),
+        encode: encode.clone(),
+      }),
+    ),
+    Spec::MergeVideo { inputs, output, encode } => (
+      file_names(inputs),
+      output.clone(),
+      Some(TaskDraft::MergeVideo { inputs: inputs.clone(), output: output.clone(), encode: encode.clone() }),
+    ),
+    Spec::AppendVideo { base, inputs, output, encode } => {
+      let mut all = Vec::with_capacity(inputs.len() + 1);
+      all.push(base.clone());
+      all.extend(inputs.iter().cloned());
+      (
+        file_names(&all),
+        output.clone(),
+        Some(TaskDraft::AppendVideo {
+          base: base.clone(),
+          inputs: inputs.clone(),
+          output: output.clone(),
+          encode: encode.clone(),
+        }),
+      )
+    }
+    Spec::ConvertAvif { input, output, params } => (
+      file_name(input),
+      output.clone(),
+      Some(TaskDraft::ConvertAvif { input: input.clone(), output: output.clone(), params: params.clone() }),
+    ),
+    Spec::ConvertJxl { input, output, params } => (
+      file_name(input),
+      output.clone(),
+      Some(TaskDraft::ConvertJxl { input: input.clone(), output: output.clone(), params: params.clone() }),
+    ),
+    Spec::Import { source, .. } => (file_name(&source.display().to_string()), String::new(), None),
+    Spec::Media { .. } => ("影像".to_string(), String::new(), None),
+  }
+}
+
+fn file_name(path: &str) -> String {
+  Path::new(path)
+    .file_name()
+    .map(|name| name.to_string_lossy().into_owned())
+    .filter(|name| !name.is_empty())
+    .unwrap_or_else(|| "未命名".to_string())
+}
+
+fn file_names(paths: &[String]) -> String {
+  let Some(first) = paths.first() else {
+    return "未命名".to_string();
+  };
+  let name = file_name(first);
+  if paths.len() <= 1 { name } else { format!("{name} 等 {} 个", paths.len()) }
 }
 
 fn require_file(path: String) -> Result<String, TaskError> {
@@ -528,13 +614,8 @@ fn prepare_file(
   if !input.is_file() {
     return Err(reject(password, TaskError::Missing));
   }
-  Ok(Prepared {
-    kind: kind.to_string(),
-    target: output.display().to_string(),
-    spec: Spec::File { input, output, encrypt },
-    password,
-    media_id: None,
-  })
+  let target = output.display().to_string();
+  Ok(finish(kind, target, Spec::File { input, output, encrypt }, password, None))
 }
 
 fn prepare_import(
@@ -582,13 +663,13 @@ fn prepare_import(
   if !encrypt {
     password.zeroize();
   }
-  Ok(Prepared {
-    kind: KIND_IMPORT_MEDIA.to_string(),
-    target: source,
-    spec: Spec::Import { source: source_path, owner, owner_id, media_kind, encrypt },
+  Ok(finish(
+    KIND_IMPORT_MEDIA,
+    source,
+    Spec::Import { source: source_path, owner, owner_id, media_kind, encrypt },
     password,
-    media_id: None,
-  })
+    None,
+  ))
 }
 
 fn prepare_media(
@@ -619,13 +700,13 @@ fn prepare_media(
   if !encrypt && !media.encrypted {
     return Err(reject(password, TaskError::NotEncrypted));
   }
-  Ok(Prepared {
-    kind: kind.to_string(),
-    target: media_id.clone(),
-    spec: Spec::Media { media_id: media_id.clone(), encrypt },
+  Ok(finish(
+    kind,
+    media_id.clone(),
+    Spec::Media { media_id: media_id.clone(), encrypt },
     password,
-    media_id: Some(media_id),
-  })
+    Some(media_id),
+  ))
 }
 
 fn data_root(db: &DbState) -> PathBuf {
@@ -661,6 +742,7 @@ mod tests {
   use rusqlite::params;
 
   use super::super::constants::{KIND_IMPORT_MEDIA, STATUS_CANCELED, STATUS_COMPLETED, STATUS_PENDING};
+  use super::super::dto::TaskDraft;
   use super::*;
   use crate::db::error::DbError;
   use crate::owner::Owner;
@@ -907,5 +989,28 @@ mod tests {
     db.unlock("test-password-123").expect("unlock");
     let row = db.with_conn(|conn| crate::media::get(conn, &media.id)).expect("get");
     assert!(!row.encrypted);
+  }
+
+  #[cfg(desktop)]
+  #[test]
+  fn convert_keeps_name_and_draft() {
+    let (dir, db) = setup();
+    let input = dir.path().join("clip.mp4");
+    fs::write(&input, b"not-a-video").expect("source");
+    let output = dir.path().join("clip_converted.mp4");
+    let queue = TaskQueue::default();
+    let task = enqueue(
+      &db,
+      &queue,
+      TaskInput::ConvertVideo {
+        input: input.display().to_string(),
+        output: output.display().to_string(),
+        encode: crate::ffmpeg::models::VideoEncode::default(),
+      },
+    )
+    .expect("enqueue");
+    assert_eq!(task.title, "clip.mp4");
+    assert_eq!(task.output, output.display().to_string());
+    assert!(matches!(task.draft, Some(TaskDraft::ConvertVideo { .. })));
   }
 }

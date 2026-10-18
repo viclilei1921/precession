@@ -2,7 +2,7 @@ import clsx from 'clsx';
 import styles from './index.module.css';
 
 /** 进度条的色调 */
-type ProgressTone = 'plan' | 'library';
+type ProgressTone = 'plan' | 'library' | 'toolbox';
 
 /** 进度条的属性 */
 type ProgressProps = {
