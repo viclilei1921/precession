@@ -14,7 +14,30 @@ pub struct SmilParEntry {
   pub end: Option<f64>,
 }
 
-/// 解析 SMIL par 项（对应 epub.js MediaOverlay 的基础数据）
+/// 解析 SMIL 里的 par 条目
+///
+/// 解析 XML 后遍历 `par`。每个 `par` 需要同时有 `text` 和 `audio`，且两边的 `src` 解析后都非空。音频的 `clipBegin`、`clipEnd` 按时长解析。
+///
+/// # 参数
+/// - `xml`: SMIL XML 文本
+/// - `smil_href`: 用来解析相对 `src` 的基准路径
+///
+/// # 返回值
+/// 成功返回 par 列表，没有合格项时为空列表
+///
+/// # 错误
+/// XML 解析失败时返回 `Err`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let xml = r#"<smil><par><text src="c.xhtml#a"/><audio src="a.mp3" clipBegin="1s"/></par></smil>"#;
+/// let items = parse_smil_par_entries(xml, "ov.smil").unwrap();
+/// assert_eq!(items.len(), 1);
+/// assert_eq!(items[0].begin, Some(1.0));
+/// ```
 pub fn parse_smil_par_entries(xml: &str, smil_href: &str) -> Result<Vec<SmilParEntry>, EpubError> {
   let doc = Document::parse(xml).map_err(|e| EpubError(format!("smil 解析失败: {}", e)))?;
   let mut out = Vec::new();

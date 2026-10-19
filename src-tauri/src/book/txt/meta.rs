@@ -4,7 +4,25 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 
-/// 从一行提取书名（支持《书名》、`书名：` 前缀）
+/// 从一行里提取书名
+///
+/// 去掉首尾空白后，空行或超过 64 个字符返回 `None`。优先取第一对书名号里的非空内容，其次识别 `书名：`、`书名:`、`书名` 前缀。都不匹配时返回整行去空白后的文本。
+///
+/// # 参数
+/// - `line`: 待检查的一行
+///
+/// # 返回值
+/// 提取到书名时返回 `Some`，空行或超长时返回 `None`
+///
+/// # Panics
+/// 书名号正则编译失败时 `unwrap` 会 panic
+///
+/// # 示例
+/// ```
+/// assert_eq!(extract_title("《红楼梦》"), Some("红楼梦".to_string()));
+/// assert_eq!(extract_title("书名：红楼梦"), Some("红楼梦".to_string()));
+/// assert_eq!(extract_title(""), None);
+/// ```
 pub(super) fn extract_title(line: &str) -> Option<String> {
   let t = line.trim();
   if t.is_empty() || t.chars().count() > 64 {
@@ -33,7 +51,25 @@ pub(super) fn extract_title(line: &str) -> Option<String> {
   Some(t.to_string())
 }
 
-/// 从一行提取作者（`作者：` / `著：` 等）
+/// 从一行里提取作者
+///
+/// 去掉首尾空白后，空行或超过 64 个字符返回 `None`。按 `作者：`、`作者:`、`作者 `、`作者`、`著：`、`著:`、`著 `、`著` 的顺序去掉前缀，再去掉多余冒号和空白。前缀后还有内容才返回。
+///
+/// # 参数
+/// - `line`: 待检查的一行
+///
+/// # 返回值
+/// 提取到作者时返回 `Some`，否则返回 `None`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// assert_eq!(extract_author("作者：曹雪芹"), Some("曹雪芹".to_string()));
+/// assert_eq!(extract_author("著曹雪芹"), Some("曹雪芹".to_string()));
+/// assert_eq!(extract_author("正文"), None);
+/// ```
 pub(super) fn extract_author(line: &str) -> Option<String> {
   let t = line.trim();
   if t.is_empty() || t.chars().count() > 64 {

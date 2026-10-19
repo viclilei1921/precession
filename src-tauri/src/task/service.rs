@@ -25,33 +25,95 @@ use crate::image::params::{AvifEncodeParams, JxlEncodeParams};
 use crate::media::{KIND_IMAGE, KIND_VIDEO};
 use crate::utils::id::new_uuid_v4;
 
+/// 任务规格
 pub(super) enum Spec {
+  /// 文件
   File { input: PathBuf, output: PathBuf, encrypt: bool },
+  /// 导入
   Import { source: PathBuf, owner: String, owner_id: String, media_kind: String, encrypt: bool },
+  /// 媒体
   Media { media_id: String, encrypt: bool },
+  /// 转换视频
   ConvertVideo { input: String, output: String, encode: VideoEncode },
+  /// 剪辑视频
   CutVideo { input: String, output: String, segments: Vec<TimeSegment>, encode: VideoEncode },
+  /// 合并视频
   MergeVideo { inputs: Vec<String>, output: String, encode: VideoEncode },
+  /// 添加视频
   AppendVideo { base: String, inputs: Vec<String>, output: String, encode: VideoEncode },
+  /// 转换 AVIF
   ConvertAvif { input: String, output: String, params: AvifEncodeParams },
+  /// 转换 JXL
   ConvertJxl { input: String, output: String, params: JxlEncodeParams },
 }
 
+/// 准备任务
 pub(super) struct Prepared {
+  /// 任务类型: encryptFile, decryptFile, importMedia, encryptMedia, decryptMedia, convertVideo, cutVideo, mergeVideo, appendVideo, convertAvif, convertJxl
   pub kind: String,
+  /// 任务规格
   pub spec: Spec,
+  /// 任务密码
   pub password: String,
+  /// 媒体 ID。媒体任务时才有。
   pub media_id: Option<String>,
+  /// 目标路径
   pub target: String,
+  /// 任务标题
   pub title: String,
+  /// 输出文件
   pub output: String,
+  /// 任务草稿。任务取消时才有。
   pub draft: Option<TaskDraft>,
 }
 
+/// 校验入队参数后放进队列
+///
+/// # 参数
+/// - `db`: 数据库状态
+/// - `queue`: 任务队列
+/// - `input`: 入队参数
+///
+/// # 返回值
+/// 成功时返回已入队的任务
+///
+/// # 错误
+/// `prepare` 或 `push` 失败时返回 `TaskError`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let task = enqueue(db, queue, input)?;
+/// ```
 pub(super) fn enqueue(db: &DbState, queue: &TaskQueue, input: TaskInput) -> Result<Task, TaskError> {
   queue.push(prepare(db, input)?)
 }
 
+/// 按规格走侧车或加解密步骤
+///
+/// 转码、裁剪、合并、追加、AVIF、JXL 在桌面走侧车。这些规格在非桌面返回 `DesktopOnly`。其余规格走 `run`。
+///
+/// # 参数
+/// - `app`: Tauri 应用句柄
+/// - `db`: 数据库状态
+/// - `ticket`: 任务票
+/// - `report`: 进度回调。侧车路径不使用它
+///
+/// # 返回值
+/// 成功时返回可选的媒体 ID。侧车成功时是 `None`
+///
+/// # 错误
+/// 非桌面的侧车规格返回 `TaskError::DesktopOnly`。其余失败返回 `TaskError`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let media_id = run_job(app, db, ticket, &mut report)?;
+/// ```
 pub(super) fn run_job(
   app: &AppHandle,
   db: &DbState,
@@ -72,6 +134,28 @@ pub(super) fn run_job(
   run(db, ticket, report)
 }
 
+/// 按步骤跑完加解密，再提交数据库
+///
+/// 进度按步骤权重分摊。字节增量达到 `PROGRESS_STEP`，或已经读完该文件时才回调。任一步失败或取消时清掉临时文件。提交失败时再删掉 `dest`。
+///
+/// # 参数
+/// - `db`: 数据库状态
+/// - `ticket`: 任务票
+/// - `report`: 进度和说明回调
+///
+/// # 返回值
+/// 成功时返回可选的媒体 ID，并回调 100 和「完成」
+///
+/// # 错误
+/// 步骤失败、取消或提交失败时返回 `TaskError`。取消为 `TaskError::Canceled`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let media_id = run(db, ticket, &mut report)?;
+/// ```
 pub(super) fn run(
   db: &DbState,
   ticket: &Ticket,
@@ -122,12 +206,51 @@ pub(super) fn run(
   }
 }
 
+/// 在当前线程上阻塞跑完侧车任务
+///
+/// # 参数
+/// - `app`: Tauri 应用句柄
+/// - `ticket`: 任务票
+///
+/// # 返回值
+/// 成功时返回 `None`
+///
+/// # 错误
+/// 侧车取消变成 `TaskError::Canceled`，其他侧车错误变成 `TaskError::Failed`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let media_id = run_sidecar(app, ticket)?;
+/// ```
 #[cfg(desktop)]
 fn run_sidecar(app: &AppHandle, ticket: &Ticket) -> Result<Option<String>, TaskError> {
   let job = JobCtx::new(app.clone(), ticket.id.clone(), Arc::clone(&ticket.cancel));
   tauri::async_runtime::block_on(dispatch_sidecar(app, &job, &ticket.spec)).map(|()| None).map_err(TaskError::from)
 }
 
+/// 按规格调用对应的视频或图片侧车
+///
+/// # 参数
+/// - `app`: Tauri 应用句柄
+/// - `job`: 任务执行期句柄
+/// - `spec`: 任务规格
+///
+/// # 返回值
+/// 成功时无额外值
+///
+/// # 错误
+/// 文件、导入、媒体规格返回 `SidecarError::Invalid`，消息是「不是转码任务」。其余失败返回侧车错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// dispatch_sidecar(app, job, spec).await?;
+/// ```
 #[cfg(desktop)]
 async fn dispatch_sidecar(app: &AppHandle, job: &JobCtx, spec: &Spec) -> Result<(), crate::sidecar::SidecarError> {
   match spec {
@@ -153,6 +276,21 @@ async fn dispatch_sidecar(app: &AppHandle, job: &JobCtx, spec: &Spec) -> Result<
   }
 }
 
+/// 判断规格是否走视频或图片侧车
+///
+/// # 参数
+/// - `spec`: 任务规格
+///
+/// # 返回值
+/// 转码、裁剪、合并、追加、AVIF、JXL 时为 `true`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let side = is_sidecar(&spec);
+/// ```
 fn is_sidecar(spec: &Spec) -> bool {
   matches!(
     spec,
@@ -178,6 +316,27 @@ enum After {
   Replace { media_id: String, source: PathBuf, temp: PathBuf, encrypted: bool },
 }
 
+/// 把任务票展开成步骤、临时文件和提交动作
+///
+/// 导入并加密时先复制再加密。媒体加解密写到旁路文件，提交时再换上。转码类规格在这里直接拒绝。
+///
+/// # 参数
+/// - `db`: 数据库状态
+/// - `ticket`: 任务票
+///
+/// # 返回值
+/// 成功时返回步骤和提交计划
+///
+/// # 错误
+/// 媒体已加密还要加密时返回 `AlreadyEncrypted`，未加密还要解密时返回 `NotEncrypted`。转码类返回 `Failed`，消息是「转码任务不能走加解密步骤」。读媒体失败时返回对应的 `TaskError`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let built = build(db, ticket)?;
+/// ```
 fn build(db: &DbState, ticket: &Ticket) -> Result<Built, TaskError> {
   match &ticket.spec {
     Spec::File { input, output, encrypt } => Ok(Built {
@@ -253,10 +412,48 @@ fn build(db: &DbState, ticket: &Ticket) -> Result<Built, TaskError> {
   }
 }
 
+/// 按是否加密选择加密或解密步骤
+///
+/// # 参数
+/// - `encrypt`: 为真时加密
+/// - `from`: 源路径
+/// - `to`: 目标路径
+///
+/// # 返回值
+/// `Step::Encrypt` 或 `Step::Decrypt`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let step = cipher_step(true, from, to);
+/// ```
 fn cipher_step(encrypt: bool, from: PathBuf, to: PathBuf) -> Step {
   if encrypt { Step::Encrypt { from, to } } else { Step::Decrypt { from, to } }
 }
 
+/// 按提交动作写入媒体记录，或换上加解密后的文件
+///
+/// 导入先确认数据库可写，再插入记录。替换时先换文件再改加密标志；改标志失败会把备份恢复回去。换文件之前数据库不可写，则删掉临时文件。
+///
+/// # 参数
+/// - `db`: 数据库状态
+/// - `built`: 步骤跑完后的提交计划
+///
+/// # 返回值
+/// 没有后续动作时返回 `None`，导入或替换成功时返回媒体 ID
+///
+/// # 错误
+/// 数据库锁定返回 `TaskError::Locked`，其他数据库失败返回 `TaskError::Internal`。换文件失败返回 `replace_with_backup` 的错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let media_id = commit(db, &built)?;
+/// ```
 fn commit(db: &DbState, built: &Built) -> Result<Option<String>, TaskError> {
   match &built.after {
     After::None => Ok(None),
@@ -303,12 +500,46 @@ fn commit(db: &DbState, built: &Built) -> Result<Option<String>, TaskError> {
   }
 }
 
+/// 删掉临时文件，删除失败时忽略
+///
+/// # 参数
+/// - `temps`: 临时路径
+///
+/// # 返回值
+/// 无返回值
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// cleanup(&temps);
+/// ```
 fn cleanup(temps: &[PathBuf]) {
   for path in temps {
     let _ = fs::remove_file(path);
   }
 }
 
+/// 按入队参数分发到对应的准备函数
+///
+/// # 参数
+/// - `db`: 数据库状态
+/// - `input`: 入队参数
+///
+/// # 返回值
+/// 成功时返回可入队的任务
+///
+/// # 错误
+/// 校验失败时返回对应的 `TaskError`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let prepared = prepare(db, input)?;
+/// ```
 fn prepare(db: &DbState, input: TaskInput) -> Result<Prepared, TaskError> {
   match input {
     TaskInput::EncryptFile { input, output, password } => {
@@ -331,6 +562,28 @@ fn prepare(db: &DbState, input: TaskInput) -> Result<Prepared, TaskError> {
   }
 }
 
+/// 准备视频转码任务
+///
+/// 非桌面直接返回 `DesktopOnly`。桌面先收紧编码参数，再检查输入文件和输出路径。
+///
+/// # 参数
+/// - `input`: 源视频
+/// - `output`: 输出路径
+/// - `encode`: 编码配置
+///
+/// # 返回值
+/// 成功时返回侧车任务，密码为空
+///
+/// # 错误
+/// 非桌面返回 `TaskError::DesktopOnly`。编码参数不合法时返回 `TaskError::Failed`。路径为空返回 `PathEmpty`，源不是文件返回 `Missing`，输入输出相同返回 `SamePath`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let prepared = prepare_convert_video(input, output, encode)?;
+/// ```
 fn prepare_convert_video(input: String, output: String, mut encode: VideoEncode) -> Result<Prepared, TaskError> {
   #[cfg(not(desktop))]
   {
@@ -350,6 +603,29 @@ fn prepare_convert_video(input: String, output: String, mut encode: VideoEncode)
   }
 }
 
+/// 准备视频裁剪任务
+///
+/// 非桌面直接返回 `DesktopOnly`。桌面要求片段非空，再收紧编码参数并检查路径。
+///
+/// # 参数
+/// - `input`: 源视频
+/// - `output`: 输出路径
+/// - `segments`: 时间片段
+/// - `encode`: 编码配置
+///
+/// # 返回值
+/// 成功时返回侧车任务，密码为空
+///
+/// # 错误
+/// 非桌面返回 `TaskError::DesktopOnly`。片段为空或编码参数不合法时返回 `TaskError::Failed`。路径为空返回 `PathEmpty`，源不是文件返回 `Missing`，输入输出相同返回 `SamePath`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let prepared = prepare_cut_video(input, output, segments, encode)?;
+/// ```
 fn prepare_cut_video(
   input: String,
   output: String,
@@ -377,6 +653,28 @@ fn prepare_cut_video(
   }
 }
 
+/// 准备视频合并任务
+///
+/// 非桌面直接返回 `DesktopOnly`。桌面收紧编码参数，并检查每一段输入和输出路径。
+///
+/// # 参数
+/// - `inputs`: 源视频列表
+/// - `output`: 输出路径
+/// - `encode`: 编码配置
+///
+/// # 返回值
+/// 成功时返回侧车任务，密码为空
+///
+/// # 错误
+/// 非桌面返回 `TaskError::DesktopOnly`。编码参数不合法时返回 `TaskError::Failed`。列表或路径为空返回 `PathEmpty`，某个源不是文件返回 `Missing`，输出与任一输入相同返回 `SamePath`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let prepared = prepare_merge_video(inputs, output, encode)?;
+/// ```
 fn prepare_merge_video(inputs: Vec<String>, output: String, mut encode: VideoEncode) -> Result<Prepared, TaskError> {
   #[cfg(not(desktop))]
   {
@@ -396,6 +694,29 @@ fn prepare_merge_video(inputs: Vec<String>, output: String, mut encode: VideoEnc
   }
 }
 
+/// 准备视频追加任务
+///
+/// 非桌面直接返回 `DesktopOnly`。桌面收紧编码参数，并把基准和各段一起拿来检查输出是否撞路径。
+///
+/// # 参数
+/// - `base`: 基准视频
+/// - `inputs`: 要追加的视频
+/// - `output`: 输出路径
+/// - `encode`: 编码配置
+///
+/// # 返回值
+/// 成功时返回侧车任务，密码为空
+///
+/// # 错误
+/// 非桌面返回 `TaskError::DesktopOnly`。编码参数不合法时返回 `TaskError::Failed`。路径或追加列表为空返回 `PathEmpty`，源不是文件返回 `Missing`，输出与基准或任一段相同返回 `SamePath`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let prepared = prepare_append_video(base, inputs, output, encode)?;
+/// ```
 fn prepare_append_video(
   base: String,
   inputs: Vec<String>,
@@ -424,6 +745,28 @@ fn prepare_append_video(
   }
 }
 
+/// 准备 AVIF 转码任务
+///
+/// 非桌面直接返回 `DesktopOnly`。
+///
+/// # 参数
+/// - `input`: 源图片
+/// - `output`: 输出路径
+/// - `params`: AVIF 参数
+///
+/// # 返回值
+/// 成功时返回侧车任务，密码为空
+///
+/// # 错误
+/// 非桌面返回 `TaskError::DesktopOnly`。路径为空返回 `PathEmpty`，源不是文件返回 `Missing`，输入输出相同返回 `SamePath`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let prepared = prepare_convert_avif(input, output, params)?;
+/// ```
 fn prepare_convert_avif(input: String, output: String, params: AvifEncodeParams) -> Result<Prepared, TaskError> {
   #[cfg(not(desktop))]
   {
@@ -442,6 +785,28 @@ fn prepare_convert_avif(input: String, output: String, params: AvifEncodeParams)
   }
 }
 
+/// 准备 JXL 转码任务
+///
+/// 非桌面直接返回 `DesktopOnly`。
+///
+/// # 参数
+/// - `input`: 源图片
+/// - `output`: 输出路径
+/// - `params`: JXL 参数
+///
+/// # 返回值
+/// 成功时返回侧车任务，密码为空
+///
+/// # 错误
+/// 非桌面返回 `TaskError::DesktopOnly`。路径为空返回 `PathEmpty`，源不是文件返回 `Missing`，输入输出相同返回 `SamePath`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let prepared = prepare_convert_jxl(input, output, params)?;
+/// ```
 fn prepare_convert_jxl(input: String, output: String, params: JxlEncodeParams) -> Result<Prepared, TaskError> {
   #[cfg(not(desktop))]
   {
@@ -460,15 +825,68 @@ fn prepare_convert_jxl(input: String, output: String, params: JxlEncodeParams) -
   }
 }
 
+/// 组装一条没有密码、没有媒体 ID 的侧车任务
+///
+/// # 参数
+/// - `kind`: 任务类型
+/// - `target`: 用来判断忙闲的目标路径
+/// - `spec`: 任务规格
+///
+/// # 返回值
+/// 可入队的任务
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let prepared = sidecar_job(kind, target, spec);
+/// ```
 fn sidecar_job(kind: &str, target: String, spec: Spec) -> Prepared {
   finish(kind, target, spec, String::new(), None)
 }
 
+/// 补上标题、输出和草稿，组装可入队任务
+///
+/// # 参数
+/// - `kind`: 任务类型
+/// - `target`: 用来判断忙闲的目标
+/// - `spec`: 任务规格
+/// - `password`: 口令。侧车任务为空
+/// - `media_id`: 媒体 ID
+///
+/// # 返回值
+/// 可入队的任务
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let prepared = finish(kind, target, spec, password, media_id);
+/// ```
 fn finish(kind: &str, target: String, spec: Spec, password: String, media_id: Option<String>) -> Prepared {
   let (title, output, draft) = describe(&spec);
   Prepared { kind: kind.to_string(), spec, password, media_id, target, title, output, draft }
 }
 
+/// 从规格取出标题、输出路径和可还原的草稿
+///
+/// 导入没有输出和草稿。媒体标题固定为「影像」，也没有输出和草稿。多文件标题带上数量。
+///
+/// # 参数
+/// - `spec`: 任务规格
+///
+/// # 返回值
+/// 标题、输出路径、草稿
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let (title, output, draft) = describe(spec);
+/// ```
 fn describe(spec: &Spec) -> (String, String, Option<TaskDraft>) {
   match spec {
     Spec::File { input, output, encrypt } => {
@@ -531,6 +949,22 @@ fn describe(spec: &Spec) -> (String, String, Option<TaskDraft>) {
   }
 }
 
+/// 取路径里的文件名，空则返回「未命名」
+///
+/// # 参数
+/// - `path`: 文件路径
+///
+/// # 返回值
+/// 文件名
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// assert_eq!(file_name("a/b.mp4"), "b.mp4");
+/// assert_eq!(file_name(""), "未命名");
+/// ```
 fn file_name(path: &str) -> String {
   Path::new(path)
     .file_name()
@@ -539,6 +973,24 @@ fn file_name(path: &str) -> String {
     .unwrap_or_else(|| "未命名".to_string())
 }
 
+/// 用第一个文件名代表一组路径
+///
+/// 没有路径时返回「未命名」。多于一个时接上「等 N 个」。
+///
+/// # 参数
+/// - `paths`: 路径列表
+///
+/// # 返回值
+/// 标题文本
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let title = file_names(&["a.mp4".into(), "b.mp4".into()]);
+/// assert_eq!(title, "a.mp4 等 2 个");
+/// ```
 fn file_names(paths: &[String]) -> String {
   let Some(first) = paths.first() else {
     return "未命名".to_string();
@@ -547,6 +999,24 @@ fn file_names(paths: &[String]) -> String {
   if paths.len() <= 1 { name } else { format!("{name} 等 {} 个", paths.len()) }
 }
 
+/// 去掉两端空白并确认路径指向一个文件
+///
+/// # 参数
+/// - `path`: 待检查的路径
+///
+/// # 返回值
+/// 成功时返回去掉空白后的路径
+///
+/// # 错误
+/// 空白后为空返回 `TaskError::PathEmpty`，不是文件返回 `TaskError::Missing`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let path = require_file(path)?;
+/// ```
 fn require_file(path: String) -> Result<String, TaskError> {
   let path = path.trim().to_string();
   if path.is_empty() {
@@ -558,6 +1028,24 @@ fn require_file(path: String) -> Result<String, TaskError> {
   Ok(path)
 }
 
+/// 确认列表非空，并逐个确认是文件
+///
+/// # 参数
+/// - `paths`: 路径列表
+///
+/// # 返回值
+/// 成功时返回去掉空白后的路径
+///
+/// # 错误
+/// 列表为空返回 `TaskError::PathEmpty`。某一项为空返回 `PathEmpty`，不是文件返回 `Missing`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let paths = require_files(paths)?;
+/// ```
 fn require_files(paths: Vec<String>) -> Result<Vec<String>, TaskError> {
   if paths.is_empty() {
     return Err(TaskError::PathEmpty);
@@ -565,6 +1053,26 @@ fn require_files(paths: Vec<String>) -> Result<Vec<String>, TaskError> {
   paths.into_iter().map(require_file).collect()
 }
 
+/// 去掉输出路径两端空白，并拒绝和输入相同
+///
+/// # 参数
+/// - `input`: 输入路径
+/// - `output`: 输出路径
+///
+/// # 返回值
+/// 成功时返回去掉空白后的输出路径
+///
+/// # 错误
+/// 空白后为空返回 `TaskError::PathEmpty`，与输入相同返回 `TaskError::SamePath`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let output = require_output("in.mp4", " out.mp4 ".into()).unwrap();
+/// assert_eq!(output, "out.mp4");
+/// ```
 fn require_output(input: &str, output: String) -> Result<String, TaskError> {
   let output = output.trim().to_string();
   if output.is_empty() {
@@ -576,6 +1084,26 @@ fn require_output(input: &str, output: String) -> Result<String, TaskError> {
   Ok(output)
 }
 
+/// 去掉输出路径两端空白，并拒绝和任一输入相同
+///
+/// # 参数
+/// - `inputs`: 输入路径
+/// - `output`: 输出路径
+///
+/// # 返回值
+/// 成功时返回去掉空白后的输出路径
+///
+/// # 错误
+/// 空白后为空返回 `TaskError::PathEmpty`，与任一输入相同返回 `TaskError::SamePath`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let output = require_output_many(&["a.mp4".into()], "b.mp4".into()).unwrap();
+/// assert_eq!(output, "b.mp4");
+/// ```
 fn require_output_many(inputs: &[String], output: String) -> Result<String, TaskError> {
   let output = output.trim().to_string();
   if output.is_empty() {
@@ -587,6 +1115,30 @@ fn require_output_many(inputs: &[String], output: String) -> Result<String, Task
   Ok(output)
 }
 
+/// 准备文件加密或解密任务
+///
+/// 失败时清零密码。输入输出会去掉两端空白。
+///
+/// # 参数
+/// - `kind`: 任务类型
+/// - `input`: 源文件
+/// - `output`: 输出路径
+/// - `password`: 口令
+/// - `encrypt`: 为真时加密
+///
+/// # 返回值
+/// 成功时返回可入队任务。目标是输出路径
+///
+/// # 错误
+/// 口令为空返回 `PasswordEmpty`，路径空白后为空返回 `PathEmpty`，输入输出相同返回 `SamePath`，源不是文件返回 `Missing`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let prepared = prepare_file(kind, input, output, password, true)?;
+/// ```
 fn prepare_file(
   kind: &str,
   input: String,
@@ -618,6 +1170,32 @@ fn prepare_file(
   Ok(finish(kind, target, Spec::File { input, output, encrypt }, password, None))
 }
 
+/// 准备导入媒体任务
+///
+/// 不加密时清零密码。加密时口令不能为空。归属必须能解析，并且在库里存在。失败时清零密码。
+///
+/// # 参数
+/// - `db`: 数据库状态
+/// - `source`: 源文件
+/// - `owner`: 归属类型
+/// - `owner_id`: 归属 ID
+/// - `media_kind`: 媒体类型，只接受图片或视频
+/// - `encrypt`: 是否加密后入库
+/// - `password`: 口令
+///
+/// # 返回值
+/// 成功时返回可入队任务。目标是源路径
+///
+/// # 错误
+/// 加密但口令为空返回 `PasswordEmpty`。源、归属或归属 ID 空白后为空返回 `PathEmpty`。类型不是图片或视频，或归属解析失败，返回 `KindInvalid`。源不是文件返回 `Missing`。查询归属失败返回 `Internal`。归属不存在返回 `ReferencedMissing`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let prepared = prepare_import(db, source, owner, owner_id, media_kind, encrypt, password)?;
+/// ```
 fn prepare_import(
   db: &DbState,
   source: String,
@@ -672,6 +1250,30 @@ fn prepare_import(
   ))
 }
 
+/// 准备媒体加密或解密任务
+///
+/// 失败时清零密码。已是目标加密状态时拒绝。
+///
+/// # 参数
+/// - `db`: 数据库状态
+/// - `kind`: 任务类型
+/// - `media_id`: 媒体 ID
+/// - `password`: 口令
+/// - `encrypt`: 为真时加密
+///
+/// # 返回值
+/// 成功时返回可入队任务，并带上媒体 ID
+///
+/// # 错误
+/// 口令为空返回 `PasswordEmpty`，ID 空白后为空返回 `PathEmpty`。读媒体失败时返回映射后的 `TaskError`。已加密还要加密返回 `AlreadyEncrypted`，未加密还要解密返回 `NotEncrypted`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let prepared = prepare_media(db, kind, media_id, password, true)?;
+/// ```
 fn prepare_media(
   db: &DbState,
   kind: &str,
@@ -709,15 +1311,67 @@ fn prepare_media(
   ))
 }
 
+/// 取数据库目录的父目录，没有父目录时用数据库目录本身
+///
+/// # 参数
+/// - `db`: 数据库状态
+///
+/// # 返回值
+/// 数据根目录
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let root = data_root(db);
+/// ```
 fn data_root(db: &DbState) -> PathBuf {
   db.dir.parent().map(Path::to_path_buf).unwrap_or_else(|| db.dir.clone())
 }
 
+/// 把相对路径接到根目录上
+///
+/// `rel` 已经是绝对路径时原样返回。
+///
+/// # 参数
+/// - `root`: 根目录
+/// - `rel`: 相对或绝对路径
+///
+/// # 返回值
+/// 解析后的路径
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let path = resolve(Path::new("/data"), "media/a");
+/// assert_eq!(path, PathBuf::from("/data/media/a"));
+/// ```
 fn resolve(root: &Path, rel: &str) -> PathBuf {
   let path = PathBuf::from(rel);
   if path.is_absolute() { path } else { root.join(path) }
 }
 
+/// 按扩展名给出 MIME，对不上时按媒体类型回退
+///
+/// 图片回退 `image/jpeg`，视频回退 `video/mp4`，都不是则返回空字符串。
+///
+/// # 参数
+/// - `path`: 文件路径
+/// - `kind`: 媒体类型
+///
+/// # 返回值
+/// MIME 字符串
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// assert_eq!(mime_of(Path::new("a.png"), "image"), "image/png");
+/// ```
 fn mime_of(path: &Path, kind: &str) -> String {
   let ext = path.extension().and_then(|ext| ext.to_str()).unwrap_or("").to_ascii_lowercase();
   match ext.as_str() {

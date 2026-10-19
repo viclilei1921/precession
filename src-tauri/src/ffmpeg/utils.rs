@@ -1,6 +1,23 @@
 use crate::ffmpeg::models::VideoInfo;
 
-/// 将 HH:MM:SS.ms 转换为秒
+/// 把冒号分隔的时间换成秒
+///
+/// 四段按时、分、秒、毫秒，毫秒除以 1000。三段按时、分、秒。两段按分、秒。其他段数返回 `None`。任一段不是数字也返回 `None`。
+///
+/// # 参数
+/// - `duration_str`: 时间文本
+///
+/// # 返回值
+/// 解析成功时的秒数，否则 `None`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// assert_eq!(parse_duration_str("00:01:30"), Some(90.0));
+/// assert_eq!(parse_duration_str("1:02:03:004"), Some(3723.004));
+/// ```
 pub fn parse_duration_str(duration_str: &str) -> Option<f64> {
   let parts: Vec<&str> = duration_str.split(':').collect();
   match parts.len() {
@@ -35,6 +52,24 @@ pub struct FfmpegNotes {
 }
 
 impl FfmpegNotes {
+  /// 把这段输出里的非进度行追加进来
+  ///
+  /// 空行和进度、片头行丢掉。文本超过 1200 字节时，从前面裁到大约 800 字节，尽量从换行处切开。
+  ///
+  /// # 参数
+  /// - `chunk`: ffmpeg 输出的一块字节
+  ///
+  /// # 返回值
+  /// 无返回值
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let mut notes = FfmpegNotes::default();
+  /// notes.push(b"Error opening output files: Invalid argument\n");
+  /// ```
   pub fn push(&mut self, chunk: &[u8]) {
     let raw = String::from_utf8_lossy(chunk);
     for line in raw.lines() {
@@ -54,11 +89,42 @@ impl FfmpegNotes {
     }
   }
 
+  /// 拼出带退出码的失败说明
+  ///
+  /// 没有挑出的详情时只写退出码。
+  ///
+  /// # 参数
+  /// - `code`: 退出码
+  ///
+  /// # 返回值
+  /// `退出代码 {code}`，或后面接上详情
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let notes = FfmpegNotes::default();
+  /// assert_eq!(notes.failure(1), "退出代码 1");
+  /// ```
   pub fn failure(&self, code: i32) -> String {
     let detail = self.detail();
     if detail.is_empty() { format!("退出代码 {code}") } else { format!("退出代码 {code}：{detail}") }
   }
 
+  /// 挑出最多四行原因，没有原因时用最后四行
+  ///
+  /// # 返回值
+  /// 用空格拼起来的文本
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let notes = FfmpegNotes::default();
+  /// assert!(notes.detail().is_empty());
+  /// ```
   fn detail(&self) -> String {
     let reasons: Vec<&str> = self.text.lines().filter(|line| is_reason(line)).collect();
     let chosen: Vec<&str> = if reasons.is_empty() {
@@ -70,6 +136,22 @@ impl FfmpegNotes {
   }
 }
 
+/// 判断这一行是进度或片头信息
+///
+/// # 参数
+/// - `line`: 一行输出
+///
+/// # 返回值
+/// 含 `time=`，或以 `frame=`、`size=`、`Exiting with exit code`、`Input #`、`Output #`、`Stream #`、`Metadata:`、`Duration:`、`Side data:`、`major_brand`、`minor_version`、`compatible_brands`、`creation_time`、`handler_name` 开头时为 `true`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// assert!(is_progress("frame=  12 fps=3.0"));
+/// assert!(!is_progress("Error opening output files"));
+/// ```
 fn is_progress(line: &str) -> bool {
   line.contains("time=")
     || line.starts_with("frame=")
@@ -88,6 +170,22 @@ fn is_progress(line: &str) -> bool {
     || line.starts_with("handler_name")
 }
 
+/// 判断这一行像失败原因
+///
+/// # 参数
+/// - `line`: 一行输出
+///
+/// # 返回值
+/// 小写后含 `error`、`invalid`、`not found`、`no decoder` 或 `failed` 时为 `true`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// assert!(is_reason("Error opening output files"));
+/// assert!(!is_reason("Stream #0:0"));
+/// ```
 fn is_reason(line: &str) -> bool {
   let lower = line.to_ascii_lowercase();
   lower.contains("error")
@@ -97,7 +195,24 @@ fn is_reason(line: &str) -> bool {
     || lower.contains("failed")
 }
 
-/// 从 FFmpeg 输出解析当前时间（秒）
+/// 从 ffmpeg 输出里的 `time=` 解析当前秒数
+///
+/// 没有 `time=`，或后面的时间文本解析失败时返回 `None`。
+///
+/// # 参数
+/// - `line`: 一行输出的字节
+///
+/// # 返回值
+/// 解析成功时的秒数
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let line = b"frame=1 time=00:01:30.00 bitrate=1.0kbits/s".to_vec();
+/// assert_eq!(parse_time_from_ffmpeg_output(&line), Some(90.0));
+/// ```
 pub fn parse_time_from_ffmpeg_output(line: &Vec<u8>) -> Option<f64> {
   let line_str = String::from_utf8_lossy(&line);
 
@@ -113,8 +228,24 @@ pub fn parse_time_from_ffmpeg_output(line: &Vec<u8>) -> Option<f64> {
   }
 }
 
-/// 用于计算多个视频合并后的目标参数 <br>
-/// return: (目标宽度, 目标高度, 目标帧率)
+/// 取最大宽高，帧率取排序后 `len / 2` 那一档
+///
+/// 没有视频时宽高用 1920 和 1080，帧率用 30。
+///
+/// # 参数
+/// - `videos_info`: 各段视频信息
+///
+/// # 返回值
+/// `(宽度, 高度, 帧率)`
+///
+/// # Panics
+/// 帧率是 NaN，`partial_cmp` 得到 `None` 时，`unwrap` 会 panic
+///
+/// # 示例
+/// ```
+/// let (width, height, fps) = calculate_target_params(&[]);
+/// assert_eq!((width, height, fps), (1920, 1080, 30.0));
+/// ```
 pub fn calculate_target_params(videos_info: &[VideoInfo]) -> (u32, u32, f64) {
   // A. 计算最大分辨率 (画布能够包容所有视频)
   let max_w = videos_info.iter().map(|m| m.width).max().unwrap_or(1920);

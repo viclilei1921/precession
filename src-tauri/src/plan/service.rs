@@ -9,29 +9,71 @@ use super::repository;
 use crate::db::state::DbState;
 use crate::utils::time::now_unix_ms;
 
-/// 列出计划
-/// #### Arguments
-/// * `query` - 查询条件
-/// #### Returns
-/// * 计划列表
+/// 按条件列出计划
+///
+/// # 参数
+/// - `db`: 数据库状态
+/// - `query`: 时间范围和清单条件
+///
+/// # 返回值
+/// 返回计划列表
+///
+/// # 错误
+/// 连接或查询失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let plans = list(db, query)?;
+/// ```
 pub fn list(db: &DbState, query: &PlanQuery) -> Result<Vec<Plan>, PlanError> {
   db.with_conn(|conn| repository::list(conn, query))
 }
 
-/// 获取计划详情
-/// #### Arguments
-/// * `id` - 计划ID
-/// #### Returns
-/// * 计划详情
+/// 按主键读取计划
+///
+/// # 参数
+/// - `db`: 数据库状态
+/// - `id`: 计划主键
+///
+/// # 返回值
+/// 返回计划
+///
+/// # 错误
+/// 连接或查询失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let plan = get(db, id)?;
+/// ```
 pub fn get(db: &DbState, id: &str) -> Result<Plan, PlanError> {
   db.with_conn(|conn| repository::get(conn, id))
 }
 
-/// 创建计划
-/// #### Arguments
-/// * `input` - 计划输入
-/// #### Returns
-/// * 计划
+/// 校验清单和父计划后创建计划
+///
+/// # 参数
+/// - `db`: 数据库状态
+/// - `input`: 新建计划内容
+///
+/// # 返回值
+/// 返回新建的计划
+///
+/// # 错误
+/// 校验或写入失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let plan = create(db, input)?;
+/// ```
 pub fn create(db: &DbState, input: PlanInput) -> Result<Plan, PlanError> {
   db.with_conn(|conn| {
     if let Some(group_id) = &input.group_id {
@@ -44,12 +86,26 @@ pub fn create(db: &DbState, input: PlanInput) -> Result<Plan, PlanError> {
   })
 }
 
-/// 更新计划
-/// #### Arguments
-/// * `id` - 计划ID
-/// * `patch` - 要改的字段
-/// #### Returns
-/// * 计划
+/// 补丁为空时直接读取计划，否则校验清单和父计划后更新
+///
+/// # 参数
+/// - `db`: 数据库状态
+/// - `id`: 计划主键
+/// - `patch`: 要改的字段
+///
+/// # 返回值
+/// 返回计划
+///
+/// # 错误
+/// 校验或写入失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let plan = update(db, id, patch)?;
+/// ```
 pub fn update(db: &DbState, id: &str, patch: PlanPatch) -> Result<Plan, PlanError> {
   db.with_conn(|conn| {
     if patch.is_empty() {
@@ -65,48 +121,119 @@ pub fn update(db: &DbState, id: &str, patch: PlanPatch) -> Result<Plan, PlanErro
   })
 }
 
-/// 完成计划
-/// #### Arguments
-/// * `id` - 计划ID
-/// * `result` - 完成结果
-/// #### Returns
-/// * 计划
+/// 把计划标成已完成并写入结果和当前时间
+///
+/// # 参数
+/// - `db`: 数据库状态
+/// - `id`: 计划主键
+/// - `result`: 完成结果
+///
+/// # 返回值
+/// 返回完成后的计划
+///
+/// # 错误
+/// 连接或写入失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let plan = complete(db, id, result)?;
+/// ```
 pub fn complete(db: &DbState, id: &str, result: &str) -> Result<Plan, PlanError> {
   let now = now_unix_ms();
   db.with_conn(|conn| repository::complete(conn, id, STATUS_DONE, result, now))
 }
 
 /// 删除计划
-/// #### Arguments
-/// * `id` - 计划ID
-/// #### Returns
-/// * 结果
+///
+/// # 参数
+/// - `db`: 数据库状态
+/// - `id`: 计划主键
+///
+/// # 返回值
+/// 成功时返回空
+///
+/// # 错误
+/// 连接或删除失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// delete(db, id)?;
+/// ```
 pub fn delete(db: &DbState, id: &str) -> Result<(), PlanError> {
   db.with_conn(|conn| repository::delete(conn, id))
 }
 
-/// 获取清单列表
-/// #### Returns
-/// * 清单列表
+/// 列出清单
+///
+/// # 参数
+/// - `db`: 数据库状态
+///
+/// # 返回值
+/// 返回清单列表
+///
+/// # 错误
+/// 连接或查询失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let groups = group_list(db)?;
+/// ```
 pub fn group_list(db: &DbState) -> Result<Vec<PlanGroup>, PlanError> {
   db.with_conn(repository::group_list)
 }
 
 /// 创建清单
-/// #### Arguments
-/// * `input` - 清单输入
-/// #### Returns
-/// * 清单
+///
+/// # 参数
+/// - `db`: 数据库状态
+/// - `input`: 新建清单内容
+///
+/// # 返回值
+/// 返回新建的清单
+///
+/// # 错误
+/// 连接或写入失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let group = group_create(db, input)?;
+/// ```
 pub fn group_create(db: &DbState, input: PlanGroupInput) -> Result<PlanGroup, PlanError> {
   db.with_conn(|conn| repository::group_create(conn, &input))
 }
 
-/// 更新清单
-/// #### Arguments
-/// * `id` - 清单ID
-/// * `patch` - 要改的字段
-/// #### Returns
-/// * 清单
+/// 补丁为空时直接读取清单，否则更新清单
+///
+/// # 参数
+/// - `db`: 数据库状态
+/// - `id`: 清单主键
+/// - `patch`: 要改的字段
+///
+/// # 返回值
+/// 返回清单
+///
+/// # 错误
+/// 连接或写入失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let group = group_update(db, id, patch)?;
+/// ```
 pub fn group_update(db: &DbState, id: &str, patch: PlanGroupPatch) -> Result<PlanGroup, PlanError> {
   db.with_conn(|conn| {
     // 如果更新内容为空，则返回当前清单
@@ -119,11 +246,25 @@ pub fn group_update(db: &DbState, id: &str, patch: PlanGroupPatch) -> Result<Pla
   })
 }
 
-/// 删除清单
-/// #### Arguments
-/// * `id` - 清单ID
-/// #### Returns
-/// * 结果
+/// 拒绝删除系统清单，其余清单执行删除
+///
+/// # 参数
+/// - `db`: 数据库状态
+/// - `id`: 清单主键
+///
+/// # 返回值
+/// 成功时返回空
+///
+/// # 错误
+/// 清单是系统清单时返回 `PlanError::GroupProtected`，其余失败返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// group_delete(db, id)?;
+/// ```
 pub fn group_delete(db: &DbState, id: &str) -> Result<(), PlanError> {
   db.with_conn(|conn| {
     // 获取清单
@@ -139,12 +280,26 @@ pub fn group_delete(db: &DbState, id: &str) -> Result<(), PlanError> {
   })
 }
 
-/// 创建评论
-/// #### Arguments
-/// * `plan_id` - 计划ID
-/// * `body` - 评论正文
-/// #### Returns
-/// * 评论
+/// 确认计划存在后创建评论
+///
+/// # 参数
+/// - `db`: 数据库状态
+/// - `plan_id`: 计划主键
+/// - `body`: 评论正文
+///
+/// # 返回值
+/// 返回新建的评论
+///
+/// # 错误
+/// 计划不存在时返回 `PlanError::NotFound`，其余失败返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let comment = comment_create(db, plan_id, body)?;
+/// ```
 pub fn comment_create(db: &DbState, plan_id: &str, body: &str) -> Result<PlanComment, PlanError> {
   db.with_conn(|conn| {
     // 确保计划存在
@@ -157,42 +312,96 @@ pub fn comment_create(db: &DbState, plan_id: &str, body: &str) -> Result<PlanCom
   })
 }
 
-/// 更新评论
-/// #### Arguments
-/// * `id` - 评论ID
-/// * `body` - 评论正文
-/// #### Returns
-/// * 评论
+/// 更新评论正文
+///
+/// # 参数
+/// - `db`: 数据库状态
+/// - `id`: 评论主键
+/// - `body`: 评论正文
+///
+/// # 返回值
+/// 返回更新后的评论
+///
+/// # 错误
+/// 连接或写入失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let comment = comment_update(db, id, body)?;
+/// ```
 pub fn comment_update(db: &DbState, id: &str, body: &str) -> Result<PlanComment, PlanError> {
   db.with_conn(|conn| repository::comment_update(conn, id, body))
 }
 
 /// 删除评论
-/// #### Arguments
-/// * `id` - 评论ID
-/// #### Returns
-/// * 结果
+///
+/// # 参数
+/// - `db`: 数据库状态
+/// - `id`: 评论主键
+///
+/// # 返回值
+/// 成功时返回空
+///
+/// # 错误
+/// 连接或删除失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// comment_delete(db, id)?;
+/// ```
 pub fn comment_delete(db: &DbState, id: &str) -> Result<(), PlanError> {
   db.with_conn(|conn| repository::comment_delete(conn, id))
 }
 
-/// 确保清单存在
-/// #### Arguments
-/// * `conn` - 数据库连接
-/// * `id` - 清单ID
-/// #### Returns
-/// * 结果
+/// 确认清单存在
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `id`: 清单主键
+///
+/// # 返回值
+/// 存在时返回空
+///
+/// # 错误
+/// 清单不存在时返回 `PlanError::ReferencedMissing`，查询失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// ensure_group(conn, id)?;
+/// ```
 fn ensure_group(conn: &Connection, id: &str) -> Result<(), PlanError> {
   if repository::group_exists(conn, id)? { Ok(()) } else { Err(PlanError::ReferencedMissing) }
 }
 
-/// 确保父计划存在
-/// #### Arguments
-/// * `conn` - 数据库连接
-/// * `plan_id` - 计划ID
-/// * `parent_id` - 父计划ID
-/// #### Returns
-/// * 结果
+/// 沿父计划向上检查，拒绝指向自己、缺失或超过 64 层
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `plan_id`: 当前计划主键，新建时为空
+/// - `parent_id`: 父计划主键
+///
+/// # 返回值
+/// 父链尽头没有父计划时返回空
+///
+/// # 错误
+/// 指向自己或超过 64 层时返回 `PlanError::ParentInvalid`，计划不存在时返回 `PlanError::ReferencedMissing`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// ensure_parent(conn, plan_id, parent_id)?;
+/// ```
 fn ensure_parent(conn: &Connection, plan_id: Option<&str>, parent_id: &str) -> Result<(), PlanError> {
   let mut cursor = parent_id.to_string();
 

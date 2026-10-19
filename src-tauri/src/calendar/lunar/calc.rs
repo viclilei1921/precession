@@ -91,11 +91,40 @@ impl LunarCalendar {
   pub const YEAR_MIN: i32 = 1900;
   pub const YEAR_MAX: i32 = 2100;
 
+  /// 判断公历年是否在 1900 到 2100 之间
+  ///
+  /// # 参数
+  /// - `date`: 公历日期
+  ///
+  /// # 返回值
+  /// 年份在范围内时返回 true
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let ok = LunarCalendar::supports_date(&date);
+  /// ```
   pub fn supports_date(date: &NaiveDate) -> bool {
     (Self::YEAR_MIN..=Self::YEAR_MAX).contains(&date.year())
   }
 
-  /// 绘制用轻量农历；超出 1900–2100 返回 None。
+  /// 在支持年份内组装轻量农历
+  ///
+  /// # 参数
+  /// - `date`: 公历日期
+  ///
+  /// # 返回值
+  /// 年份不支持或农历月不在 1 到 12 时返回 `None`，否则返回格子数据
+  ///
+  /// # Panics
+  /// 节气或生肖下标越界时 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let cell = LunarCalendar::lunar_cell(&date);
+  /// ```
   pub fn lunar_cell(date: &NaiveDate) -> Option<LunarCell> {
     if !Self::supports_date(date) {
       return None;
@@ -119,7 +148,21 @@ impl LunarCalendar {
     })
   }
 
-  /// 公历 → 农历
+  /// 把公历换算成农历
+  ///
+  /// # 参数
+  /// - `date`: 公历日期
+  ///
+  /// # 返回值
+  /// 年份超出 1900 到 2100 时返回该年正月初一；早于基准日时返回 1899 年腊月初一；否则返回换算结果
+  ///
+  /// # Panics
+  /// 基准日 1900-01-31 无法构成时 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let lunar = LunarCalendar::get_lunar_date(&date);
+  /// ```
   pub fn get_lunar_date(date: &NaiveDate) -> LunarDate {
     let year = date.year();
     if year < 1900 || year > 2100 {
@@ -182,6 +225,21 @@ impl LunarCalendar {
     LunarDate { l_year, l_month: l_month as u32, l_day: (offset + 1) as u32, is_leap }
   }
 
+  /// 按农历数据计算该年天数
+  ///
+  /// # 参数
+  /// - `y`: 农历年
+  ///
+  /// # 返回值
+  /// 年份越出数据表时返回 348，否则返回平月累计天数与闰月天数之和
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let days = LunarCalendar::l_year_days(2026);
+  /// ```
   fn l_year_days(y: i32) -> u32 {
     let mut sum: u32 = 348;
     let idx = (y - 1900) as usize;
@@ -199,6 +257,21 @@ impl LunarCalendar {
     sum + Self::leap_days(y)
   }
 
+  /// 返回农历年的闰月天数
+  ///
+  /// # 参数
+  /// - `y`: 农历年
+  ///
+  /// # 返回值
+  /// 没有闰月时返回 0；闰月为大月时返回 30，否则返回 29
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let days = LunarCalendar::leap_days(2026);
+  /// ```
   fn leap_days(y: i32) -> u32 {
     if Self::leap_month(y) > 0 {
       let idx = (y - 1900) as usize;
@@ -208,6 +281,21 @@ impl LunarCalendar {
     }
   }
 
+  /// 读取农历年的闰月月份
+  ///
+  /// # 参数
+  /// - `y`: 农历年
+  ///
+  /// # 返回值
+  /// 年份越出数据表时返回 0，否则返回数据低 4 位
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let month = LunarCalendar::leap_month(2026);
+  /// ```
   fn leap_month(y: i32) -> i32 {
     let idx = (y - 1900) as usize;
     if idx >= LUNAR_INFO.len() {
@@ -216,6 +304,22 @@ impl LunarCalendar {
     (LUNAR_INFO[idx] & 15) as i32
   }
 
+  /// 返回农历某月的天数
+  ///
+  /// # 参数
+  /// - `y`: 农历年
+  /// - `m`: 农历月
+  ///
+  /// # 返回值
+  /// 月份不在 1 到 12 时返回 0；年份越界时返回 29；该月为大月时返回 30，否则返回 29
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let days = LunarCalendar::month_days(2026, 1);
+  /// ```
   fn month_days(y: i32, m: i32) -> u32 {
     if m < 1 || m > 12 {
       return 0;
@@ -227,6 +331,21 @@ impl LunarCalendar {
     if (LUNAR_INFO[idx] & (65536 >> m)) != 0 { 30 } else { 29 }
   }
 
+  /// 计算公历日在当年的序号
+  ///
+  /// # 参数
+  /// - `date`: 公历日期
+  ///
+  /// # 返回值
+  /// 返回从 1 起的日序，闰年二月之后再加 1
+  ///
+  /// # Panics
+  /// `SOLAR_MONTH` 下标越界时 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let n = LunarCalendar::day_of_year(&date);
+  /// ```
   fn day_of_year(date: &NaiveDate) -> u32 {
     let mut sum: u32 = 0;
     let month = date.month();
@@ -244,11 +363,42 @@ impl LunarCalendar {
     sum
   }
 
+  /// 计算两个日期相差的天数
+  ///
+  /// # 参数
+  /// - `d1`: 起始日期
+  /// - `d2`: 结束日期
+  ///
+  /// # 返回值
+  /// 返回 `d2` 减 `d1` 的天数
+  ///
+  /// # Panics
+  /// 纪元日 1970-01-01 无法构成时 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let days = LunarCalendar::get_interval_days(&d1, &d2);
+  /// ```
   fn get_interval_days(d1: &NaiveDate, d2: &NaiveDate) -> i64 {
     let epoch = NaiveDate::from_ymd_opt(1970, 1, 1).unwrap();
     d2.signed_duration_since(epoch).num_days() - d1.signed_duration_since(epoch).num_days()
   }
 
+  /// 计算日柱干支序号
+  ///
+  /// # 参数
+  /// - `date`: 公历日期
+  ///
+  /// # 返回值
+  /// 早于基准日时返回 -1，否则返回 0 到 59 的序号
+  ///
+  /// # Panics
+  /// 基准日 1899-02-04 无法构成时 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let idx = LunarCalendar::get_stems_branch_day(&date);
+  /// ```
   fn get_stems_branch_day(date: &NaiveDate) -> i32 {
     let base = NaiveDate::from_ymd_opt(1899, 2, 4).unwrap();
     let days = Self::get_interval_days(&base, date);
@@ -260,6 +410,21 @@ impl LunarCalendar {
     if v < 0 { v + 60 } else { v }
   }
 
+  /// 把干支序号格式化成天干地支
+  ///
+  /// # 参数
+  /// - `num`: 干支序号
+  ///
+  /// # 返回值
+  /// 序号不在 0 到 59 时返回空字符串，否则返回干支
+  ///
+  /// # Panics
+  /// 天干或地支下标越界时 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let text = LunarCalendar::cyclical(0);
+  /// ```
   fn cyclical(num: i32) -> String {
     if num < 0 || num >= 60 {
       return String::new();
@@ -267,6 +432,21 @@ impl LunarCalendar {
     format!("{}{}", GAN[(num % 10) as usize], ZHI[(num % 12) as usize])
   }
 
+  /// 计算日支序号
+  ///
+  /// # 参数
+  /// - `date`: 公历日期
+  ///
+  /// # 返回值
+  /// 早于基准日时返回 0，否则返回日支序号
+  ///
+  /// # Panics
+  /// 基准日 1899-02-04 无法构成时 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let idx = LunarCalendar::get_branch_day(&date);
+  /// ```
   fn get_branch_day(date: &NaiveDate) -> i32 {
     let base = NaiveDate::from_ymd_opt(1899, 2, 4).unwrap();
     let days = Self::get_interval_days(&base, date);
@@ -276,10 +456,40 @@ impl LunarCalendar {
     ((days + 3) % 12) as i32
   }
 
+  /// 把小时折成时辰序号
+  ///
+  /// # 参数
+  /// - `hour`: 小时
+  ///
+  /// # 返回值
+  /// 返回 0 到 11 的时辰序号
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let idx = LunarCalendar::get_lunar_hour_index(23);
+  /// ```
   fn get_lunar_hour_index(hour: u32) -> u32 {
     ((hour / 2) + (hour % 2)) % 12
   }
 
+  /// 查找日期对应的节气序号，并标明是否当天
+  ///
+  /// # 参数
+  /// - `date`: 公历日期
+  ///
+  /// # 返回值
+  /// 年份或节气表不够时返回 `None`；当天是节气时第二项为 1，否则为 0
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let term = LunarCalendar::twenty_four_term_days_of(&date);
+  /// ```
   fn twenty_four_term_days_of(date: &NaiveDate) -> Option<(i32, i32)> {
     let y = date.year() - 1900;
     if y < 0 || y >= 200 {
@@ -304,6 +514,22 @@ impl LunarCalendar {
     Some((((y - 1) * 24 + 23), 0))
   }
 
+  /// 查找日序之前最近的节气序号
+  ///
+  /// # 参数
+  /// - `year`: 公历年
+  /// - `day_of_year_minus_1`: 从 0 起的日序
+  ///
+  /// # 返回值
+  /// 节气表不够时返回 -1；落在节气上返回该序号；落在两节气之间返回前一个序号；年末返回 23
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let term = LunarCalendar::find_pre_term(2026, 0);
+  /// ```
   fn find_pre_term(year: i32, day_of_year_minus_1: i32) -> i32 {
     let base = (year - 1900) as usize;
     let terms = terms_offset();
@@ -322,6 +548,22 @@ impl LunarCalendar {
     23
   }
 
+  /// 计算月柱干支序号
+  ///
+  /// # 参数
+  /// - `year`: 公历年
+  /// - `day_of_year_minus_1`: 从 0 起的日序
+  ///
+  /// # 返回值
+  /// 找不到节气时返回 -1，否则返回 0 到 59 的序号
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let idx = LunarCalendar::get_stems_branch_month(2026, 0);
+  /// ```
   fn get_stems_branch_month(year: i32, day_of_year_minus_1: i32) -> i32 {
     let n = Self::find_pre_term(year, day_of_year_minus_1);
     if n < 0 {
@@ -332,11 +574,41 @@ impl LunarCalendar {
     if v < 0 { v + 60 } else { v }
   }
 
+  /// 返回月支名称
+  ///
+  /// # 参数
+  /// - `date`: 公历日期
+  ///
+  /// # 返回值
+  /// 序号为负时返回空字符串，否则返回地支
+  ///
+  /// # Panics
+  /// 地支下标越界时 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let zhi = LunarCalendar::get_stems_branch_month_as_string(&date);
+  /// ```
   fn get_stems_branch_month_as_string(date: &NaiveDate) -> &'static str {
     let idx = Self::get_stems_branch_month(date.year(), Self::day_of_year(date) as i32 - 1);
     if idx < 0 { "" } else { ZHI[(idx % 12) as usize] }
   }
 
+  /// 计算建除和黄道或黑道
+  ///
+  /// # 参数
+  /// - `date`: 公历日期
+  ///
+  /// # 返回值
+  /// 返回建除名称，以及「黄道」或「黑道」
+  ///
+  /// # Panics
+  /// 基准日 1901-01-01 无法构成时 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let (jian_chu, dao) = LunarCalendar::get_advanced_h_data(&date);
+  /// ```
   fn get_advanced_h_data(date: &NaiveDate) -> (String, String) {
     let base = NaiveDate::from_ymd_opt(1901, 1, 1).unwrap();
     let r = Self::twenty_four_term_days_of(date);
@@ -357,6 +629,22 @@ impl LunarCalendar {
     (jian_chu.to_string(), dao_day.to_string())
   }
 
+  /// 计算冲煞文本
+  ///
+  /// # 参数
+  /// - `date`: 公历日期
+  /// - `hour_or_index`: 小于 0 时用日支，否则用时辰
+  ///
+  /// # 返回值
+  /// 返回「冲某煞某」
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let text = LunarCalendar::get_chong_sha(&date, -1);
+  /// ```
   fn get_chong_sha(date: &NaiveDate, hour_or_index: i32) -> String {
     let branch_index = if hour_or_index < 0 {
       Self::get_branch_day(date)
@@ -376,6 +664,22 @@ impl LunarCalendar {
     format!("冲{}煞{}", chong, dir)
   }
 
+  /// 计算时柱干支序号
+  ///
+  /// # 参数
+  /// - `date`: 公历日期
+  /// - `hour_index`: 时辰序号
+  ///
+  /// # 返回值
+  /// 返回序号，结果为负时加 60
+  ///
+  /// # Panics
+  /// 基准日 1899-02-04 无法构成时 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let idx = LunarCalendar::get_stem_branch_hour(&date, 0);
+  /// ```
   fn get_stem_branch_hour(date: &NaiveDate, hour_index: i32) -> i32 {
     let base = NaiveDate::from_ymd_opt(1899, 2, 4).unwrap();
     let days = Self::get_interval_days(&base, date) as i32;
@@ -385,6 +689,21 @@ impl LunarCalendar {
     if v < 0 { v + 60 } else { v }
   }
 
+  /// 按日干返回财神、喜神和福神方位
+  ///
+  /// # 参数
+  /// - `date`: 公历日期
+  ///
+  /// # 返回值
+  /// 返回三个方位名称
+  ///
+  /// # Panics
+  /// 方位下标越界时 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let (cai, xi, fu) = LunarCalendar::get_god_directions(&date);
+  /// ```
   fn get_god_directions(date: &NaiveDate) -> (String, String, String) {
     let stem_index = Self::get_stems_branch_day(date) % 10;
     let cai = match stem_index {
@@ -421,6 +740,21 @@ impl LunarCalendar {
     )
   }
 
+  /// 按月支和日支计算值神
+  ///
+  /// # 参数
+  /// - `date`: 公历日期
+  ///
+  /// # 返回值
+  /// 返回值神名称，没有对应项时返回空字符串
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let name = LunarCalendar::get_zhi_shen(&date);
+  /// ```
   fn get_zhi_shen(date: &NaiveDate) -> String {
     let month_zhi = Self::get_stems_branch_month_as_string(date);
     let day_zhi_idx = Self::get_branch_day(date);
@@ -443,6 +777,21 @@ impl LunarCalendar {
     ZHI_SHEN_NAMES.get(r as usize).copied().unwrap_or("").to_string()
   }
 
+  /// 按节气和日序查当日宜忌
+  ///
+  /// # 参数
+  /// - `date`: 公历日期
+  ///
+  /// # 返回值
+  /// 查到时返回宜和忌，没有节气或字典项时返回 `None`
+  ///
+  /// # Panics
+  /// 基准日 1901-01-01 无法构成时 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let pair = LunarCalendar::get_daily_yi_ji(&date);
+  /// ```
   fn get_daily_yi_ji(date: &NaiveDate) -> Option<(String, String)> {
     let (a, b) = Self::twenty_four_term_days_of(date)?;
     let mut r = if a % 2 == 0 { a / 2 } else { a / 2 + 1 };
@@ -459,6 +808,22 @@ impl LunarCalendar {
     dict.get(&key).map(|v| (v.yi.clone(), v.ji.clone()))
   }
 
+  /// 按日柱和时辰序号查宜忌
+  ///
+  /// # 参数
+  /// - `date`: 公历日期
+  /// - `hour_index`: 时辰序号
+  ///
+  /// # 返回值
+  /// 日柱越界或字典没有该日时返回两个空字符串，否则返回宜和忌
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let (yi, ji) = LunarCalendar::get_hour_yi_ji(&date, 0);
+  /// ```
   fn get_hour_yi_ji(date: &NaiveDate, hour_index: u8) -> (String, String) {
     let day_idx = Self::get_stems_branch_day(date);
     if day_idx < 0 || day_idx >= 60 {
@@ -487,7 +852,21 @@ impl LunarCalendar {
     (yi, ji)
   }
 
-  /// 吉神宜趋、凶神宜忌 (神煞)，对应 TS getShenSha
+  /// 按月建和日干支查吉神与凶神
+  ///
+  /// # 参数
+  /// - `date`: 公历日期
+  ///
+  /// # 返回值
+  /// 查不到时返回两段「[无神煞]」，否则返回吉神和凶神
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let (ji, xiong) = LunarCalendar::get_shen_sha(&date);
+  /// ```
   fn get_shen_sha(date: &NaiveDate) -> (String, String) {
     let day_of_year = Self::day_of_year(date);
     let j = Self::get_stems_branch_month(date.year(), day_of_year as i32 - 1);
@@ -504,7 +883,21 @@ impl LunarCalendar {
     }
   }
 
-  /// 胎神方位 (宜避)，对应 TS getTaiShen
+  /// 按月支和日干支查胎神方位
+  ///
+  /// # 参数
+  /// - `date`: 公历日期
+  ///
+  /// # 返回值
+  /// 查不到时返回「暂无」，否则返回方位
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let text = LunarCalendar::get_tai_shen(&date);
+  /// ```
   fn get_tai_shen(date: &NaiveDate) -> String {
     let month_zhi = Self::get_stems_branch_month_as_string(date);
     if month_zhi.is_empty() {
@@ -520,6 +913,21 @@ impl LunarCalendar {
     super::data::inuspicious_gods_dict().get(&key).cloned().unwrap_or_else(|| "暂无".to_string())
   }
 
+  /// 按日柱拼接彭祖百忌
+  ///
+  /// # 参数
+  /// - `date`: 公历日期
+  ///
+  /// # 返回值
+  /// 日柱为负时返回空字符串，否则返回天干忌和地支忌
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let text = LunarCalendar::get_peng_zu_bai_ji(&date);
+  /// ```
   fn get_peng_zu_bai_ji(date: &NaiveDate) -> String {
     let index = Self::get_stems_branch_day(date);
     if index < 0 {
@@ -534,6 +942,21 @@ impl LunarCalendar {
     )
   }
 
+  /// 按日柱干支查纳音和五行
+  ///
+  /// # 参数
+  /// - `date`: 公历日期
+  ///
+  /// # 返回值
+  /// 返回纳音、天干五行和地支五行
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let wx = LunarCalendar::get_wu_xing(&date);
+  /// ```
   fn get_wu_xing(date: &NaiveDate) -> WuXing {
     let gz = Self::cyclical(Self::get_stems_branch_day(date));
     let nayin = super::data::get_nayin(&gz);
@@ -548,6 +971,21 @@ impl LunarCalendar {
     WuXing { nayin, gan_wx, zhi_wx }
   }
 
+  /// 把农历日期格式化成中文
+  ///
+  /// # 参数
+  /// - `date`: 公历日期
+  ///
+  /// # 返回值
+  /// 月份越界时返回空字符串，否则返回闰月、月份和日期
+  ///
+  /// # Panics
+  /// 农历日的十位或个位超出数字表时 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let text = LunarCalendar::get_lunar_date_string(&date);
+  /// ```
   fn get_lunar_date_string(date: &NaiveDate) -> String {
     let lunar = Self::get_lunar_date(date);
     let month_idx = lunar.l_month.saturating_sub(1) as usize;
@@ -568,7 +1006,22 @@ impl LunarCalendar {
     format!("{}{}", month_str, day_str)
   }
 
-  /// 时辰吉凶
+  /// 按时辰和日支返回吉或凶
+  ///
+  /// # 参数
+  /// - `date`: 公历日期
+  /// - `hour`: 小时
+  ///
+  /// # 返回值
+  /// 日支越界时返回「凶」，否则按时辰差返回「吉」或「凶」
+  ///
+  /// # Panics
+  /// 吉凶表下标越界时 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let text = LunarCalendar::get_hour_ji_xiong(&date, 9);
+  /// ```
   #[allow(dead_code)]
   pub fn get_hour_ji_xiong(date: &NaiveDate, hour: u32) -> String {
     let hour_index = ((hour / 2) + (hour % 2)) % 12;
@@ -595,7 +1048,21 @@ impl LunarCalendar {
     JX_NAMES[n].to_string()
   }
 
-  /// 综合黄历
+  /// 汇总单日黄历
+  ///
+  /// # 参数
+  /// - `date`: 公历日期
+  ///
+  /// # 返回值
+  /// 返回综合黄历，缺宜忌时用「暂无」，缺节气时为空
+  ///
+  /// # Panics
+  /// 生肖、节气或地支下标越界时 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let book = LunarCalendar::get_comprehensive_almanac(&date);
+  /// ```
   pub fn get_comprehensive_almanac(date: &NaiveDate) -> ComprehensiveAlmanac {
     let lunar = Self::get_lunar_date(date);
     let stem_branch = Self::cyclical(Self::get_stems_branch_day(date));
@@ -670,6 +1137,22 @@ impl LunarCalendar {
     }
   }
 
+  /// 按时辰干支返回财神、喜神和福神方位
+  ///
+  /// # 参数
+  /// - `date`: 公历日期
+  /// - `hour`: 时辰序号或小时
+  ///
+  /// # 返回值
+  /// 返回三个方位名称
+  ///
+  /// # Panics
+  /// 方位下标越界时 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let (cai, xi, fu) = LunarCalendar::get_god_directions_by_hour(&date, 0);
+  /// ```
   fn get_god_directions_by_hour(date: &NaiveDate, hour: i32) -> (String, String, String) {
     let hour_index = if hour <= 11 { hour } else { Self::get_lunar_hour_index(hour as u32) as i32 };
     let sb = Self::get_stem_branch_hour(date, hour_index);
@@ -709,6 +1192,21 @@ impl LunarCalendar {
   }
 }
 
+/// 把小时映射成时辰时间段
+///
+/// # 参数
+/// - `hour`: 小时
+///
+/// # 返回值
+/// 小时先封顶到 23，按下标取到时间段；没有对应项时返回 `None`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let range = get_fetal_gods(23);
+/// ```
 fn get_fetal_gods(hour: u32) -> Option<String> {
   let h = hour.min(23);
   let map: [(u32, &str); 12] = [

@@ -8,6 +8,22 @@ use super::error::CalendarError;
 use crate::utils::id::new_uuid_v4;
 use crate::utils::time::now_unix_ms;
 
+/// 记录数据库错误并返回内部错误
+///
+/// # 参数
+/// - `context`: 日志中的操作说明
+/// - `err`: 原始数据库错误
+///
+/// # 返回值
+/// 返回 `CalendarError::Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let err = db_fail("calendar", rusqlite_err);
+/// ```
 fn db_fail(context: &str, err: rusqlite::Error) -> CalendarError {
   tauri_plugin_log::log::error!("{context}: {err}");
   CalendarError::Internal
@@ -25,6 +41,24 @@ pub(super) struct OfficialInsert {
   pub is_off_day: bool,
 }
 
+/// 按架构版本创建官方节假日表和个人覆盖表
+///
+/// # 参数
+/// - `conn`: 数据库连接
+///
+/// # 返回值
+/// 成功时返回空
+///
+/// # 错误
+/// 读版本、建表或写版本失败时返回 `CalendarError::Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// ensure_schema(conn)?;
+/// ```
 pub(super) fn ensure_schema(conn: &Connection) -> Result<(), CalendarError> {
   let current = crate::db::schema::read_version(conn, SCHEMA_VERSION_KEY).map_err(|e| db_fail("calendar schema", e))?;
   if current < 1 {
@@ -58,6 +92,26 @@ pub(super) fn ensure_schema(conn: &Connection) -> Result<(), CalendarError> {
   Ok(())
 }
 
+/// 按日期闭区间列出官方节假日
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `from`: 开始日期
+/// - `to`: 结束日期
+///
+/// # 返回值
+/// 返回按日期排序的官方记录
+///
+/// # 错误
+/// 查询失败时返回 `CalendarError::Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let rows = list_official(conn, from, to)?;
+/// ```
 pub(super) fn list_official(conn: &Connection, from: &str, to: &str) -> Result<Vec<OfficialRow>, CalendarError> {
   let sql = format!(
     "SELECT cal_date, name, is_off_day FROM {OFFICIAL_TABLE} WHERE cal_date >= ?1 AND cal_date <= ?2 ORDER BY cal_date"
@@ -71,6 +125,26 @@ pub(super) fn list_official(conn: &Connection, from: &str, to: &str) -> Result<V
   rows.collect::<Result<Vec<_>, _>>().map_err(|e| db_fail("calendar official list", e))
 }
 
+/// 按日期闭区间列出个人覆盖
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `from`: 开始日期
+/// - `to`: 结束日期
+///
+/// # 返回值
+/// 返回按日期排序的个人覆盖
+///
+/// # 错误
+/// 查询失败时返回 `CalendarError::Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let rows = list_overrides(conn, from, to)?;
+/// ```
 pub(super) fn list_overrides(conn: &Connection, from: &str, to: &str) -> Result<Vec<CalendarOverride>, CalendarError> {
   let sql = format!(
     "SELECT id, cal_date, is_workday, note, created_at, updated_at FROM {DAY_TABLE}
@@ -81,6 +155,26 @@ pub(super) fn list_overrides(conn: &Connection, from: &str, to: &str) -> Result<
   rows.collect::<Result<Vec<_>, _>>().map_err(|e| db_fail("calendar day list", e))
 }
 
+/// 删掉该年官方记录后重新插入
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `year`: 年份
+/// - `days`: 待写入的官方日期
+///
+/// # 返回值
+/// 返回写入条数
+///
+/// # 错误
+/// 写入失败时返回 `CalendarError::Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let count = replace_official_year(conn, year, days)?;
+/// ```
 pub(super) fn replace_official_year(
   conn: &Connection,
   year: i32,
@@ -103,6 +197,27 @@ pub(super) fn replace_official_year(
   Ok(days.len() as i64)
 }
 
+/// 按日期插入或覆盖个人安排
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `date`: 日期
+/// - `is_workday`: 是否上班
+/// - `note`: 备注，可空
+///
+/// # 返回值
+/// 返回保存后的个人覆盖
+///
+/// # 错误
+/// 写入或回读失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let day = upsert_day(conn, date, is_workday, note)?;
+/// ```
 pub(super) fn upsert_day(
   conn: &Connection,
   date: &str,
@@ -123,6 +238,25 @@ pub(super) fn upsert_day(
   get_override(conn, date)
 }
 
+/// 按日期删除个人覆盖
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `date`: 日期
+///
+/// # 返回值
+/// 成功时返回空
+///
+/// # 错误
+/// 没有对应行时返回 `OverrideMissing`，删除失败时返回 `Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// delete_day(conn, date)?;
+/// ```
 pub(super) fn delete_day(conn: &Connection, date: &str) -> Result<(), CalendarError> {
   let sql = format!("DELETE FROM {DAY_TABLE} WHERE cal_date = ?1");
   let n = conn.execute(&sql, params![date]).map_err(|e| db_fail("calendar day delete", e))?;
@@ -132,6 +266,25 @@ pub(super) fn delete_day(conn: &Connection, date: &str) -> Result<(), CalendarEr
   Ok(())
 }
 
+/// 按日期读取个人覆盖
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `date`: 日期
+///
+/// # 返回值
+/// 返回个人覆盖
+///
+/// # 错误
+/// 没有对应行或查询失败时返回 `CalendarError::Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let day = get_override(conn, date)?;
+/// ```
 fn get_override(conn: &Connection, date: &str) -> Result<CalendarOverride, CalendarError> {
   let sql =
     format!("SELECT id, cal_date, is_workday, note, created_at, updated_at FROM {DAY_TABLE} WHERE cal_date = ?1");
@@ -142,6 +295,24 @@ fn get_override(conn: &Connection, date: &str) -> Result<CalendarOverride, Calen
     .ok_or(CalendarError::Internal)
 }
 
+/// 从查询行组装个人覆盖
+///
+/// # 参数
+/// - `row`: 查询行
+///
+/// # 返回值
+/// 返回个人覆盖
+///
+/// # 错误
+/// 列读取失败时返回 `rusqlite::Error`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let day = map_override(row)?;
+/// ```
 fn map_override(row: &rusqlite::Row<'_>) -> rusqlite::Result<CalendarOverride> {
   Ok(CalendarOverride {
     id: row.get(0)?,

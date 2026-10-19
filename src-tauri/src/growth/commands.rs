@@ -5,14 +5,28 @@ use super::error::GrowthError;
 use super::service;
 use crate::db::state::DbState;
 
-/// 获取成长记录列表
-/// 参数：
-/// - member_id: 会员ID
-/// - kind: 成长记录类型
-/// - from: 开始时间
-/// - to: 结束时间
-/// 返回：
-/// - 成长记录列表
+/// 按成员、类型和时间范围列出成长记录
+///
+/// # 参数
+/// - `state`: 数据库状态
+/// - `member_id`: 成员标识
+/// - `kind`: 记录类型
+/// - `from`: 起始发生时间
+/// - `to`: 结束发生时间
+///
+/// # 返回值
+/// 返回符合条件的成长记录
+///
+/// # 错误
+/// 查询失败时返回成长记录错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let rows = growth_entry_list(state, member_id, kind, from, to).await?;
+/// ```
 #[tauri::command]
 pub async fn growth_entry_list(
   state: State<'_, DbState>,
@@ -24,21 +38,49 @@ pub async fn growth_entry_list(
   service::list(&state, member_id.as_deref(), kind.as_deref(), from, to)
 }
 
-/// 获取成长记录
-/// 参数：
-/// - id: 成长记录ID
-/// 返回：
-/// - 成长记录
+/// 按标识读取成长记录
+///
+/// # 参数
+/// - `state`: 数据库状态
+/// - `id`: 成长记录标识
+///
+/// # 返回值
+/// 返回对应的成长记录
+///
+/// # 错误
+/// 读取失败时返回成长记录错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let row = growth_entry_get(state, id).await?;
+/// ```
 #[tauri::command]
 pub async fn growth_entry_get(state: State<'_, DbState>, id: String) -> Result<GrowthEntry, GrowthError> {
   service::get(&state, id.as_str())
 }
 
 /// 创建成长记录
-/// 参数：
-/// - input: 成长记录输入
-/// 返回：
-/// - 成长记录
+///
+/// # 参数
+/// - `state`: 数据库状态
+/// - `input`: 成长记录输入
+///
+/// # 返回值
+/// 返回新建的成长记录
+///
+/// # 错误
+/// 创建失败时返回成长记录错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let row = growth_entry_create(state, input).await?;
+/// ```
 #[tauri::command]
 pub async fn growth_entry_create(
   state: State<'_, DbState>,
@@ -48,11 +90,25 @@ pub async fn growth_entry_create(
 }
 
 /// 更新成长记录
-/// 参数：
-/// - id: 成长记录ID
-/// - input: 成长记录输入
-/// 返回：
-/// - 成长记录
+///
+/// # 参数
+/// - `state`: 数据库状态
+/// - `id`: 成长记录标识
+/// - `input`: 成长记录输入
+///
+/// # 返回值
+/// 返回更新后的成长记录
+///
+/// # 错误
+/// 更新失败时返回成长记录错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let row = growth_entry_update(state, id, input).await?;
+/// ```
 #[tauri::command]
 pub async fn growth_entry_update(
   state: State<'_, DbState>,
@@ -63,10 +119,24 @@ pub async fn growth_entry_update(
 }
 
 /// 删除成长记录
-/// 参数：
-/// - id: 成长记录ID
-/// 返回：
-/// - 是否成功
+///
+/// # 参数
+/// - `state`: 数据库状态
+/// - `id`: 成长记录标识
+///
+/// # 返回值
+/// 删除成功时返回空成功
+///
+/// # 错误
+/// 删除失败时返回成长记录错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// growth_entry_delete(state, id).await?;
+/// ```
 #[tauri::command]
 pub async fn growth_entry_delete(state: State<'_, DbState>, id: String) -> Result<(), GrowthError> {
   service::delete(&state, id.as_str())

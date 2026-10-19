@@ -50,7 +50,23 @@ pub struct DbState {
 }
 
 impl DbState {
-  /// 用数据库目录初始化句柄。路径由调用方解析（应用数据目录 + `DB_DIR`）。
+  /// 根据应用数据目录组装数据库路径和空会话
+  ///
+  /// 目录是 `app_data_dir/data/db`。设备槽用当前平台槽，迁移列表为空。
+  ///
+  /// # 参数
+  /// - `app_data_dir`: 应用本地数据目录
+  ///
+  /// # 返回值
+  /// 尚未解锁的 `DbState`
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```ignore
+  /// let state = DbState::new(app_data_dir);
+  /// ```
   pub fn new(app_data_dir: PathBuf) -> Self {
     let dir = app_data_dir.join(DATA_DIR).join(DB_DIR);
 
@@ -65,19 +81,65 @@ impl DbState {
     }
   }
 
-  /// 换成测试用的设备槽，或在 Android 上接系统密钥库插件。
+  /// 换上给定的设备槽
+  ///
+  /// # 参数
+  /// - `device`: 系统密钥库或测试用槽
+  ///
+  /// # 返回值
+  /// 换槽后的句柄
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```ignore
+  /// let state = state.with_device(device);
+  /// ```
   #[cfg_attr(not(any(test, target_os = "android")), allow(dead_code))]
   pub fn with_device(mut self, device: Arc<dyn DeviceSlot>) -> Self {
     self.device = device;
     self
   }
 
-  /// 注册业务表迁移。后续功能在 `lib.rs` 往这个列表里追加即可。
+  /// 换上给定的业务表迁移列表
+  ///
+  /// # 参数
+  /// - `migrators`: 建库或解锁后要执行的迁移
+  ///
+  /// # 返回值
+  /// 换上迁移列表后的句柄
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```ignore
+  /// let state = state.with_migrators(migrators);
+  /// ```
   pub fn with_migrators(mut self, migrators: Vec<SchemaMigrator>) -> Self {
     self.migrators = migrators;
     self
   }
 
+  /// 按注册顺序执行业务表迁移
+  ///
+  /// # 参数
+  /// - `conn`: 已就绪的数据库连接
+  ///
+  /// # 返回值
+  /// 全部迁移成功时不返回数据
+  ///
+  /// # 错误
+  /// 任一迁移返回错误时传出该 `DbError`
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```ignore
+  /// state.apply_migrators(&conn)?;
+  /// ```
   fn apply_migrators(&self, conn: &Connection) -> Result<(), DbError> {
     for migrate in &self.migrators {
       migrate(conn)?;
@@ -85,7 +147,18 @@ impl DbState {
     Ok(())
   }
 
-  /// 获取数据库状态。
+  /// 查看库文件、会话、设备槽和用户锁定标记是否存在
+  ///
+  /// # 返回值
+  /// 四项标志组成的 `DbStatus`
+  ///
+  /// # Panics
+  /// `session` 互斥锁中毒时，`lock().unwrap()` 会 panic
+  ///
+  /// # 示例
+  /// ```ignore
+  /// let status = state.status();
+  /// ```
   pub fn status(&self) -> DbStatus {
     let exists = self.sqlite.exists() || self.header.exists();
 
@@ -96,14 +169,65 @@ impl DbState {
     DbStatus { exists, unlocked, device_unlock, user_locked }
   }
 
+  /// 返回用户锁定标记的路径
+  ///
+  /// # 返回值
+  /// 数据库目录下的 `user.lock` 路径
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```ignore
+  /// let path = state.user_lock_path();
+  /// ```
   fn user_lock_path(&self) -> PathBuf {
     self.dir.join(DB_USER_LOCK)
   }
 
+  /// 删除用户锁定标记文件
+  ///
+  /// 删除失败时忽略错误。
+  ///
+  /// # 返回值
+  /// 不返回数据
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```ignore
+  /// state.clear_user_lock();
+  /// ```
   fn clear_user_lock(&self) {
     let _ = fs::remove_file(self.user_lock_path());
   }
 
+  /// 校验密码后创建加密库并留下解锁会话
+  ///
+  /// 库或头文件已存在，或会话已解锁时拒绝。创建或迁移失败时删掉本次留下的库文件和头文件。
+  ///
+  /// # 参数
+  /// - `password`: 档案密码
+  /// - `password_confirm`: 再输入一次的密码
+  ///
+  /// # 返回值
+  /// 成功时不返回数据，并把连接放进会话
+  ///
+  /// # 错误
+  /// - 密码为空返回 `PasswordEmpty`，短于 8 个字符返回 `PasswordTooShort`，两次不一致返回 `PasswordMismatch`
+  /// - 库文件或头文件已存在，或会话已解锁时返回 `AlreadyExists`
+  /// - 生成或封装 DEK 失败时，把 `CryptoError` 转成 `DbError` 返回
+  /// - 建库失败时删掉残留并返回该 `DbError`
+  /// - 迁移失败时删掉残留并返回迁移错误
+  ///
+  /// # Panics
+  /// `session` 互斥锁中毒时，`lock().unwrap()` 会 panic
+  ///
+  /// # 示例
+  /// ```ignore
+  /// state.create(password, password_confirm)?;
+  /// ```
   pub fn create(&self, password: &str, password_confirm: &str) -> Result<(), DbError> {
     check_new_password(password, password_confirm)?;
 
@@ -139,6 +263,28 @@ impl DbState {
     Ok(())
   }
 
+  /// 用密码解开密钥头并打开数据库
+  ///
+  /// 成功后清掉用户锁定标记。
+  ///
+  /// # 参数
+  /// - `password`: 档案密码
+  ///
+  /// # 返回值
+  /// 成功时不返回数据，并把连接放进会话
+  ///
+  /// # 错误
+  /// - 库文件和头文件都不存在时返回 `NotFound`
+  /// - 会话已经解锁时返回 `AlreadyUnlocked`
+  /// - 读头、解 DEK、打开库或迁移失败时传出对应的 `DbError`
+  ///
+  /// # Panics
+  /// `session` 互斥锁中毒时，`lock().unwrap()` 会 panic
+  ///
+  /// # 示例
+  /// ```ignore
+  /// state.unlock(password)?;
+  /// ```
   pub fn unlock(&self, password: &str) -> Result<(), DbError> {
     let DbStatus { exists, unlocked, .. } = self.status();
     if !exists {
@@ -160,7 +306,30 @@ impl DbState {
     Ok(())
   }
 
-  /// 已解锁，并且密码能解开头文件时，把内存里的 DEK 登记进设备槽。
+  /// 核对密码后把会话里的 DEK 登记进设备槽
+  ///
+  /// 写入 `device.wrap` 失败时会调用 `forget`。
+  ///
+  /// # 参数
+  /// - `password`: 档案密码
+  ///
+  /// # 返回值
+  /// 成功时不返回数据
+  ///
+  /// # 错误
+  /// - 密码为空返回 `PasswordEmpty`，短于 8 个字符返回 `PasswordTooShort`
+  /// - 没有会话时返回 `Locked`
+  /// - 读头或解 DEK 失败时传出对应的 `DbError`
+  /// - 解开的 DEK 与会话里的不一致时返回 `Corrupt`
+  /// - 登记或原子写入失败时返回对应的 `DbError`
+  ///
+  /// # Panics
+  /// `session` 互斥锁中毒时，`lock().unwrap()` 会 panic
+  ///
+  /// # 示例
+  /// ```ignore
+  /// state.enable_device(password)?;
+  /// ```
   pub fn enable_device(&self, password: &str) -> Result<(), DbError> {
     check_password(password)?;
 
@@ -187,7 +356,27 @@ impl DbState {
     Ok(())
   }
 
-  /// 用设备槽解开 DEK。没有用户锁定标记时静默打开；有标记时先走系统验证。
+  /// 用设备槽解开数据库
+  ///
+  /// 有用户锁定标记时先调用 `confirm`。成功后清掉该标记。
+  ///
+  /// # 返回值
+  /// 成功时不返回数据，并把连接放进会话
+  ///
+  /// # 错误
+  /// - 库文件和头文件都不存在时返回 `NotFound`
+  /// - 会话已经解锁时返回 `AlreadyUnlocked`
+  /// - 没有 `device.wrap` 时返回 `DeviceInvalid`
+  /// - 系统验证、读取密文、打开设备槽、打开库或迁移失败时传出对应的 `DbError`
+  /// - 读 `device.wrap` 失败时返回 `Io`
+  ///
+  /// # Panics
+  /// `session` 互斥锁中毒时，`lock().unwrap()` 会 panic
+  ///
+  /// # 示例
+  /// ```ignore
+  /// state.unlock_device()?;
+  /// ```
   pub fn unlock_device(&self) -> Result<(), DbError> {
     let DbStatus { exists, unlocked, user_locked, .. } = self.status();
     if !exists {
@@ -213,7 +402,23 @@ impl DbState {
     Ok(())
   }
 
-  /// 删除系统里的设备密钥和 `device.wrap`。不改数据库。
+  /// 删掉系统里的设备密钥和设备槽文件
+  ///
+  /// 正式文件和临时文件删除失败时忽略错误。
+  ///
+  /// # 返回值
+  /// 成功时不返回数据
+  ///
+  /// # 错误
+  /// `forget` 失败时把 `DeviceError` 转成 `DbError` 返回
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```ignore
+  /// state.disable_device()?;
+  /// ```
   pub fn disable_device(&self) -> Result<(), DbError> {
     self.device.forget()?;
     let _ = fs::remove_file(&self.device_wrap);
@@ -222,11 +427,37 @@ impl DbState {
     Ok(())
   }
 
-  /// 丢掉内存里的会话。不留下锁定标记，下次启动仍可静默打开。
+  /// 清掉内存中的数据库会话
+  ///
+  /// # 返回值
+  /// 不返回数据
+  ///
+  /// # Panics
+  /// `session` 互斥锁中毒时，`lock().unwrap()` 会 panic
+  ///
+  /// # 示例
+  /// ```ignore
+  /// state.release_session();
+  /// ```
   pub fn release_session(&self) {
     *self.session.lock().unwrap() = None;
   }
 
+  /// 清掉会话并写下用户锁定标记
+  ///
+  /// # 返回值
+  /// 成功时不返回数据
+  ///
+  /// # 错误
+  /// 创建数据库目录或写入 `user.lock` 失败时返回 `Io`
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```ignore
+  /// state.lock()?;
+  /// ```
   pub fn lock(&self) -> Result<(), DbError> {
     self.release_session();
     fs::create_dir_all(&self.dir).map_err(|_| DbError::Io)?;
@@ -234,13 +465,29 @@ impl DbState {
     Ok(())
   }
 
-  /// 业务模块读写库走这里，不要自己 `Connection::open`。
+  /// 在已解锁的连接上执行一次操作
   ///
-  /// `work`：拿到连接后要执行的操作。
-  /// `T`：操作成功时的返回值；`E`：操作失败时的错误（可以是 `DbError`，也可以是业务自己的错误）。
+  /// `E` 必须能从 `DbError` 转来，未解锁时才能把 `Locked` 交回调用方。
+  ///
+  /// # 参数
+  /// - `work`: 拿到连接后要执行的操作
+  ///
+  /// # 返回值
+  /// 成功时返回 `work` 的 `T`
+  ///
+  /// # 错误
+  /// 未解锁时返回 `E::from(DbError::Locked)`；`work` 返回错误时原样传出
+  ///
+  /// # Panics
+  /// `session` 互斥锁中毒时，`lock().unwrap()` 会 panic
+  ///
+  /// # 示例
+  /// ```ignore
+  /// let value = state.with_conn(|conn| read_row(conn))?;
+  /// ```
   pub fn with_conn<T, E>(&self, work: impl FnOnce(&Connection) -> Result<T, E>) -> Result<T, E>
   where
-    // 未解锁时我们只有 DbError::Locked，必须能转成调用方的 E（例如 DemoError）
+    // 未解锁时我们只有 DbError::Locked，必须能转成调用方的 E（例如 DemoError）。
     E: From<DbError>,
   {
     let session = self.session.lock().unwrap();
@@ -254,6 +501,26 @@ impl DbState {
 
 const MIN_PASSWORD_LEN: usize = 8;
 
+/// 检查密码非空且不少于 8 个字符
+///
+/// # 参数
+/// - `password`: 档案密码
+///
+/// # 返回值
+/// 通过时不返回数据
+///
+/// # 错误
+/// 空字符串返回 `PasswordEmpty`；不足 8 个字符返回 `PasswordTooShort`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// assert!(check_password("").is_err());
+/// assert!(check_password("short").is_err());
+/// assert!(check_password("12345678").is_ok());
+/// ```
 fn check_password(password: &str) -> Result<(), DbError> {
   if password.is_empty() {
     return Err(DbError::PasswordEmpty);
@@ -264,6 +531,26 @@ fn check_password(password: &str) -> Result<(), DbError> {
   Ok(())
 }
 
+/// 检查新密码长度，并要求两次输入相同
+///
+/// # 参数
+/// - `password`: 档案密码
+/// - `password_confirm`: 再输入一次的密码
+///
+/// # 返回值
+/// 通过时不返回数据
+///
+/// # 错误
+/// 空字符串返回 `PasswordEmpty`；不足 8 个字符返回 `PasswordTooShort`；两次不同返回 `PasswordMismatch`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// assert!(check_new_password("12345678", "12345678").is_ok());
+/// assert!(check_new_password("12345678", "87654321").is_err());
+/// ```
 fn check_new_password(password: &str, password_confirm: &str) -> Result<(), DbError> {
   check_password(password)?;
   if password != password_confirm {

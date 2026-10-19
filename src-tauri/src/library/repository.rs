@@ -9,6 +9,22 @@ use crate::owner::Owner;
 use crate::utils::id::new_uuid_v4;
 use crate::utils::time::now_unix_ms;
 
+/// 记录数据库错误并返回内部错误
+///
+/// # 参数
+/// - `context`: 出错位置说明
+/// - `err`: 数据库错误
+///
+/// # 返回值
+/// 始终返回内部错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let err = db_fail("book list", rusqlite_err);
+/// ```
 fn db_fail(context: &str, err: rusqlite::Error) -> LibraryError {
   tauri_plugin_log::log::error!("{context}: {err}");
   LibraryError::Internal
@@ -19,6 +35,24 @@ const BOOK_COLUMNS: &str =
 const NOTE_COLUMNS: &str =
   "id, book_id, kind, occurred_at, title, body, chapter, location, locked, highlight, created_at, updated_at";
 
+/// 把查询行映射为书籍
+///
+/// # 参数
+/// - `row`: 查询结果行
+///
+/// # 返回值
+/// 返回书籍
+///
+/// # 错误
+/// 读取列失败时返回数据库错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let book = map_book(row)?;
+/// ```
 fn map_book(row: &rusqlite::Row<'_>) -> rusqlite::Result<Book> {
   Ok(Book {
     id: row.get(0)?,
@@ -35,6 +69,24 @@ fn map_book(row: &rusqlite::Row<'_>) -> rusqlite::Result<Book> {
   })
 }
 
+/// 把查询行映射为书摘或笔记
+///
+/// # 参数
+/// - `row`: 查询结果行
+///
+/// # 返回值
+/// 返回成员、标签和地点引用均为空的书摘或笔记
+///
+/// # 错误
+/// 读取列失败时返回数据库错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let note = map_note(row)?;
+/// ```
 fn map_note(row: &rusqlite::Row<'_>) -> rusqlite::Result<BookNote> {
   Ok(BookNote {
     id: row.get(0)?,
@@ -55,6 +107,24 @@ fn map_note(row: &rusqlite::Row<'_>) -> rusqlite::Result<BookNote> {
   })
 }
 
+/// 确保书籍表、书摘表和模式版本存在
+///
+/// # 参数
+/// - `conn`: 数据库连接
+///
+/// # 返回值
+/// 表结构已就绪时返回空成功
+///
+/// # 错误
+/// 读取版本、建表或写入版本失败时返回内部错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// ensure_schema(conn)?;
+/// ```
 pub(super) fn ensure_schema(conn: &Connection) -> Result<(), LibraryError> {
   let current = crate::db::schema::read_version(conn, SCHEMA_VERSION_KEY).map_err(|e| db_fail("library schema", e))?;
   if current < 1 {
@@ -101,10 +171,44 @@ pub(super) fn ensure_schema(conn: &Connection) -> Result<(), LibraryError> {
   Ok(())
 }
 
+/// 判断书摘或笔记类型是否受支持
+///
+/// # 参数
+/// - `kind`: 记录类型
+///
+/// # 返回值
+/// 类型为书摘或笔记时返回 true
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let ok = allowed_kind("excerpt");
+/// ```
 pub(super) fn allowed_kind(kind: &str) -> bool {
   kind == KIND_EXCERPT || kind == KIND_NOTE
 }
 
+/// 检查未删除的书籍是否存在
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `id`: 书籍标识
+///
+/// # 返回值
+/// 存在未删除书籍时返回 true
+///
+/// # 错误
+/// 查询失败时返回数据库错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let found = book_exists(conn, id)?;
+/// ```
 pub(super) fn book_exists(conn: &Connection, id: &str) -> Result<bool, rusqlite::Error> {
   let found: Option<i64> = conn
     .query_row("SELECT 1 FROM book WHERE id = ?1 AND deleted_at IS NULL", [id], |row| {
@@ -114,6 +218,25 @@ pub(super) fn book_exists(conn: &Connection, id: &str) -> Result<bool, rusqlite:
   Ok(found.is_some())
 }
 
+/// 检查未删除的书摘或笔记是否存在
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `id`: 书摘或笔记标识
+///
+/// # 返回值
+/// 存在未删除记录时返回 true
+///
+/// # 错误
+/// 查询失败时返回数据库错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let found = note_exists(conn, id)?;
+/// ```
 pub(super) fn note_exists(conn: &Connection, id: &str) -> Result<bool, rusqlite::Error> {
   let found: Option<i64> = conn
     .query_row("SELECT 1 FROM book_note WHERE id = ?1 AND deleted_at IS NULL", [id], |row| {
@@ -123,6 +246,24 @@ pub(super) fn note_exists(conn: &Connection, id: &str) -> Result<bool, rusqlite:
   Ok(found.is_some())
 }
 
+/// 按更新时间倒序列出未删除的书籍
+///
+/// # 参数
+/// - `conn`: 数据库连接
+///
+/// # 返回值
+/// 返回书籍列表
+///
+/// # 错误
+/// 查询失败时返回内部错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let rows = book_list(conn)?;
+/// ```
 pub(super) fn book_list(conn: &Connection) -> Result<Vec<Book>, LibraryError> {
   let sql = format!("SELECT {BOOK_COLUMNS} FROM {BOOK_TABLE} WHERE deleted_at IS NULL ORDER BY updated_at DESC");
   let mut stmt = conn.prepare(&sql).map_err(|e| db_fail("book list", e))?;
@@ -130,6 +271,25 @@ pub(super) fn book_list(conn: &Connection) -> Result<Vec<Book>, LibraryError> {
   rows.collect::<Result<Vec<_>, _>>().map_err(|e| db_fail("book list", e))
 }
 
+/// 按标识读取未删除的书籍
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `id`: 书籍标识
+///
+/// # 返回值
+/// 返回对应的书籍
+///
+/// # 错误
+/// 没有匹配记录时返回不存在；其他查询失败时返回内部错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let row = book_get(conn, id)?;
+/// ```
 pub(super) fn book_get(conn: &Connection, id: &str) -> Result<Book, LibraryError> {
   let sql = format!("SELECT {BOOK_COLUMNS} FROM {BOOK_TABLE} WHERE id = ?1 AND deleted_at IS NULL");
   conn.query_row(&sql, [id], map_book).map_err(|e| match e {
@@ -138,6 +298,25 @@ pub(super) fn book_get(conn: &Connection, id: &str) -> Result<Book, LibraryError
   })
 }
 
+/// 插入书籍并读回
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `input`: 书籍输入
+///
+/// # 返回值
+/// 返回新建后重新读出的书籍
+///
+/// # 错误
+/// 插入或读回失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let row = book_create(conn, input)?;
+/// ```
 pub(super) fn book_create(conn: &Connection, input: &BookInput) -> Result<Book, LibraryError> {
   let id = new_uuid_v4();
   let now = now_unix_ms();
@@ -166,6 +345,26 @@ pub(super) fn book_create(conn: &Connection, input: &BookInput) -> Result<Book, 
   book_get(conn, &id)
 }
 
+/// 更新未删除的书籍并读回
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `id`: 书籍标识
+/// - `input`: 书籍输入
+///
+/// # 返回值
+/// 返回更新后重新读出的书籍
+///
+/// # 错误
+/// 没有匹配记录时返回不存在；更新或读回失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let row = book_update(conn, id, input)?;
+/// ```
 pub(super) fn book_update(conn: &Connection, id: &str, input: &BookInput) -> Result<Book, LibraryError> {
   let now = now_unix_ms();
   let sql = format!(
@@ -197,6 +396,25 @@ pub(super) fn book_update(conn: &Connection, id: &str, input: &BookInput) -> Res
   book_get(conn, id)
 }
 
+/// 软删除书籍及其未删除的书摘和笔记
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `id`: 书籍标识
+///
+/// # 返回值
+/// 删除成功时返回空成功
+///
+/// # 错误
+/// 书籍不存在、清除书摘引用失败或提交失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// book_delete(conn, id)?;
+/// ```
 pub(super) fn book_delete(conn: &Connection, id: &str) -> Result<(), LibraryError> {
   let now = now_unix_ms();
   let tx = conn.unchecked_transaction().map_err(|e| db_fail("book delete tx", e))?;
@@ -222,10 +440,49 @@ pub(super) fn book_delete(conn: &Connection, id: &str) -> Result<(), LibraryErro
   Ok(())
 }
 
+/// 按书籍列出书摘和笔记
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `book_id`: 书籍标识
+///
+/// # 返回值
+/// 返回该书的书摘和笔记
+///
+/// # 错误
+/// 查询失败时返回书库错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let rows = note_list(conn, book_id)?;
+/// ```
 pub(super) fn note_list(conn: &Connection, book_id: &str) -> Result<Vec<BookNote>, LibraryError> {
   notes(conn, None, Some(book_id), None, None)
 }
 
+/// 按发生时间范围列出书摘和笔记
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `from`: 起始发生时间
+/// - `to`: 结束发生时间
+///
+/// # 返回值
+/// 返回该范围内的书摘和笔记
+///
+/// # 错误
+/// 查询失败时返回书库错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let rows = list_between(conn, from, to)?;
+/// ```
 pub(super) fn list_between(
   conn: &Connection,
   from: Option<i64>,
@@ -234,11 +491,49 @@ pub(super) fn list_between(
   notes(conn, None, None, from, to)
 }
 
+/// 按标识读取未删除的书摘或笔记
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `id`: 书摘或笔记标识
+///
+/// # 返回值
+/// 返回匹配的书摘或笔记
+///
+/// # 错误
+/// 没有匹配记录时返回不存在；查询失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let row = note_get(conn, id)?;
+/// ```
 pub(super) fn note_get(conn: &Connection, id: &str) -> Result<BookNote, LibraryError> {
   let mut items = notes(conn, Some(id), None, None, None)?;
   items.pop().ok_or(LibraryError::NotFound)
 }
 
+/// 写入书摘或笔记并刷新所属书籍
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `input`: 书摘或笔记输入
+///
+/// # 返回值
+/// 返回新建后重新读出的书摘或笔记
+///
+/// # 错误
+/// 书籍不存在、插入失败、引用写入失败或提交失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let row = note_create(conn, input)?;
+/// ```
 pub(super) fn note_create(conn: &Connection, input: &BookNoteInput) -> Result<BookNote, LibraryError> {
   if !book_exists(conn, &input.book_id).map_err(|e| db_fail("book note", e))? {
     return Err(LibraryError::NotFound);
@@ -271,6 +566,26 @@ pub(super) fn note_create(conn: &Connection, input: &BookNoteInput) -> Result<Bo
   note_get(conn, &id)
 }
 
+/// 更新未删除的书摘或笔记并刷新所属书籍
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `id`: 书摘或笔记标识
+/// - `input`: 书摘或笔记输入
+///
+/// # 返回值
+/// 返回更新后重新读出的书摘或笔记
+///
+/// # 错误
+/// 书籍或笔记不存在、更新失败或提交失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let row = note_update(conn, id, input)?;
+/// ```
 pub(super) fn note_update(conn: &Connection, id: &str, input: &BookNoteInput) -> Result<BookNote, LibraryError> {
   if !book_exists(conn, &input.book_id).map_err(|e| db_fail("book note", e))? {
     return Err(LibraryError::NotFound);
@@ -311,6 +626,25 @@ pub(super) fn note_update(conn: &Connection, id: &str, input: &BookNoteInput) ->
   note_get(conn, id)
 }
 
+/// 软删除书摘或笔记并刷新所属书籍
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `id`: 书摘或笔记标识
+///
+/// # 返回值
+/// 删除成功时返回空成功
+///
+/// # 错误
+/// 笔记不存在、清除引用失败或提交失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// note_delete(conn, id)?;
+/// ```
 pub(super) fn note_delete(conn: &Connection, id: &str) -> Result<(), LibraryError> {
   let note = note_get(conn, id)?;
   let now = now_unix_ms();
@@ -326,6 +660,28 @@ pub(super) fn note_delete(conn: &Connection, id: &str) -> Result<(), LibraryErro
   Ok(())
 }
 
+/// 按条件查询未删除的书摘和笔记并补齐引用
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `id`: 书摘或笔记标识，为空则不限制
+/// - `book_id`: 书籍标识，为空则不限制
+/// - `from`: 起始发生时间，包含该时刻；为空则不限制
+/// - `to`: 结束发生时间，不包含该时刻；为空则不限制
+///
+/// # 返回值
+/// 返回按发生时间倒序排列，并带上成员、标签和地点标识的记录
+///
+/// # 错误
+/// 查询或读取引用失败时返回内部错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let rows = notes(conn, id, book_id, from, to)?;
+/// ```
 fn notes(
   conn: &Connection,
   id: Option<&str>,
@@ -354,6 +710,25 @@ fn notes(
   Ok(items)
 }
 
+/// 列出书籍下未删除书摘和笔记的标识
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `book_id`: 书籍标识
+///
+/// # 返回值
+/// 返回书摘和笔记标识
+///
+/// # 错误
+/// 查询失败时返回内部错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let ids = note_ids(conn, book_id)?;
+/// ```
 fn note_ids(conn: &Connection, book_id: &str) -> Result<Vec<String>, LibraryError> {
   let mut stmt = conn
     .prepare("SELECT id FROM book_note WHERE book_id = ?1 AND deleted_at IS NULL")
@@ -362,6 +737,26 @@ fn note_ids(conn: &Connection, book_id: &str) -> Result<Vec<String>, LibraryErro
   rows.collect::<Result<Vec<_>, _>>().map_err(|e| db_fail("book note ids", e))
 }
 
+/// 替换书摘或笔记上的成员、标签和地点引用
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `id`: 书摘或笔记标识
+/// - `input`: 含引用标识的输入
+///
+/// # 返回值
+/// 替换完成时返回空成功
+///
+/// # 错误
+/// 引用不存在时返回引用不存在；其他失败时返回内部错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// replace_refs(conn, id, input)?;
+/// ```
 fn replace_refs(conn: &Connection, id: &str, input: &BookNoteInput) -> Result<(), LibraryError> {
   let owner = Owner::BookNote.as_str();
   crate::member::replace(conn, owner, id, &input.member_ids).map_err(ref_err)?;
@@ -370,6 +765,25 @@ fn replace_refs(conn: &Connection, id: &str, input: &BookNoteInput) -> Result<()
   Ok(())
 }
 
+/// 清除书摘或笔记上的成员、标签、地点、媒体和手记关联
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `id`: 书摘或笔记标识
+///
+/// # 返回值
+/// 清除完成时返回空成功
+///
+/// # 错误
+/// 任一清除失败时返回内部错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// clear_note(conn, id)?;
+/// ```
 fn clear_note(conn: &Connection, id: &str) -> Result<(), LibraryError> {
   let owner = Owner::BookNote.as_str();
   crate::member::clear(conn, owner, id).map_err(|_| LibraryError::Internal)?;
@@ -380,6 +794,26 @@ fn clear_note(conn: &Connection, id: &str) -> Result<(), LibraryError> {
   Ok(())
 }
 
+/// 刷新未删除书籍的更新时间
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `id`: 书籍标识
+/// - `now`: 新的更新时间
+///
+/// # 返回值
+/// 刷新成功时返回空成功
+///
+/// # 错误
+/// 书籍不存在时返回不存在；更新失败时返回内部错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// touch_book(conn, id, now)?;
+/// ```
 fn touch_book(conn: &Connection, id: &str, now: i64) -> Result<(), LibraryError> {
   let n = conn
     .execute(
@@ -393,6 +827,21 @@ fn touch_book(conn: &Connection, id: &str, now: i64) -> Result<(), LibraryError>
   Ok(())
 }
 
+/// 把引用失败转成书库错误
+///
+/// # 参数
+/// - `err`: 待转换的错误
+///
+/// # 返回值
+/// 错误文本为「引用不存在」时返回引用不存在，否则返回内部错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let mapped = ref_err(err);
+/// ```
 fn ref_err<E: std::fmt::Display>(err: E) -> LibraryError {
   if err.to_string() == "引用不存在" { LibraryError::ReferencedMissing } else { LibraryError::Internal }
 }

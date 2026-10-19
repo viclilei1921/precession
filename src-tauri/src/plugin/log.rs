@@ -5,6 +5,20 @@ use tauri::Runtime;
 use tauri::plugin::TauriPlugin;
 use tauri_plugin_log::{Target, TargetKind, WEBVIEW_TARGET};
 
+/// 创建写到标准输出、日志目录和 WebView 的日志插件
+///
+/// 每行时间用 UTC+8。来自 WebView 的目标记为 `frontend`，级别从 Info 起。
+///
+/// # 返回值
+/// 构建好的 `TauriPlugin<R>`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let plugin = init_log::<tauri::Wry>();
+/// ```
 pub fn init_log<R: Runtime>() -> TauriPlugin<R> {
   tauri_plugin_log::Builder::new()
     .targets([

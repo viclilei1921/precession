@@ -8,7 +8,9 @@ pub struct TimeSegment {
   pub duration: String,
 }
 
-/// 一条音轨。`index` 是 `Stream #0:N` 的 N。
+/// 一条音轨。`index` 是 `Stream #0:N` 的 N，映射时写成 `-map 0:N?`。
+/// `channel_layout` 如 stereo、mono、5.1。`language` 是流名字里的 eng、jpn，没有就是空。
+/// `title` 是紧随其后的 Metadata title，没有就是空。
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct AudioTrack {
@@ -36,7 +38,8 @@ pub struct VideoInfo {
   pub audio_tracks: Vec<AudioTrack>,
 }
 
-/// 写出容器。侧车只打开了这三种封装。
+/// 写出容器。侧车只打开了这三种封装。MOV 是 QuickTime 容器，和 MP4 同族，默认仍是 MP4。
+/// WebM 能读不能写。VP9 只写入 MP4，不给 MPEG-TS。
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub enum VideoContainer {
@@ -46,6 +49,20 @@ pub enum VideoContainer {
 }
 
 impl VideoContainer {
+  /// 返回 ffmpeg 的封装名
+  ///
+  /// MP4 是 `mp4`，MOV 是 `mov`，MPEG-TS 是 `mpegts`。
+  ///
+  /// # 返回值
+  /// 封装名
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// assert_eq!(VideoContainer::Mp4.muxer(), "mp4");
+  /// ```
   pub fn muxer(self) -> &'static str {
     match self {
       Self::Mp4 => "mp4",
@@ -56,11 +73,27 @@ impl VideoContainer {
 }
 
 impl Default for VideoContainer {
+  /// 返回默认容器 MP4
+  ///
+  /// # 返回值
+  /// `VideoContainer::Mp4`
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// assert_eq!(VideoContainer::default(), VideoContainer::Mp4);
+  /// ```
   fn default() -> Self {
     Self::Mp4
   }
 }
 
+/// 像素位深。默认 10。只有 AV1 和 HEVC 有这一项。
+/// 8-bit 用 `yuv420p`，10-bit 用 `yuv420p10le`。HEVC 的 10-bit 同时用 `main10`。
+/// 10-bit 渐变更干净，体积通常接近 8-bit；要兼容更多播放器再改回 8。
+/// 这版 `libvpx-vp9` 没有 10-bit 像素格式，所以 VP9 没有这个字段。不是 8 或 10 的写法在反序列化时就失败。
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub enum BitDepth {
@@ -70,6 +103,20 @@ pub enum BitDepth {
 }
 
 impl BitDepth {
+  /// 返回这一位深对应的像素格式
+  ///
+  /// 8-bit 是 `yuv420p`，10-bit 是 `yuv420p10le`。
+  ///
+  /// # 返回值
+  /// 像素格式名
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// assert_eq!(BitDepth::Ten.pix_fmt(), "yuv420p10le");
+  /// ```
   pub fn pix_fmt(self) -> &'static str {
     match self {
       Self::Eight => "yuv420p",
@@ -78,6 +125,8 @@ impl BitDepth {
   }
 }
 
+/// x265 的 preset 名字。界面只给这五档，`ultrafast` 和 `placebo` 不进界面。
+/// 很快 `veryfast` 文件更大；较快 `fast`；默认 `medium`；更小 `slow` 慢很多、体积只小一点；更慢是命令行的 `slower`。
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub enum HevcPreset {
@@ -90,6 +139,18 @@ pub enum HevcPreset {
 }
 
 impl HevcPreset {
+  /// 返回 x265 的 preset 名字
+  ///
+  /// # 返回值
+  /// `veryfast`、`fast`、`medium`、`slow` 或 `slower`
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// assert_eq!(HevcPreset::Medium.ffmpeg(), "medium");
+  /// ```
   fn ffmpeg(self) -> &'static str {
     match self {
       Self::VeryFast => "veryfast",
@@ -101,6 +162,8 @@ impl HevcPreset {
   }
 }
 
+/// 默认不传。`animation` 适合动画和线稿，边缘更干净，往往更小。`grain` 保留颗粒，文件变大。
+/// 不提供 `psnr`、`ssim`、`zerolatency`、`fastdecode`：前两个是评测用的，后两个会让文件变大或只适合直播。
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub enum HevcTune {
@@ -111,6 +174,21 @@ pub enum HevcTune {
 }
 
 impl HevcTune {
+  /// 返回要传给 x265 的 tune 名字
+  ///
+  /// `None` 不传。`Animation` 是 `animation`，`Grain` 是 `grain`。
+  ///
+  /// # 返回值
+  /// tune 名字，不传时为 `None`
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// assert_eq!(HevcTune::None.ffmpeg(), None);
+  /// assert_eq!(HevcTune::Animation.ffmpeg(), Some("animation"));
+  /// ```
   fn ffmpeg(self) -> Option<&'static str> {
     match self {
       Self::None => None,
@@ -120,6 +198,7 @@ impl HevcTune {
   }
 }
 
+/// 画面类型。默认普通画面，命令行不传。`screen` 适合录屏，文字更清晰，往往更小。`film` 保留颗粒，文件变大。
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub enum Vp9Content {
@@ -130,6 +209,20 @@ pub enum Vp9Content {
 }
 
 impl Vp9Content {
+  /// 返回要传给 VP9 的内容类型
+  ///
+  /// `General` 不传。`Screen` 是 `screen`，`Film` 是 `film`。
+  ///
+  /// # 返回值
+  /// 内容类型，不传时为 `None`
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// assert_eq!(Vp9Content::Screen.ffmpeg(), Some("screen"));
+  /// ```
   fn ffmpeg(self) -> Option<&'static str> {
     match self {
       Self::General => None,
@@ -139,35 +232,141 @@ impl Vp9Content {
   }
 }
 
+/// 返回 AV1 preset 的默认值
+  ///
+  /// # 返回值
+  /// `6`
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// assert_eq!(av1_preset(), 6);
+  /// ```
 fn av1_preset() -> u8 {
   6
 }
 
+/// 返回 AV1 CRF 的默认值
+  ///
+  /// # 返回值
+  /// `35`
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// assert_eq!(av1_crf(), 35);
+  /// ```
 fn av1_crf() -> u8 {
   35
 }
 
+/// 返回 HEVC CRF 的默认值
+  ///
+  /// # 返回值
+  /// `26`
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// assert_eq!(hevc_crf(), 26);
+  /// ```
 fn hevc_crf() -> u8 {
   26
 }
 
+/// 返回 VP9 `cpu-used` 的默认值
+  ///
+  /// # 返回值
+  /// `2`
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// assert_eq!(vp9_cpu_used(), 2);
+  /// ```
 fn vp9_cpu_used() -> u8 {
   2
 }
 
+/// 返回 VP9 CRF 的默认值
+  ///
+  /// # 返回值
+  /// `33`
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// assert_eq!(vp9_crf(), 33);
+  /// ```
 fn vp9_crf() -> u8 {
   33
 }
 
+/// 返回音频码率的默认值
+  ///
+  /// # 返回值
+  /// `128`
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// assert_eq!(audio_bitrate(), 128);
+  /// ```
 fn audio_bitrate() -> u32 {
   128
 }
 
+/// 返回 serde 用的布尔默认值
+  ///
+  /// # 返回值
+  /// `true`
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// assert!(default_true());
+  /// ```
 fn default_true() -> bool {
   true
 }
 
 /// 当前这次用哪种编码。字段跟 `codec` 写在一起，缺的用该编码的默认值。
+/// 不放共用的「快 / 均衡 / 慢」：三种编码器的刻度不能互换，任务里记下真正写给 FFmpeg 的值。
+/// 界面可以给推荐档，选中后写入该编码器自己的字段。
+///
+/// 速度不改变质量档的含义。同一个 CRF 下，更慢压得更紧，文件更小，也更干净，等待更久。
+/// CRF 决定观感和体积，数值越小越清晰、文件越大。想再压体积，优先把 CRF 调大一档，不要只把速度调快。
+/// CRF 的数字不能跨编码器比较。大致相同的观感：更清晰是 AV1 30、HEVC 22、VP9 30；
+/// 默认、适合保存是 AV1 35、HEVC 26、VP9 33；更小、运动和暗部会糊是 AV1 40、HEVC 30、VP9 38。
+/// CRF 每加大约 2，体积大约少 15–25%，只供估算。
+///
+/// AV1 的 `preset` 范围 0–13，越小越慢，默认 6。不用库默认的 10，同样 CRF 下 10 的文件会大一截。
+/// 更小用 4，较快用 8，很快用 10，10 只适合赶时间。CRF 范围 0–63，默认 35，是这个编码器常用的质量点。
+/// 屏幕内容检测固定关闭。
+///
+/// HEVC 的 CRF 范围 0–51，默认 26。比编码器自带的 28 干净一些，又比 22–24 小一截。
+///
+/// VP9 的速度是 `deadline=good` 下的 `cpu-used`，只有 0–5，越小越慢，默认 2。更小用 1，较快用 4，很快用 5。
+/// CRF 范围 0–63。压缩不如 AV1，默认停在 33：再往上提才能接近 AV1 的体积，观感会先掉下去。文件通常仍比 AV1 大，不作为默认编码。
+/// 没有位深。`deadline`、多线程、前瞻在 `encode_args` 里写死。只写入 MP4。
+///
+/// 保存、希望文件不要太大：AV1，preset 6，CRF 35，这就是默认。
+/// 要更快点、播放器也更熟：HEVC，medium，CRF 26。VP9 只在明确需要这种编码时用。
+/// `{ "codec": "hevc" }` 等于 medium、CRF 26、不调优、10-bit。`{ "codec": "av1", "bitDepth": "eight" }` 才写回 8-bit AV1。
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "codec", rename_all = "camelCase")]
 pub enum VideoParams {
@@ -200,12 +399,41 @@ pub enum VideoParams {
 }
 
 impl Default for VideoParams {
+  /// 返回默认的 10-bit AV1 参数
+  ///
+  /// preset 为 6，CRF 为 35。
+  ///
+  /// # 返回值
+  /// `VideoParams::Av1`
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let video = VideoParams::default();
+  /// assert!(matches!(video, VideoParams::Av1 { preset: 6, crf: 35, .. }));
+  /// ```
   fn default() -> Self {
     Self::Av1 { preset: av1_preset(), crf: av1_crf(), bit_depth: BitDepth::Ten }
   }
 }
 
 impl VideoParams {
+  /// 返回这一编码要写的像素格式
+  ///
+  /// AV1 和 HEVC 跟位深。VP9 固定 `yuv420p`。
+  ///
+  /// # 返回值
+  /// 像素格式名
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// assert_eq!(VideoParams::default().pix_fmt(), "yuv420p10le");
+  /// ```
   pub fn pix_fmt(&self) -> &'static str {
     match self {
       Self::Av1 { bit_depth, .. } | Self::Hevc { bit_depth, .. } => bit_depth.pix_fmt(),
@@ -214,6 +442,10 @@ impl VideoParams {
   }
 }
 
+/// 选哪条音轨。默认第一条。
+/// `Index` 在合并、追加里对每个输入用同一个序号；该文件没有这条轨道时退回第一条，调用方记一条警告。
+/// 多条音轨全部保留先不做，拼接时音轨条数对不齐。
+/// `First`、`Index` 映射成 `-map 0:{index}?`，`index` 是绝对流序号。`Drop` 写成 `-an`。
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum AudioMode {
@@ -223,11 +455,27 @@ pub enum AudioMode {
 }
 
 impl Default for AudioMode {
+  /// 返回默认音轨选择：第一条
+  ///
+  /// # 返回值
+  /// `AudioMode::First`
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// assert_eq!(AudioMode::default(), AudioMode::First);
+  /// ```
   fn default() -> Self {
     Self::First
   }
 }
 
+/// 探测先把轨道列出来，选择留到这里。编码格式固定 AAC，不暴露 `aac_coder`。
+/// `channels` 空则自动：单声道保持单声道，两声道以上混成立体声。指定时只允许 1 或 2。
+/// `sample_rate` 空则按操作决定，见 `RatePolicy`。指定时只允许 44100 或 48000。
+/// `bitrate_kbps` 默认 128。界面给 96、128、160、192。声道用 `-ac`，采样率需要改时加 `-ar`，码率是 `-b:a`。
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(default, rename_all = "camelCase")]
 pub struct AudioSelection {
@@ -239,11 +487,28 @@ pub struct AudioSelection {
 }
 
 impl Default for AudioSelection {
+  /// 返回默认音轨选择
+  ///
+  /// 模式是第一条，声道和采样率留空，码率 128。
+  ///
+  /// # 返回值
+  /// 默认的 `AudioSelection`
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let audio = AudioSelection::default();
+  /// assert_eq!(audio.bitrate_kbps, 128);
+  /// ```
   fn default() -> Self {
     Self { mode: AudioMode::First, channels: None, sample_rate: None, bitrate_kbps: audio_bitrate() }
   }
 }
 
+/// 画面怎么放进目标矩形。默认 `Contain`：不足处补黑边。`Fill` 拉伸到目标矩形。
+/// `Cover` 是铺满后裁掉多余画面，侧车没有 `crop`，入队直接拒绝。
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub enum Fit {
@@ -253,6 +518,8 @@ pub enum Fit {
   Cover,
 }
 
+/// 目标画面。空则转码、裁剪跟源，合并取各段最大宽高并补边，追加跟基准。
+/// 宽或高为 0 视为没设置。奇数在滤镜里收成偶数。
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct VideoSize {
@@ -262,6 +529,7 @@ pub struct VideoSize {
   pub fit: Fit,
 }
 
+/// `Text` 时文字不能为空。`Filename` 在转码、裁剪里用源文件名，在合并、追加里用每一段自己的文件名。
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub enum TitleSource {
@@ -285,6 +553,11 @@ pub enum TitleAnchor {
   BottomEnd,
 }
 
+/// 默认不画。打开之后只改内容、位置和时间窗。颜色、底衬和字体缩放在滤镜里写死。
+/// `font_size` 为 0 时按 24。这是 1920 宽时的像素，再按输出宽度缩放，最小 16。
+/// `font_file` 空则用 `get_default_font_path()`。没有 fontconfig，标题走 `fontfile=`。
+/// `start` / `end` 是成片时间轴上的秒。都空则整段都画。编码时换算到当前片段的局部时间，见 `title_span`。
+/// 片段和窗口不相交就不画。合并、追加按各段在成片上的起止来换算。裁剪先按片段顺序拼成成片，再做同样的换算。
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(default, rename_all = "camelCase")]
 pub struct TitleOverlay {
@@ -298,6 +571,21 @@ pub struct TitleOverlay {
 }
 
 impl Default for TitleOverlay {
+  /// 返回一份空的标题配置
+  ///
+  /// 来源是自定义文字，文字为空，锚点左上，字号 0，没有字体和时间窗。
+  ///
+  /// # 返回值
+  /// 默认的 `TitleOverlay`
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let title = TitleOverlay::default();
+  /// assert!(title.text.is_empty());
+  /// ```
   fn default() -> Self {
     Self {
       source: TitleSource::Text,
@@ -319,6 +607,11 @@ pub enum SubtitleSource {
   EmbeddedTrack,
 }
 
+/// 默认不烧。烧进去之后输出不再带字幕轨。只支持文本字幕。
+/// 外挂 `.srt`、`.ass`、`.webvtt` 加在滤镜末尾：`subtitles='{file}':fontsdir='{dir}'`。
+/// 内嵌轨用该段自己的源文件和 `si={track_index}`。外挂文件原样写进 `subtitles=`。
+/// `fonts_dir` 空则用默认字体所在目录。没有 fontconfig，字幕走 `fontsdir=`。
+/// `force_style` 只对没有自带样式的 SRT、WebVTT 生效。字幕没有单独的时间窗，跟所在片段一起烧。
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(default, rename_all = "camelCase")]
 pub struct SubtitleOverlay {
@@ -330,11 +623,33 @@ pub struct SubtitleOverlay {
 }
 
 impl Default for SubtitleOverlay {
+  /// 返回一份空的外挂字幕配置
+  ///
+  /// # 返回值
+  /// 来源是外挂文件，路径、序号、字体目录和样式都空着
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let subtitle = SubtitleOverlay::default();
+  /// assert!(subtitle.file.is_none());
+  /// ```
   fn default() -> Self {
     Self { source: SubtitleSource::ExternalFile, file: None, track_index: None, fonts_dir: None, force_style: None }
   }
 }
 
+/// 转码、裁剪、合并、追加共用的编码配置。省略的字段由 serde 默认值补上。
+/// 当前编码用不到的字段不出现，避免 AV1 任务里夹着 HEVC 的 preset。
+///
+/// 默认是 MP4 + AV1（preset 6，CRF 35，10-bit）+ 第一条音轨 AAC 128 kbps，faststart 开。
+/// 分辨率和帧率跟源。标题和字幕不烧。MPEG-TS 忽略 faststart。
+/// 普通 1080p30 实拍，视频大约 1.5–3.5 Mbps，10 分钟大约 110–260 MB，音频另加约 10 MB。
+/// 动作多、噪点多会更大。4K 大约是 1080p 的 3–4 倍。这是量级，不是承诺码率。
+///
+/// `fps` 只对转码和裁剪生效。合并取各段帧率的上中位数，追加跟基准，都忽略传入值。
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(default, rename_all = "camelCase")]
 pub struct VideoEncode {
@@ -351,6 +666,22 @@ pub struct VideoEncode {
 }
 
 impl Default for VideoEncode {
+  /// 返回默认编码配置
+  ///
+  /// 容器 MP4，视频为默认 AV1，帧率和尺寸留空，音轨为默认选择，faststart 打开，不烧标题和字幕。
+  ///
+  /// # 返回值
+  /// 默认的 `VideoEncode`
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let encode = VideoEncode::default();
+  /// assert!(encode.faststart);
+  /// assert!(encode.title.is_none());
+  /// ```
   fn default() -> Self {
     Self {
       container: VideoContainer::Mp4,
@@ -365,7 +696,26 @@ impl Default for VideoEncode {
   }
 }
 
-/// 入队前收紧参数。越界的速度和质量夹进范围内，不合法的组合直接失败。
+/// 把越界的速度、质量和帧率收进可用范围，拒绝不合法组合
+///
+/// AV1 preset 超过 13 收成 13，VP9 `cpu-used` 超过 5 收成 5。CRF 超过上限时收成上限：AV1 和 VP9 是 63，HEVC 是 51。帧率不在 1 到 120 时改成 `None`。宽或高为 0 时清掉尺寸。字体文件或字体目录不存在时清掉并记警告。容器是 MPEG-TS 时关掉 faststart。
+///
+/// # 参数
+/// - `encode`: 待收紧的编码配置
+///
+/// # 返回值
+/// 成功时无额外值
+///
+/// # 错误
+/// 声道不是 1 或 2、采样率不是 44100 或 48000、码率不在 64 到 320、适配方式是 `Cover`、自定义标题为空、标题结束不晚于开始、外挂字幕路径为空或文件不存在、内嵌字幕没有序号、VP9 写入 MPEG-TS 时，返回对应的中文 `String`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// normalize_encode(&mut encode)?;
+/// ```
 pub fn normalize_encode(encode: &mut VideoEncode) -> Result<(), String> {
   match &mut encode.video {
     VideoParams::Av1 { preset, crf, .. } => {
@@ -455,12 +805,31 @@ pub fn normalize_encode(encode: &mut VideoEncode) -> Result<(), String> {
   Ok(())
 }
 
+/// 把尺寸收成不小于 2 的偶数
+///
+/// 小于 2 时变成 2。奇数减 1。
+///
+/// # 参数
+/// - `value`: 原始尺寸
+///
+/// # 返回值
+/// 偶数尺寸
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// assert_eq!(even_dim(0), 2);
+/// assert_eq!(even_dim(5), 4);
+/// ```
 pub fn even_dim(value: u32) -> u32 {
   let value = value.max(2);
   if value % 2 == 0 { value } else { value - 1 }
 }
 
-/// 采样率怎么定。合并固定 48000；转码和裁剪能留 44100 或 48000。
+/// 采样率怎么定。合并固定 48000。追加在基准被复制时跟基准，基准被重编码时用 48000。
+/// 转码和裁剪在没指定采样率时，44100 和 48000 保持原样，其他值改成 48000。
 #[derive(Clone, Copy, Debug)]
 pub enum RatePolicy {
   Source,
@@ -477,6 +846,26 @@ pub struct AudioPlan {
   pub fallback: bool,
 }
 
+/// 按选择和采样率策略挑出一条音轨计划
+///
+/// 丢掉音频或音轨列表为空时不选流，采样率记 0，声道用指定值或 2。指定序号不存在时退回第一条，并把 `fallback` 设为真。声道未指定时，源不超过 1 声道就用 1，否则用 2。`Force` 使用给定采样率。`Source` 在未指定时保留 44100 和 48000，其他改成 48000。
+///
+/// # 参数
+/// - `selection`: 音轨选择
+/// - `tracks`: 探测到的音轨
+/// - `rate`: 采样率策略
+///
+/// # 返回值
+/// 音轨计划
+///
+/// # Panics
+/// `AudioMode::Drop` 若落到后面的 `unreachable!()` 会 panic。`tracks` 为空时 `tracks.first().expect` 会 panic。这两种情况都先在函数开头返回
+///
+/// # 示例
+/// ```
+/// let plan = plan_audio(&AudioSelection::default(), &[], RatePolicy::Source);
+/// assert!(plan.stream_index.is_none());
+/// ```
 pub fn plan_audio(selection: &AudioSelection, tracks: &[AudioTrack], rate: RatePolicy) -> AudioPlan {
   if matches!(selection.mode, AudioMode::Drop) || tracks.is_empty() {
     return AudioPlan {
@@ -508,7 +897,34 @@ pub fn plan_audio(selection: &AudioSelection, tracks: &[AudioTrack], rate: RateP
   AudioPlan { stream_index: Some(track.index), channels, sample_rate, bitrate_kbps: selection.bitrate_kbps, fallback }
 }
 
-/// 用户要保留音频，但这条片子没有可选音轨。
+/// 在要保留音频却没有可选音轨时返回错误
+///
+/// # 参数
+/// - `mode`: 音轨选择模式
+/// - `plan`: 音轨计划
+/// - `path`: 视频路径，写进错误文本
+///
+/// # 返回值
+/// 可以继续时无额外值
+///
+/// # 错误
+/// 模式不是丢掉音频，且 `stream_index` 为空时，返回 `没有音轨: {path}`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let plan = AudioPlan {
+///   stream_index: None,
+///   channels: 2,
+///   sample_rate: 0,
+///   bitrate_kbps: 128,
+///   fallback: false,
+/// };
+/// let err = ensure_audio(AudioMode::First, &plan, "a.mp4").unwrap_err();
+/// assert!(err.contains("没有音轨"));
+/// ```
 pub fn ensure_audio(mode: AudioMode, plan: &AudioPlan, path: &str) -> Result<(), String> {
   if !matches!(mode, AudioMode::Drop) && plan.stream_index.is_none() {
     Err(format!("没有音轨: {path}"))
@@ -517,11 +933,48 @@ pub fn ensure_audio(mode: AudioMode, plan: &AudioPlan, path: &str) -> Result<(),
   }
 }
 
+/// 把参数名和值依次推进列表
+///
+/// # 参数
+/// - `args`: 参数列表
+/// - `key`: 参数名
+/// - `value`: 参数值
+///
+/// # 返回值
+/// 无返回值
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let mut args = Vec::new();
+/// push_pair(&mut args, "-c:v", "libx265");
+/// assert_eq!(args, ["-c:v", "libx265"]);
+/// ```
 fn push_pair(args: &mut Vec<String>, key: &str, value: impl Into<String>) {
   args.push(key.to_string());
   args.push(value.into());
 }
 
+/// 按宽度选取 VP9 的 `tile-columns`
+///
+/// 大于 0 且小于 1280 用 1，大于 1920 用 3，其余（含 0 和 1280 到 1920）用 2。
+///
+/// # 参数
+/// - `width`: 输出宽度
+///
+/// # 返回值
+/// `tile-columns` 数值
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// assert_eq!(tile_columns(1280), 2);
+/// assert_eq!(tile_columns(1921), 3);
+/// ```
 fn tile_columns(width: u32) -> u8 {
   if width > 0 && width < 1280 {
     1
@@ -532,7 +985,33 @@ fn tile_columns(width: u32) -> u8 {
   }
 }
 
-/// 视频和音频的编码参数。流选择由调用方 `-map`。
+/// 写出视频和音频的编码参数
+///
+/// 不写流选择。AV1 写 `libsvtav1`、CRF 和 preset。HEVC 写 `libx265`、CRF、preset，有 tune 时写上；10-bit 再加 `main10`。VP9 写 `libvpx-vp9`、CRF、`-b:v 0`、`deadline good`、`cpu-used`、`row-mt`、`auto-alt-ref`、`lag-in-frames 25`、`frame-parallel 0`，以及按宽度取的 `tile-columns`。有音轨序号时写 AAC、声道、码率和大于 0 的采样率，否则写 `-an`。HEVC 且容器是 MP4 或 MOV 时加 `hvc1`。faststart 且容器是 MP4 或 MOV 时加 `+faststart`。
+///
+/// # 参数
+/// - `encode`: 编码配置
+/// - `audio`: 音轨计划
+/// - `width`: 用来计算 VP9 `tile-columns` 的宽度
+///
+/// # 返回值
+/// ffmpeg 参数
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let plan = AudioPlan {
+///   stream_index: Some(0),
+///   channels: 2,
+///   sample_rate: 48000,
+///   bitrate_kbps: 128,
+///   fallback: false,
+/// };
+/// let args = encode_args(&VideoEncode::default(), &plan, 1920);
+/// assert!(args.join(" ").contains("-c:v libsvtav1"));
+/// ```
 pub fn encode_args(encode: &VideoEncode, audio: &AudioPlan, width: u32) -> Vec<String> {
   let mut args = Vec::new();
 
@@ -595,6 +1074,25 @@ pub fn encode_args(encode: &VideoEncode, audio: &AudioPlan, width: u32) -> Vec<S
   args
 }
 
+/// 在参数末尾写上封装、覆盖、输出路径和 `-hide_banner`
+///
+/// # 参数
+/// - `args`: 参数列表
+/// - `encode`: 编码配置，用来取封装名
+/// - `output`: 输出路径
+///
+/// # 返回值
+/// 无返回值
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let mut args = Vec::new();
+/// push_output(&mut args, &VideoEncode::default(), "out.mp4");
+/// assert!(args.join(" ").contains("-f mp4"));
+/// ```
 pub fn push_output(args: &mut Vec<String>, encode: &VideoEncode, output: &str) {
   push_pair(args, "-f", encode.container.muxer());
   args.push("-y".to_string());
@@ -602,7 +1100,7 @@ pub fn push_output(args: &mut Vec<String>, encode: &VideoEncode, output: &str) {
   args.push("-hide_banner".to_string());
 }
 
-/// 这段上的标题时间。`None` 表示整段都画。
+/// 把成片时间窗换算到当前片段的局部时间。都空则整段都画。片段和窗口不相交就跳过。
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum TitleSpan {
   All,
@@ -610,6 +1108,25 @@ pub enum TitleSpan {
   Skip,
 }
 
+/// 把成片时间窗换算到当前片段的局部时间
+///
+/// 开始和结束都空时返回 `All`。开始空按 0，结束空按无穷大。换算后起点加 0.001 仍不早于终点时返回 `Skip`。
+///
+/// # 参数
+/// - `title`: 标题配置
+/// - `offset`: 这一段在成片上的起点
+/// - `duration`: 这一段的时长
+///
+/// # 返回值
+/// `All`、`Range` 或 `Skip`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// assert_eq!(title_span(&TitleOverlay::default(), 3.0, 4.0), TitleSpan::All);
+/// ```
 pub fn title_span(title: &TitleOverlay, offset: f64, duration: f64) -> TitleSpan {
   if title.start.is_none() && title.end.is_none() {
     return TitleSpan::All;
@@ -621,6 +1138,29 @@ pub fn title_span(title: &TitleOverlay, offset: f64, duration: f64) -> TitleSpan
   if local_start + 0.001 >= local_end { TitleSpan::Skip } else { TitleSpan::Range(local_start, local_end) }
 }
 
+/// 判断源编码名是否属于目标编码
+///
+/// 比较前把源编码转成小写。AV1 看是否包含 `av1`。HEVC 看 `hevc` 或 `h265`。VP9 看 `vp9`。
+///
+/// # 参数
+/// - `codec`: 源编码名
+/// - `video`: 目标视频参数
+///
+/// # 返回值
+/// 属于该编码时为 `true`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// assert!(source_codec_matches("HEVC", &VideoParams::Hevc {
+///   preset: HevcPreset::Medium,
+///   crf: 26,
+///   tune: HevcTune::None,
+///   bit_depth: BitDepth::Ten,
+/// }));
+/// ```
 pub fn source_codec_matches(codec: &str, video: &VideoParams) -> bool {
   let codec = codec.to_ascii_lowercase();
   match video {
@@ -630,6 +1170,23 @@ pub fn source_codec_matches(codec: &str, video: &VideoParams) -> bool {
   }
 }
 
+/// 给滤镜参数加上单引号，并转义反斜杠和单引号
+///
+/// 反斜杠写成两个反斜杠。单引号写成 `'\''`。
+///
+/// # 参数
+/// - `value`: 原始文本
+///
+/// # 返回值
+/// 加引号后的文本
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// assert_eq!(quote_filter("a'b"), "'a'\\''b'");
+/// ```
 fn quote_filter(value: &str) -> String {
   let mut out = String::from("'");
   for ch in value.chars() {
@@ -645,11 +1202,49 @@ fn quote_filter(value: &str) -> String {
   out
 }
 
+/// 按输出宽度相对 1920 缩放一个像素值
+///
+/// 宽度为 0 时按 1920。结果四舍五入，并且不小于 `min`。
+///
+/// # 参数
+/// - `base`: 1920 宽时的像素值
+/// - `width`: 输出宽度
+/// - `min`: 最小值
+///
+/// # 返回值
+/// 缩放后的像素值
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// assert_eq!(scaled(24.0, 960, 16), 16);
+/// ```
 fn scaled(base: f64, width: u32, min: u32) -> u32 {
   let width = if width == 0 { 1920 } else { width };
   ((base * width as f64 / 1920.0).round() as u32).max(min)
 }
 
+/// 把标题锚点换成 drawtext 的 x、y 表达式
+///
+/// 水平靠中间用 `(w-text_w)/2`，靠右用 `w-text_w-{margin}`。垂直靠中间用 `(h-text_h)/2`，靠下用 `h-text_h-{margin}`。靠左或靠上直接用边距。
+///
+/// # 参数
+/// - `anchor`: 锚点
+/// - `margin`: 边距像素
+///
+/// # 返回值
+/// `(x 表达式, y 表达式)`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let (x, y) = anchor_xy(TitleAnchor::TopStart, 8);
+/// assert_eq!((x.as_str(), y.as_str()), ("8", "8"));
+/// ```
 fn anchor_xy(anchor: TitleAnchor, margin: u32) -> (String, String) {
   let margin = margin.to_string();
   let x = match anchor {
@@ -691,6 +1286,30 @@ pub struct VideoFilter<'a> {
   pub pix_fmt: &'a str,
 }
 
+/// 按固定顺序拼出视频滤镜
+///
+/// 顺序是 `fps`、尺寸、`drawtext`、`subtitles`，最后 `format`。尺寸先把源宽高取偶并 `setsar=1`，`Fill` 直接拉伸，`Contain` 和 `Cover` 都是缩小后补边，然后再 `setsar=1`。字号为 0 时按 24。字号和边距按宽度相对 1920 缩放，最小分别是 16 和 8。字幕的 `source_start` 大于 0 时，前后各加一次 `setpts`。前面没有任何滤镜时返回 `None`，不单独写 `format`。
+///
+/// # 参数
+/// - `spec`: 滤镜内容
+///
+/// # 返回值
+/// 用逗号接起来的滤镜。没有帧率、尺寸、标题和字幕时返回 `None`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let filter = video_filter(&VideoFilter {
+///   fps: Some(30.0),
+///   size: None,
+///   title: None,
+///   subtitle: None,
+///   pix_fmt: "yuv420p",
+/// });
+/// assert_eq!(filter.as_deref(), Some("fps=30,format=yuv420p"));
+/// ```
 pub fn video_filter(spec: &VideoFilter<'_>) -> Option<String> {
   let mut filters = Vec::new();
   if let Some(fps) = spec.fps.filter(|fps| *fps > 0.0) {

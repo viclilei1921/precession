@@ -20,10 +20,44 @@ static RE_AUDIO: OnceLock<Regex> = OnceLock::new();
 static RE_AUDIO_BITRATE: OnceLock<Regex> = OnceLock::new();
 static RE_TITLE: OnceLock<Regex> = OnceLock::new();
 
+/// 取出或编译这条正则
+///
+/// # 参数
+/// - `slot`: 缓存槽
+/// - `pattern`: 正则文本
+///
+/// # 返回值
+/// 编译好的正则
+///
+/// # Panics
+/// `Regex::new` 失败时，`expect` 会 panic
+///
+/// # 示例
+/// ```ignore
+/// let re = regex(&RE_RES, r"(\d{2,5})x(\d{2,5})");
+/// ```
 fn regex(slot: &'static OnceLock<Regex>, pattern: &'static str) -> &'static Regex {
   slot.get_or_init(|| Regex::new(pattern).expect("ffmpeg video_info regex"))
 }
 
+/// 按声道布局字符串估算声道数
+///
+/// 识别 mono、7.1、6.1、5.1、5.0、4.0、quad、2.1。都对不上时返回 2。
+///
+/// # 参数
+/// - `layout`: 声道布局
+///
+/// # 返回值
+/// 声道数
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// assert_eq!(channels_of("5.1(side)"), 6);
+/// assert_eq!(channels_of("stereo"), 2);
+/// ```
 fn channels_of(layout: &str) -> u32 {
   let layout = layout.to_ascii_lowercase();
   if layout.contains("mono") {
@@ -45,6 +79,28 @@ fn channels_of(layout: &str) -> u32 {
   }
 }
 
+/// 从一行 ffmpeg 输出里填画面、时长或音轨
+///
+/// 遇到新的 `Stream #` 就结束上一条音轨的标题收集。音轨行匹配后，后续行里的 `title` 写进这条音轨，直到下一条流。
+///
+/// # 参数
+/// - `info`: 正在填充的视频信息
+/// - `audio_open`: 是否还在收集当前音轨标题
+/// - `line`: 一行输出
+///
+/// # 返回值
+/// 无返回值
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let mut info = VideoInfo::default();
+/// let mut audio_open = false;
+/// parse_line(&mut info, &mut audio_open, "Duration: 00:01:00.00, bitrate: 100 kb/s");
+/// assert_eq!(info.duration, 60.0);
+/// ```
 fn parse_line(info: &mut VideoInfo, audio_open: &mut bool, line: &str) {
   if line.contains("Stream #") {
     *audio_open = false;
@@ -112,6 +168,27 @@ fn parse_line(info: &mut VideoInfo, audio_open: &mut bool, line: &str) {
   }
 }
 
+/// 用 ffmpeg `-i` 读取视频信息
+///
+/// 退出码 0 或 1 时停止读取。读完后时长、宽度或视频编码至少有一项才算成功。
+///
+/// # 参数
+/// - `app`: Tauri 应用句柄
+/// - `path`: 视频路径
+///
+/// # 返回值
+/// 成功时返回视频信息，路径写入 `path`
+///
+/// # 错误
+/// 启动失败返回 `SidecarError::Spawn`。退出码不是 0 或 1 时返回 `SidecarError::Exit`。没有读到时长、宽度和视频编码时返回 `SidecarError::Invalid`，消息是「无法读取视频时长」
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let info = video_info(app, path).await?;
+/// ```
 pub async fn video_info(app: &tauri::AppHandle, path: &str) -> SidecarResult<VideoInfo> {
   let shell = app.shell();
   let (mut rx, _child) = shell

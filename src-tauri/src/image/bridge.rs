@@ -6,8 +6,8 @@ use std::path::{Path, PathBuf};
 use tauri::AppHandle;
 
 use crate::image::utils::IMAGE_EXTENSIONS;
+use crate::sidecar::cache::get_cache_temp_dir;
 use crate::sidecar::{SidecarError, SidecarResult};
-use crate::utils::cache::get_cache_temp_dir;
 use crate::utils::id::new_uuid_v4;
 
 /// avifenc 原生可读
@@ -28,6 +28,20 @@ pub struct BridgeInput {
 }
 
 impl BridgeInput {
+  /// 删掉临时 PNG 和 EXIF 文件
+  ///
+  /// 删除失败时忽略。
+  ///
+  /// # 返回值
+  /// 无返回值
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```ignore
+  /// bridge.cleanup();
+  /// ```
   pub fn cleanup(&self) {
     let _ = fs::remove_file(&self.png_path);
     if let Some(ref p) = self.exif_path {
@@ -37,19 +51,82 @@ impl BridgeInput {
 }
 
 impl Drop for BridgeInput {
+  /// 丢弃时删掉临时文件
+  ///
+  /// # 返回值
+  /// 无返回值
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```ignore
+  /// drop(bridge);
+  /// ```
   fn drop(&mut self) {
     self.cleanup();
   }
 }
 
+/// 取出路径扩展名并转成小写
+///
+/// # 参数
+/// - `path`: 文件路径
+///
+/// # 返回值
+/// 有扩展名时返回小写文本，否则 `None`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// assert_eq!(path_ext_lower("a.JPG"), Some("jpg".to_string()));
+/// assert_eq!(path_ext_lower("a"), None);
+/// ```
 pub fn path_ext_lower(path: &str) -> Option<String> {
   Path::new(path).extension().and_then(|e| e.to_str()).map(|e| e.to_ascii_lowercase())
 }
 
+/// 判断扩展名是否在可转码列表里
+///
+/// # 参数
+/// - `ext`: 小写扩展名
+///
+/// # 返回值
+/// 在 jpg、jpeg、png、webp、bmp、gif、tif、tiff 中时为 `true`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// assert!(is_supported_image_ext("png"));
+/// assert!(!is_supported_image_ext("PNG"));
+/// ```
 pub fn is_supported_image_ext(ext: &str) -> bool {
   IMAGE_EXTENSIONS.iter().any(|ok| *ok == ext)
 }
 
+/// 判断扩展名是否能被该编码器直接读取
+///
+/// AVIF 接受 jpg、jpeg、png。JXL 再加 gif。
+///
+/// # 参数
+/// - `ext`: 小写扩展名
+/// - `target`: 编码目标
+///
+/// # 返回值
+/// 可以直接读取时为 `true`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// assert!(is_native_for("gif", EncodeTarget::Jxl));
+/// assert!(!is_native_for("gif", EncodeTarget::Avif));
+/// ```
 pub fn is_native_for(ext: &str, target: EncodeTarget) -> bool {
   let allowed = match target {
     EncodeTarget::Avif => AVIF_NATIVE_EXTENSIONS,
@@ -58,11 +135,51 @@ pub fn is_native_for(ext: &str, target: EncodeTarget) -> bool {
   allowed.iter().any(|ok| *ok == ext)
 }
 
+/// 判断这个扩展名要不要先转成 PNG
+///
+/// 必须是支持的图片，并且不是该编码器的原生格式。
+///
+/// # 参数
+/// - `ext`: 小写扩展名
+/// - `target`: 编码目标
+///
+/// # 返回值
+/// 需要桥接时为 `true`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// assert!(needs_bridge("webp", EncodeTarget::Avif));
+/// assert!(!needs_bridge("png", EncodeTarget::Avif));
+/// ```
 pub fn needs_bridge(ext: &str, target: EncodeTarget) -> bool {
   is_supported_image_ext(ext) && !is_native_for(ext, target)
 }
 
-/// 解码为临时 PNG，并在可能时写出 EXIF 载荷文件。
+/// 把图片解码成临时 PNG，并在要求时写出 EXIF 载荷
+///
+/// 写入 PNG 或 EXIF 失败时删掉已经写出的 PNG。没有提出载荷时不创建 EXIF 文件。
+///
+/// # 参数
+/// - `app`: Tauri 应用句柄
+/// - `input_path`: 源图片
+/// - `extract_exif`: 是否提取 EXIF
+///
+/// # 返回值
+/// 成功时返回桥接产物
+///
+/// # 错误
+/// 解码失败返回 `SidecarError::Invalid`。取临时目录、写 PNG 或写 EXIF 失败返回 `SidecarError::Io`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let bridge = prepare_bridge_input(app, input_path, true)?;
+/// ```
 pub fn prepare_bridge_input(app: &AppHandle, input_path: &str, extract_exif: bool) -> SidecarResult<BridgeInput> {
   let temp_dir = get_cache_temp_dir(app)?;
   let id = new_uuid_v4();
@@ -93,9 +210,23 @@ pub fn prepare_bridge_input(app: &AppHandle, input_path: &str, extract_exif: boo
   Ok(BridgeInput { png_path, exif_path })
 }
 
-/// 提取可供 avifenc `--exif` / cjxl `-x exif=` 使用的原始载荷。
-/// JPEG：APP1 `Exif\0\0` 之后的 TIFF；WebP：RIFF EXIF chunk；PNG：eXIf。
-/// TIFF：重建元数据-only 小 TIFF（剥离 strip/tile 像素指针）；BMP/GIF 通常无 EXIF。
+/// 按扩展名从文件里取出 EXIF 载荷
+///
+/// JPEG 取 APP1 里 `Exif\0\0` 之后的字节。WebP 取 RIFF `EXIF` 块。PNG 取 `eXIf` 块。TIFF 重建只含元数据的小 TIFF。读失败、短于 8 字节，或其他扩展名时返回 `None`。
+///
+/// # 参数
+/// - `path`: 图片路径
+///
+/// # 返回值
+/// 提取到的载荷
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let payload = extract_exif_payload(path);
+/// ```
 fn extract_exif_payload(path: &str) -> Option<Vec<u8>> {
   let data = fs::read(path).ok()?;
   if data.len() < 8 {
@@ -112,6 +243,23 @@ fn extract_exif_payload(path: &str) -> Option<Vec<u8>> {
   }
 }
 
+/// 从 JPEG 段里取出 APP1 EXIF 载荷
+///
+/// 开头不是 `FF D8` 时返回 `None`。跳过填充字节和独立标记，遇到 SOS 停止。APP1 以 `Exif\0\0` 开头时返回它后面的字节。
+///
+/// # 参数
+/// - `data`: JPEG 字节
+///
+/// # 返回值
+/// EXIF 载荷
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// assert!(extract_jpeg_exif(b"not-jpeg").is_none());
+/// ```
 fn extract_jpeg_exif(data: &[u8]) -> Option<Vec<u8>> {
   if data.len() < 4 || data[0] != 0xFF || data[1] != 0xD8 {
     return None;
@@ -155,6 +303,23 @@ fn extract_jpeg_exif(data: &[u8]) -> Option<Vec<u8>> {
   None
 }
 
+/// 从 WebP 的 `EXIF` 块取出载荷
+///
+/// 不是 `RIFF`/`WEBP` 时返回 `None`。块大小按偶数补齐后继续。载荷以 `Exif\0\0` 开头时去掉这 6 个字节。
+///
+/// # 参数
+/// - `data`: WebP 字节
+///
+/// # 返回值
+/// EXIF 载荷
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// assert!(extract_webp_exif(b"not-webp").is_none());
+/// ```
 fn extract_webp_exif(data: &[u8]) -> Option<Vec<u8>> {
   if data.len() < 12 || &data[0..4] != b"RIFF" || &data[8..12] != b"WEBP" {
     return None;
@@ -182,6 +347,23 @@ fn extract_webp_exif(data: &[u8]) -> Option<Vec<u8>> {
   None
 }
 
+/// 从 PNG 的 `eXIf` 块取出载荷
+///
+/// 签名不对时返回 `None`。遇到 `IEND` 停止。载荷以 `Exif\0\0` 开头时去掉这 6 个字节。
+///
+/// # 参数
+/// - `data`: PNG 字节
+///
+/// # 返回值
+/// EXIF 载荷
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// assert!(extract_png_exif(b"not-png").is_none());
+/// ```
 fn extract_png_exif(data: &[u8]) -> Option<Vec<u8>> {
   const SIG: &[u8] = &[137, 80, 78, 71, 13, 10, 26, 10];
   if data.len() < 8 || &data[..8] != SIG {
@@ -229,6 +411,24 @@ struct TiffEntry {
   value: Vec<u8>,
 }
 
+/// 返回 TIFF 字段类型的单值字节数
+///
+/// 1、2、6、7 为 1 字节。3、8 为 2 字节。4、9、11、13 为 4 字节。5、10、12 为 8 字节。其他返回 `None`。
+///
+/// # 参数
+/// - `type_`: TIFF 类型号
+///
+/// # 返回值
+/// 单值字节数
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// assert_eq!(tiff_type_size(3), Some(2));
+/// assert_eq!(tiff_type_size(99), None);
+/// ```
 fn tiff_type_size(type_: u16) -> Option<usize> {
   match type_ {
     1 | 2 | 6 | 7 => Some(1),   // BYTE / ASCII / SBYTE / UNDEFINED
@@ -239,6 +439,24 @@ fn tiff_type_size(type_: u16) -> Option<usize> {
   }
 }
 
+/// 判断这个 TIFF 标签是不是像素或子图像指针
+///
+/// 包括条带、瓦片、空闲区、SubIFD 和 JPEG 表。
+///
+/// # 参数
+/// - `tag`: TIFF 标签
+///
+/// # 返回值
+/// 属于这些标签时为 `true`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// assert!(is_pixel_pointer_tag(0x0111));
+/// assert!(!is_pixel_pointer_tag(0x0112));
+/// ```
 fn is_pixel_pointer_tag(tag: u16) -> bool {
   matches!(
     tag,
@@ -256,16 +474,69 @@ fn is_pixel_pointer_tag(tag: u16) -> bool {
   )
 }
 
+/// 按字节序读取一个 u16
+///
+/// # 参数
+/// - `data`: 字节
+/// - `off`: 起点
+/// - `le`: 为真时小端
+///
+/// # 返回值
+/// 够两个字节时返回数值，否则 `None`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// assert_eq!(read_u16_e(&[0x2A, 0x00], 0, true), Some(42));
+/// ```
 fn read_u16_e(data: &[u8], off: usize, le: bool) -> Option<u16> {
   let b = data.get(off..off + 2)?;
   Some(if le { u16::from_le_bytes([b[0], b[1]]) } else { u16::from_be_bytes([b[0], b[1]]) })
 }
 
+/// 按字节序读取一个 u32
+///
+/// # 参数
+/// - `data`: 字节
+/// - `off`: 起点
+/// - `le`: 为真时小端
+///
+/// # 返回值
+/// 够四个字节时返回数值，否则 `None`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// assert_eq!(read_u32_e(&[8, 0, 0, 0], 0, true), Some(8));
+/// ```
 fn read_u32_e(data: &[u8], off: usize, le: bool) -> Option<u32> {
   let b = data.get(off..off + 4)?;
   Some(if le { u32::from_le_bytes([b[0], b[1], b[2], b[3]]) } else { u32::from_be_bytes([b[0], b[1], b[2], b[3]]) })
 }
 
+/// 按字节序追加一个 u16
+///
+/// # 参数
+/// - `out`: 输出缓冲
+/// - `v`: 数值
+/// - `le`: 为真时小端
+///
+/// # 返回值
+/// 无返回值
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let mut out = Vec::new();
+/// write_u16_e(&mut out, 42, true);
+/// assert_eq!(out, [0x2A, 0x00]);
+/// ```
 fn write_u16_e(out: &mut Vec<u8>, v: u16, le: bool) {
   if le {
     out.extend_from_slice(&v.to_le_bytes());
@@ -274,6 +545,25 @@ fn write_u16_e(out: &mut Vec<u8>, v: u16, le: bool) {
   }
 }
 
+/// 按字节序追加一个 u32
+///
+/// # 参数
+/// - `out`: 输出缓冲
+/// - `v`: 数值
+/// - `le`: 为真时小端
+///
+/// # 返回值
+/// 无返回值
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let mut out = Vec::new();
+/// write_u32_e(&mut out, 8, true);
+/// assert_eq!(out, [8, 0, 0, 0]);
+/// ```
 fn write_u32_e(out: &mut Vec<u8>, v: u32, le: bool) {
   if le {
     out.extend_from_slice(&v.to_le_bytes());
@@ -282,6 +572,25 @@ fn write_u32_e(out: &mut Vec<u8>, v: u32, le: bool) {
   }
 }
 
+/// 解析一个 IFD 里的条目和下一个 IFD 偏移
+///
+/// 条目超出数据、类型未知，或计数值乘类型长度溢出时返回 `None`。不超过 4 字节的值留在条目里，更长的值按偏移拷出。
+///
+/// # 参数
+/// - `data`: TIFF 字节
+/// - `ifd_off`: IFD 起点
+/// - `le`: 为真时小端
+///
+/// # 返回值
+/// 条目列表，以及下一个 IFD 的偏移
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// assert!(parse_ifd_entries(&[0, 0], 0, true).is_none());
+/// ```
 fn parse_ifd_entries(data: &[u8], ifd_off: usize, le: bool) -> Option<(Vec<TiffEntry>, u32)> {
   let count = read_u16_e(data, ifd_off, le)? as usize;
   let mut entries = Vec::with_capacity(count);
@@ -309,6 +618,23 @@ fn parse_ifd_entries(data: &[u8], ifd_off: usize, le: bool) -> Option<(Vec<TiffE
   Some((entries, next))
 }
 
+/// 把计数为 1 的 SHORT、LONG 或 IFD 条目读成 u32
+///
+/// # 参数
+/// - `entry`: TIFF 条目
+/// - `le`: 为真时小端
+///
+/// # 返回值
+/// 读到的数值。计数不是 1、类型不对或字节不够时返回 `None`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let entry = TiffEntry { tag: 1, type_: 1, count: 2, value: vec![] };
+/// assert!(entry_u32(&entry, true).is_none());
+/// ```
 fn entry_u32(entry: &TiffEntry, le: bool) -> Option<u32> {
   if entry.count != 1 {
     return None;
@@ -331,11 +657,42 @@ fn entry_u32(entry: &TiffEntry, le: bool) -> Option<u32> {
   }
 }
 
+/// 去掉 IFD0 里的像素指针和 SubIFD
+///
+/// # 参数
+/// - `entries`: 原始条目
+///
+/// # 返回值
+/// 留下的条目
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// assert!(filter_ifd0_entries(Vec::new()).is_empty());
+/// ```
 fn filter_ifd0_entries(entries: Vec<TiffEntry>) -> Vec<TiffEntry> {
   entries.into_iter().filter(|e| !is_pixel_pointer_tag(e.tag) && e.tag != TAG_SUB_IFD).collect()
 }
 
-/// 从完整 TIFF 重建可供 `--exif` / `-x exif=` 使用的元数据-only TIFF。
+/// 从完整 TIFF 重建只含元数据的小 TIFF
+///
+/// 只接受字节序标记和魔数 42。去掉像素指针。Exif、GPS、Interop 子 IFD 有内容时把父指针收成 LONG 占位，没有则删掉悬空指针。IFD1 只在带 JPEG 缩略图时保留。没有任何元数据时返回 `None`。
+///
+/// # 参数
+/// - `data`: TIFF 字节
+///
+/// # 返回值
+/// 重建后的 TIFF
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// assert!(extract_tiff_exif(b"not-tiff").is_none());
+/// ```
 fn extract_tiff_exif(data: &[u8]) -> Option<Vec<u8>> {
   if data.len() < 8 {
     return None;
@@ -395,6 +752,25 @@ fn extract_tiff_exif(data: &[u8]) -> Option<Vec<u8>> {
   }
 
   // 无对应子 IFD 时去掉悬空指针；有则规范为 LONG 占位以便回填偏移
+  /// 把指定标签收成计数值为 1 的 LONG，数值先写 0
+  ///
+  /// 找不到该标签时不改。
+  ///
+  /// # 参数
+  /// - `entries`: 条目
+  /// - `tag`: 要改的标签
+  ///
+  /// # 返回值
+  /// 无返回值
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let mut entries = Vec::new();
+  /// ensure_long_ptr(&mut entries, 0x8769);
+  /// ```
   fn ensure_long_ptr(entries: &mut [TiffEntry], tag: u16) {
     if let Some(e) = entries.iter_mut().find(|e| e.tag == tag) {
       e.type_ = 4;
@@ -432,12 +808,51 @@ fn extract_tiff_exif(data: &[u8]) -> Option<Vec<u8>> {
   rebuild_exif_tiff(le, ifd0, exif_entries, gps_entries, interop_entries, thumb)
 }
 
+/// 用 0 把缓冲补到 4 字节对齐
+///
+/// # 参数
+/// - `buf`: 输出缓冲
+///
+/// # 返回值
+/// 无返回值
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let mut buf = vec![1, 2];
+/// pad4(&mut buf);
+/// assert_eq!(buf.len(), 4);
+/// ```
 fn pad4(buf: &mut Vec<u8>) {
   while buf.len() % 4 != 0 {
     buf.push(0);
   }
 }
 
+/// 写出一个 IFD，并返回稍后要回填的指针槽
+///
+/// 不超过 4 字节的值直接写入并补零。更长的值先占 4 字节，IFD 写完后把值追加到后面并回填偏移。Exif、GPS、Interop 和 JPEG 偏移标签即使值不超过 4 字节也记入待回填槽。
+///
+/// # 参数
+/// - `out`: 输出缓冲
+/// - `entries`: 条目
+/// - `le`: 为真时小端
+/// - `next_ifd`: 下一个 IFD 的偏移
+///
+/// # 返回值
+/// `(标签, 回填起点)` 列表
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let mut out = Vec::new();
+/// let slots = write_ifd_block(&mut out, &[], true, 0);
+/// assert!(slots.is_empty());
+/// ```
 fn write_ifd_block(
   out: &mut Vec<u8>,
   entries: &[TiffEntry],
@@ -484,11 +899,54 @@ fn write_ifd_block(
   ptr_slots
 }
 
+/// 按字节序把一个 u32 写进已有缓冲
+///
+/// # 参数
+/// - `out`: 已有字节
+/// - `slot`: 写入起点
+/// - `v`: 数值
+/// - `le`: 为真时小端
+///
+/// # 返回值
+/// 无返回值
+///
+/// # Panics
+/// `slot + 4` 超出 `out` 长度时，切片赋值会 panic
+///
+/// # 示例
+/// ```
+/// let mut out = [0, 0, 0, 0];
+/// patch_u32(&mut out, 0, 8, true);
+/// assert_eq!(out, [8, 0, 0, 0]);
+/// ```
 fn patch_u32(out: &mut [u8], slot: usize, v: u32, le: bool) {
   let bytes = if le { v.to_le_bytes() } else { v.to_be_bytes() };
   out[slot..slot + 4].copy_from_slice(&bytes);
 }
 
+/// 把 IFD0 和子 IFD 组装成一份 TIFF
+///
+/// 开头写字节序和魔数 42，IFD0 从偏移 8 开始。有 Exif、GPS、Interop 时对齐后写到后面，并把偏移回填到父指针。有 JPEG 缩略图时再写 IFD1，并回填 JPEG 偏移。
+///
+/// # 参数
+/// - `le`: 为真时小端
+/// - `ifd0`: IFD0 条目
+/// - `exif`: Exif 子 IFD
+/// - `gps`: GPS 子 IFD
+/// - `interop`: Interop 子 IFD
+/// - `thumb`: 缩略图条目和 JPEG 字节
+///
+/// # 返回值
+/// 组装好的 TIFF
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let bytes = rebuild_exif_tiff(true, Vec::new(), None, None, None, None);
+/// assert!(bytes.unwrap().starts_with(b"II"));
+/// ```
 fn rebuild_exif_tiff(
   le: bool,
   ifd0: Vec<TiffEntry>,

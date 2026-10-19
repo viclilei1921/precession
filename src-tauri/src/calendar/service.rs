@@ -13,6 +13,26 @@ use super::lunar::LunarCalendar;
 use super::repository::{self, OfficialInsert, OfficialRow};
 use crate::db::state::DbState;
 
+/// 校验日期区间后合成官方假期、个人覆盖和周末
+///
+/// # 参数
+/// - `db`: 数据库状态
+/// - `from`: 开始日期
+/// - `to`: 结束日期
+///
+/// # 返回值
+/// 返回闭区间内每一天
+///
+/// # 错误
+/// 日期或区间不合法时返回对应错误，查询失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let range = list(db, from, to)?;
+/// ```
 pub fn list(db: &DbState, from: &str, to: &str) -> Result<CalendarRange, CalendarError> {
   let from_date = parse_date(from)?;
   let to_date = parse_date(to)?;
@@ -35,6 +55,26 @@ pub fn list(db: &DbState, from: &str, to: &str) -> Result<CalendarRange, Calenda
   Ok(CalendarRange { from_date: from_s, to_date: to_s, days })
 }
 
+/// 校验日期并去掉备注空白后写入个人安排
+///
+/// # 参数
+/// - `db`: 数据库状态
+/// - `date`: 日期
+/// - `input`: 是否上班和备注
+///
+/// # 返回值
+/// 返回保存后的个人覆盖
+///
+/// # 错误
+/// 日期不合法或写入失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let day = upsert_day(db, date, input)?;
+/// ```
 pub fn upsert_day(db: &DbState, date: &str, input: CalendarDayInput) -> Result<CalendarOverride, CalendarError> {
   let parsed = parse_date(date)?;
   let date = parsed.to_string();
@@ -42,17 +82,73 @@ pub fn upsert_day(db: &DbState, date: &str, input: CalendarDayInput) -> Result<C
   db.with_conn(|conn| repository::upsert_day(conn, &date, input.is_workday, note))
 }
 
+/// 校验日期后删除个人覆盖
+///
+/// # 参数
+/// - `db`: 数据库状态
+/// - `date`: 日期
+///
+/// # 返回值
+/// 成功时返回空
+///
+/// # 错误
+/// 日期不合法或删除失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// delete_day(db, date)?;
+/// ```
 pub fn delete_day(db: &DbState, date: &str) -> Result<(), CalendarError> {
   let date = parse_date(date)?.to_string();
   db.with_conn(|conn| repository::delete_day(conn, &date))
 }
 
+/// 校验后按年替换官方节假日
+///
+/// # 参数
+/// - `db`: 数据库状态
+/// - `input`: 年份和官方日期
+///
+/// # 返回值
+/// 返回年份和写入条数
+///
+/// # 错误
+/// 输入不合法或写入失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let imported = import_official(db, input)?;
+/// ```
 pub fn import_official(db: &DbState, input: OfficialImportInput) -> Result<OfficialImport, CalendarError> {
   let (year, days) = validate_official(&input)?;
   let count = db.with_conn(|conn| repository::replace_official_year(conn, year, &days))?;
   Ok(OfficialImport { year, count })
 }
 
+/// 校验日期并在支持年份内生成黄历
+///
+/// # 参数
+/// - `date`: 日期
+///
+/// # 返回值
+/// 返回单日黄历
+///
+/// # 错误
+/// 日期格式不符时返回 `DateInvalid`，年份不在 1900 到 2100 时返回 `LunarYear`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let book = almanac("2026-09-28")?;
+/// ```
 pub fn almanac(date: &str) -> Result<Almanac, CalendarError> {
   let date = parse_date(date)?;
   if !LunarCalendar::supports_date(&date) {
@@ -61,6 +157,23 @@ pub fn almanac(date: &str) -> Result<Almanac, CalendarError> {
   Ok(Almanac::from(LunarCalendar::get_comprehensive_almanac(&date)))
 }
 
+/// 按个人覆盖、官方假期和周末合成一天
+///
+/// # 参数
+/// - `date`: 公历日期
+/// - `official`: 当天官方记录
+/// - `user`: 当天个人覆盖
+///
+/// # 返回值
+/// 有个人覆盖时采用其是否上班；否则有官方记录时取放假的反面；再否则周末不上班
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let day = compose_day(date, official, user);
+/// ```
 fn compose_day(date: NaiveDate, official: Option<&OfficialRow>, user: Option<&CalendarOverride>) -> CalendarDay {
   let weekday = date.weekday().number_from_monday() as i32;
   let is_weekend = weekday >= 6;
@@ -83,10 +196,47 @@ fn compose_day(date: NaiveDate, official: Option<&OfficialRow>, user: Option<&Ca
   }
 }
 
+/// 按 YYYY-MM-DD 解析日期
+///
+/// # 参数
+/// - `raw`: 日期文本
+///
+/// # 返回值
+/// 返回解析出的日期
+///
+/// # 错误
+/// 去空白后格式不符时返回 `CalendarError::DateInvalid`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let date = parse_date("2026-09-28")?;
+/// ```
 fn parse_date(raw: &str) -> Result<NaiveDate, CalendarError> {
   NaiveDate::parse_from_str(raw.trim(), "%Y-%m-%d").map_err(|_| CalendarError::DateInvalid)
 }
 
+/// 拒绝结束早于开始或闭区间超过 366 天
+///
+/// # 参数
+/// - `from`: 开始日期
+/// - `to`: 结束日期
+///
+/// # 返回值
+/// 区间合法时返回空
+///
+/// # 错误
+/// 结束早于开始时返回 `RangeOrder`，闭区间超过 366 天时返回 `RangeTooLong`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// validate_range(from, to)?;
+/// ```
 fn validate_range(from: NaiveDate, to: NaiveDate) -> Result<(), CalendarError> {
   if to < from {
     return Err(CalendarError::RangeOrder);
@@ -98,15 +248,64 @@ fn validate_range(from: NaiveDate, to: NaiveDate) -> Result<(), CalendarError> {
   Ok(())
 }
 
+/// 生成含起止的日期列表
+///
+/// # 参数
+/// - `from`: 开始日期
+/// - `to`: 结束日期
+///
+/// # 返回值
+/// 返回从开始到结束的每一天
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let days = dates_inclusive(from, to);
+/// ```
 fn dates_inclusive(from: NaiveDate, to: NaiveDate) -> Vec<NaiveDate> {
   let count = to.signed_duration_since(from).num_days();
   (0..=count).map(|offset| from + Days::new(offset as u64)).collect()
 }
 
+/// 去掉备注空白，空则返回空
+///
+/// # 参数
+/// - `note`: 备注
+///
+/// # 返回值
+/// 原本为空或去空白后为空时返回 `None`，否则返回去掉空白的文本
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let note = normalize_note(Some("  备注  "));
+/// ```
 fn normalize_note(note: Option<&str>) -> Option<&str> {
   note.map(str::trim).filter(|text| !text.is_empty())
 }
 
+/// 校验年份、节日名、日期归属和重复
+///
+/// # 参数
+/// - `input`: 官方导入内容
+///
+/// # 返回值
+/// 返回年份和待写入的官方日期
+///
+/// # 错误
+/// 年份越界返回 `YearRange`，没有日期返回 `DaysEmpty`，名为空返回 `NameEmpty`，日期格式非法返回 `DateInvalid`，日期不属于该年返回 `DateYear`，日期重复返回 `DuplicateDate`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let (year, days) = validate_official(input)?;
+/// ```
 fn validate_official(input: &OfficialImportInput) -> Result<(i32, Vec<OfficialInsert>), CalendarError> {
   if !(1970..=2100).contains(&input.year) {
     return Err(CalendarError::YearRange);

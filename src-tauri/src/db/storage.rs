@@ -35,15 +35,29 @@ use super::error::DbError;
 use super::state::DbState;
 use crate::crypto::header::KeyHeader;
 
-/// 从零建一座加密库
-/// 1. 随机生成 32 字节 DEK
-/// 2. 密码 → KEK → 把 DEK 包进 key.header.json
-/// 3. 打开空的 data.sqlite
-/// 4. PRAGMA key = "x'<DEK hex>'";     ← DEK 唯一进入数据库的方式
-/// 5. CREATE TABLE db_meta ...
-/// 6. INSERT 探针
-/// 7. SELECT 探针  （确认加密读写成功）
-/// 8. 连接留在内存里；之后 INSERT 日记、账本都自动按页加密
+/// 建目录、用 DEK 打开库、写入探针并原子保存密钥头
+///
+/// # 参数
+/// - `state`: 数据库路径
+/// - `dek`: 32 字节页加密密钥
+/// - `header`: 要写入的密钥头
+///
+/// # 返回值
+/// 已设置密钥并通过对探针校验的连接
+///
+/// # 错误
+/// - 创建目录失败时返回 `Io`
+/// - 打开 sqlite、设置密钥或建表失败时返回 `Internal`
+/// - 探针读不到或值不对时返回 `Corrupt`
+/// - 写密钥头失败时返回对应的 `DbError`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let conn = create_db(state, dek, header)?;
+/// ```
 pub fn create_db(state: &DbState, dek: &[u8; 32], header: &KeyHeader) -> Result<Connection, DbError> {
   // 确保目录存在
   fs::create_dir_all(&state.dir).map_err(|_| DbError::Io)?;
@@ -69,19 +83,48 @@ pub fn create_db(state: &DbState, dek: &[u8; 32], header: &KeyHeader) -> Result<
   Ok(conn)
 }
 
-/// 删除创建过程中产生的临时文件
+/// 删除建库留下的 sqlite 文件和密钥头
+///
+/// 删除失败时忽略错误。
+///
+/// # 参数
+/// - `state`: 数据库路径
+///
+/// # 返回值
+/// 不返回数据
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// remove_create_artifacts(state);
+/// ```
 pub fn remove_create_artifacts(state: &DbState) {
   let _ = fs::remove_file(&state.sqlite);
   let _ = fs::remove_file(&state.header);
 }
 
-/// 用已有 DEK 打开库
-/// 1. 读 key.header.json
-/// 2. 密码 → KEK → 解开 DEK
-/// 3. 打开已有的 data.sqlite
-/// 4. 同样的 PRAGMA key = "x'<DEK hex>'";
-/// 5. SELECT 探针               ← 错钥/坏库在这里暴露
-/// 6. 业务 SQL 正常使用，不再出现 DEK
+/// 用 DEK 打开已有库并核对探针
+///
+/// # 参数
+/// - `path`: sqlite 文件路径
+/// - `dek`: 32 字节页加密密钥
+///
+/// # 返回值
+/// 已设置密钥并通过对探针校验的连接
+///
+/// # 错误
+/// - 打开 sqlite 或设置密钥失败时返回 `Internal`
+/// - 探针读不到或值不对时返回 `Corrupt`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let conn = open_db(path, dek)?;
+/// ```
 pub fn open_db(path: &std::path::Path, dek: &[u8; 32]) -> Result<Connection, DbError> {
   // 打开 data.sqlite
   let conn = Connection::open(path).map_err(|e| {
@@ -98,13 +141,48 @@ pub fn open_db(path: &std::path::Path, dek: &[u8; 32]) -> Result<Connection, DbE
   Ok(conn)
 }
 
-/// 读取头文件: 把门牌读进来
+/// 从文件读取并解析密钥头
+///
+/// # 参数
+/// - `path`: 密钥头路径
+///
+/// # 返回值
+/// 通过校验的 `KeyHeader`
+///
+/// # 错误
+/// 读文件失败时返回 `Io`；JSON 或字段校验失败时把 `CryptoError` 转成 `DbError` 返回
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let header = read_header(path)?;
+/// ```
 pub fn read_header(path: &std::path::Path) -> Result<KeyHeader, DbError> {
   let raw = fs::read_to_string(path).map_err(|_| DbError::Io)?;
   Ok(KeyHeader::from_json(&raw)?)
 }
 
-/// 先写草稿再改名，避免写到一半留下半份设备槽密文。
+/// 先写临时文件再改名，替换设备槽密文
+///
+/// # 参数
+/// - `state`: 数据库路径
+/// - `bytes`: `device.wrap` 的全部字节
+///
+/// # 返回值
+/// 成功时不返回数据
+///
+/// # 错误
+/// 写临时文件或改名失败时返回 `Io`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// write_device_wrap_atomic(state, bytes)?;
+/// ```
 pub fn write_device_wrap_atomic(state: &DbState, bytes: &[u8]) -> Result<(), DbError> {
   let tmp = state.dir.join(DB_DEVICE_WRAP_TMP);
   fs::write(&tmp, bytes).map_err(|_| DbError::Io)?;
@@ -112,7 +190,25 @@ pub fn write_device_wrap_atomic(state: &DbState, bytes: &[u8]) -> Result<(), DbE
   Ok(())
 }
 
-/// 先写草稿再改名
+/// 先写临时文件再改名，替换密钥头
+///
+/// # 参数
+/// - `state`: 数据库路径
+/// - `header`: 要写入的密钥头
+///
+/// # 返回值
+/// 成功时不返回数据
+///
+/// # 错误
+/// 序列化失败时把 `CryptoError` 转成 `DbError`；写临时文件或改名失败时返回 `Io`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// write_header_atomic(state, header)?;
+/// ```
 fn write_header_atomic(state: &DbState, header: &KeyHeader) -> Result<(), DbError> {
   let json = header.to_pretty_json()?;
   fs::write(state.dir.join(DB_HEADER_TMP), json).map_err(|_| DbError::Io)?;
@@ -120,7 +216,25 @@ fn write_header_atomic(state: &DbState, header: &KeyHeader) -> Result<(), DbErro
   Ok(())
 }
 
-/// 把 DEK 交给 SQLCipher
+/// 用原始密钥形式执行 `PRAGMA key`
+///
+/// # 参数
+/// - `conn`: sqlite 连接
+/// - `dek`: 32 字节页加密密钥
+///
+/// # 返回值
+/// 成功时不返回数据
+///
+/// # 错误
+/// 执行 `PRAGMA` 失败时返回 `Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// apply_raw_key(&conn, dek)?;
+/// ```
 fn apply_raw_key(conn: &Connection, dek: &[u8; 32]) -> Result<(), DbError> {
   // DEK 是 32 个原始字节，里面什么都可能有（0、引号、换行），不能直接拼进 SQL 字符串。先变成 64 个 0-9a-f 字符，才能安全写进语句里。
   let hex_key = Zeroizing::new(hex::encode(dek));
@@ -143,7 +257,24 @@ fn apply_raw_key(conn: &Connection, dek: &[u8; 32]) -> Result<(), DbError> {
   conn.execute_batch(sql.as_str()).map_err(|_| DbError::Internal)
 }
 
-/// 初始化 schema: 放下第一张桌子和一枚探针
+/// 创建 `db_meta` 并插入探针行
+///
+/// # 参数
+/// - `conn`: 已设置密钥的连接
+///
+/// # 返回值
+/// 成功时不返回数据
+///
+/// # 错误
+/// 建表或插入失败时返回 `Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// init_schema(&conn)?;
+/// ```
 fn init_schema(conn: &Connection) -> Result<(), DbError> {
   // 建一张 db_meta 表，插入探针行 ok = precession.db.ready
   conn
@@ -167,7 +298,24 @@ fn init_schema(conn: &Connection) -> Result<(), DbError> {
   Ok(())
 }
 
-/// 验证探针
+/// 读回探针并核对固定值
+///
+/// # 参数
+/// - `conn`: 已设置密钥的连接
+///
+/// # 返回值
+/// 探针值等于 `PROBE_VALUE` 时不返回数据
+///
+/// # 错误
+/// 查不到探针，或值不等于 `PROBE_VALUE` 时返回 `Corrupt`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// verify_probe(&conn)?;
+/// ```
 fn verify_probe(conn: &Connection) -> Result<(), DbError> {
   let value: String = conn
     .query_row("SELECT value FROM db_meta WHERE key = ?1", [PROBE_KEY], |row| row.get(0))

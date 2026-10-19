@@ -36,6 +36,27 @@ pub(crate) struct ParsedPackage {
   pub spine: Vec<SpineEntry>,
 }
 
+/// 解析 EPUB 压缩包里的 OPF 包
+///
+/// 读取 `META-INF/container.xml` 的 `rootfile`，再解析 OPF。收集 manifest，优先用带 `nav` 属性的文档建立路径到标题的映射，失败时改用 spine 的 `toc` 或 NCX。spine 的 `itemref` 按 manifest 生成条目，没有标题时写成 `第 {n} 章`。标题或作者为空时分别填「未知标题」「未知作者」。
+///
+/// # 参数
+/// - `path`: EPUB 文件路径
+///
+/// # 返回值
+/// 成功返回元数据和 spine
+///
+/// # 错误
+/// 打开压缩包、缺少 `rootfile` 或 XML 解析失败时返回 `Err`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let package = parse_package(Path::new("book.epub")).unwrap();
+/// assert!(!package.meta.title.is_empty());
+/// ```
 pub(crate) fn parse_package(path: &Path) -> Result<ParsedPackage, EpubError> {
   let mut zip = open_zip(path)?;
   let container_xml = read_zip_text_from_archive(&mut zip, "META-INF/container.xml")?;
@@ -110,6 +131,32 @@ pub(crate) fn parse_package(path: &Path) -> Result<ParsedPackage, EpubError> {
   Ok(ParsedPackage { meta: EpubMeta { title, author }, meta_full, spine })
 }
 
+/// 把导航项的路径和标签写入映射
+///
+/// 链接路径非空且规范化后的路径尚未出现时，插入该标签。然后递归处理子项。
+///
+/// # 参数
+/// - `items`: 导航树
+/// - `out`: 路径到标签的映射，已有路径不会覆盖
+///
+/// # 返回值
+/// 无
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let mut out = std::collections::HashMap::new();
+/// let items = [NavItem {
+///   label: "章".to_string(),
+///   href: Some("a/../c.xhtml#id".to_string()),
+///   subitems: Vec::new(),
+///   type_props: Vec::new(),
+/// }];
+/// collect_nav_labels(&items, &mut out);
+/// assert_eq!(out.get("c.xhtml").map(String::as_str), Some("章"));
+/// ```
 pub(crate) fn collect_nav_labels(items: &[NavItem], out: &mut HashMap<String, String>) {
   for item in items {
     if let Some(href) = &item.href {
@@ -122,26 +169,131 @@ pub(crate) fn collect_nav_labels(items: &[NavItem], out: &mut HashMap<String, St
   }
 }
 
+/// 打开 EPUB 压缩包
+///
+/// # 参数
+/// - `path`: EPUB 文件路径
+///
+/// # 返回值
+/// 成功返回 ZIP 归档
+///
+/// # 错误
+/// 打开文件或解析 ZIP 失败时返回 `Err`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let zip = open_zip(Path::new("book.epub")).unwrap();
+/// assert!(zip.len() > 0);
+/// ```
 pub(crate) fn open_zip(path: &Path) -> Result<ZipArchive<File>, EpubError> {
   let file = File::open(path).map_err(|e| EpubError(format!("打开 EPUB 失败: {}", e)))?;
   ZipArchive::new(file).map_err(|e| EpubError(format!("读取 ZIP 失败: {}", e)))
 }
 
+/// 从 EPUB 路径读取一个文本条目
+///
+/// 重新打开压缩包后按条目名读取，并用损失性 UTF-8 转成字符串。
+///
+/// # 参数
+/// - `path`: EPUB 文件路径
+/// - `entry`: 压缩包内的条目名
+///
+/// # 返回值
+/// 成功返回条目文本
+///
+/// # 错误
+/// 打开压缩包或读取条目失败时返回 `Err`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let text = read_zip_text(Path::new("book.epub"), "META-INF/container.xml").unwrap();
+/// assert!(text.contains("container"));
+/// ```
 pub(crate) fn read_zip_text(path: &Path, entry: &str) -> Result<String, EpubError> {
   let mut zip = open_zip(path)?;
   read_zip_text_from_archive(&mut zip, entry)
 }
 
+/// 从 EPUB 路径读取一个字节条目
+///
+/// # 参数
+/// - `path`: EPUB 文件路径
+/// - `entry`: 压缩包内的条目名
+///
+/// # 返回值
+/// 成功返回条目字节
+///
+/// # 错误
+/// 打开压缩包或读取条目失败时返回 `Err`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let bytes = read_zip_bytes(Path::new("book.epub"), "META-INF/container.xml").unwrap();
+/// assert!(!bytes.is_empty());
+/// ```
 pub(crate) fn read_zip_bytes(path: &Path, entry: &str) -> Result<Vec<u8>, EpubError> {
   let mut zip = open_zip(path)?;
   read_zip_bytes_from_archive(&mut zip, entry)
 }
 
+/// 从已打开的压缩包读取文本条目
+///
+/// 读出字节后用损失性 UTF-8 转成字符串。
+///
+/// # 参数
+/// - `zip`: 已打开的 EPUB 压缩包
+/// - `entry`: 压缩包内的条目名
+///
+/// # 返回值
+/// 成功返回条目文本
+///
+/// # 错误
+/// 读取条目失败时返回 `Err`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let mut zip = open_zip(Path::new("book.epub")).unwrap();
+/// let text = read_zip_text_from_archive(&mut zip, "META-INF/container.xml").unwrap();
+/// assert!(text.contains("container"));
+/// ```
 pub(crate) fn read_zip_text_from_archive(zip: &mut ZipArchive<File>, entry: &str) -> Result<String, EpubError> {
   let bytes = read_zip_bytes_from_archive(zip, entry)?;
   Ok(String::from_utf8_lossy(&bytes).into_owned())
 }
 
+/// 从已打开的压缩包读取字节条目
+///
+/// # 参数
+/// - `zip`: 已打开的 EPUB 压缩包
+/// - `entry`: 压缩包内的条目名
+///
+/// # 返回值
+/// 成功返回条目的全部字节
+///
+/// # 错误
+/// 找不到条目或读完内容失败时返回 `Err`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let mut zip = open_zip(Path::new("book.epub")).unwrap();
+/// let bytes = read_zip_bytes_from_archive(&mut zip, "META-INF/container.xml").unwrap();
+/// assert!(!bytes.is_empty());
+/// ```
 pub(crate) fn read_zip_bytes_from_archive(zip: &mut ZipArchive<File>, entry: &str) -> Result<Vec<u8>, EpubError> {
   let mut file = zip.by_name(entry).map_err(|e| EpubError(format!("读取条目失败 [{}]: {}", entry, e)))?;
   let mut bytes = Vec::new();
@@ -153,6 +305,30 @@ const PREFIX_RENDITION: &str = "http://www.idpf.org/vocab/rendition/#";
 const PREFIX_MEDIA: &str = "http://www.idpf.org/epub/vocab/overlays/#";
 const PREFIX_DCTERMS: &str = "http://purl.org/dc/terms/";
 
+/// 从 OPF 文档提取完整元数据
+///
+/// 标识优先取 `package` 的 `unique-identifier` 指向的 `identifier`，否则取第一个 `identifier`。标题和作者分别取第一个 `title`、`creator`，缺失时用「未知标题」「未知作者」。同时收集语言、简介、出版者、主题、权利、来源和其余标识。`meta` 里识别修改时间、系列名、组内序号、rendition 与 media 属性，以及 Calibre 的 `calibre:series`。`date` 按 `publication`、`modification` 取值，出版日期空缺时用遇到的日期文本。系列名空缺时回退到 Calibre 字段。媒体时长取 media 里的 `duration`。最后从备用标识中去掉主标识。
+///
+/// # 参数
+/// - `doc`: 已解析的 OPF 文档
+///
+/// # 返回值
+/// 填好的完整元数据
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let doc = roxmltree::Document::parse(
+///   r#"<package unique-identifier="id"><metadata><identifier id="id">urn:x</identifier><title>书</title><creator>人</creator></metadata></package>"#,
+/// )
+/// .unwrap();
+/// let meta = parse_opf_metadata(&doc);
+/// assert_eq!(meta.title, "书");
+/// assert_eq!(meta.author, "人");
+/// assert_eq!(meta.identifier.as_deref(), Some("urn:x"));
+/// ```
 fn parse_opf_metadata(doc: &Document<'_>) -> EpubMetaFull {
   let mut out = EpubMetaFull::default();
 
@@ -300,10 +476,49 @@ fn parse_opf_metadata(doc: &Document<'_>) -> EpubMetaFull {
   out
 }
 
+/// 读取节点文本并去掉首尾空白
+///
+/// # 参数
+/// - `node`: 要读取的节点
+///
+/// # 返回值
+/// 文本去空白后非空时返回 `Some`，否则返回 `None`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let doc = roxmltree::Document::parse("<title> 书 </title>").unwrap();
+/// let node = doc.descendants().find(|n| n.tag_name().name() == "title").unwrap();
+/// assert_eq!(node_text_trimmed(node).as_deref(), Some("书"));
+/// ```
 fn node_text_trimmed(node: roxmltree::Node<'_, '_>) -> Option<String> {
   node.text().map(|x| x.trim().to_string()).filter(|x| !x.is_empty())
 }
 
+/// 去掉属性名上的词表前缀
+///
+/// 先按 `prefix_url` 去掉前缀。若 `prefix_url` 是 Dublin Core terms，并且属性名以该地址开头，则返回其后的部分。
+///
+/// # 参数
+/// - `prop`: 属性名
+/// - `prefix_url`: 要去掉的前缀
+///
+/// # 返回值
+/// 去掉前缀后的名字；两种方式都不匹配时返回 `None`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// assert_eq!(
+///   strip_prefix_property("http://www.idpf.org/vocab/rendition/#layout", "http://www.idpf.org/vocab/rendition/#").as_deref(),
+///   Some("layout")
+/// );
+/// assert_eq!(strip_prefix_property("layout", "http://www.idpf.org/vocab/rendition/#"), None);
+/// ```
 fn strip_prefix_property(prop: &str, prefix_url: &str) -> Option<String> {
   if let Some(x) = prop.strip_prefix(prefix_url) {
     return Some(x.to_string());
@@ -314,6 +529,24 @@ fn strip_prefix_property(prop: &str, prefix_url: &str) -> Option<String> {
   None
 }
 
+/// 把连字符或冒号分隔的名字转成驼峰
+///
+/// 遇到 `-` 或 `:` 时跳过该字符，并把下一个字符转成大写。
+///
+/// # 参数
+/// - `s`: 原始名字
+///
+/// # 返回值
+/// 转换后的字符串
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// assert_eq!(to_camel("layout-flow"), "layoutFlow");
+/// assert_eq!(to_camel("media:duration"), "mediaDuration");
+/// ```
 fn to_camel(s: &str) -> String {
   let mut out = String::new();
   let mut upper = false;

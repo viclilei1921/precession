@@ -15,120 +15,24 @@ use crate::owner::Owner;
 use crate::utils::id::new_uuid_v4;
 use crate::utils::time::now_unix_ms;
 
-/// 建计划相关的表。时间都是 Unix 毫秒。布尔用 `0` / `1`。
-/// 查询只返回 `deleted_at` 为空的行。版本保持 1。
+/// 按架构版本创建计划相关表
 ///
-/// ## plan
+/// # 参数
+/// - `conn`: 数据库连接
 ///
-/// 一行是一条计划。附件不在这张表里，经 `owner = "plan"` 挂在 `media` 上。
+/// # 返回值
+/// 成功时返回空
 ///
-/// | 列 | 类型 | 约束 | 含义 |
-/// | --- | --- | --- | --- |
-/// | id | TEXT | 主键 | UUID |
-/// | title | TEXT | 非空 | 标题 |
-/// | body | TEXT | 非空，默认 `''` | 正文 |
-/// | status | TEXT | 非空，默认 `draft` | `draft` 草稿、`scheduled` 已安排、`done` 已完成 |
-/// | priority | INTEGER | 非空，默认 `0` | 优先级 |
-/// | scheduled_at | INTEGER | 可空 | 安排时间；列表排序时缺它就用 `created_at` |
-/// | due_at | INTEGER | 可空 | 截止时间 |
-/// | completed_at | INTEGER | 可空 | 完成时间，只在完成时写入 |
-/// | result | TEXT | 非空，默认 `''` | 完成结果 |
-/// | locked | INTEGER | 非空，默认 `0` | 是否锁定 |
-/// | highlight | INTEGER | 非空，默认 `0` | 是否高亮 |
-/// | group_id | TEXT | 可空 | 所属清单 |
-/// | parent_id | TEXT | 可空 | 父计划 |
-/// | all_day | INTEGER | 非空，默认 `0` | 是否全天 |
-/// | archived | INTEGER | 非空，默认 `0` | 是否归档 |
-/// | sort | INTEGER | 非空，默认 `0` | 清单内的手动顺序 |
-/// | time_zone | TEXT | 非空，默认 `''` | 时区；空表示用本机时区 |
-/// | created_at | INTEGER | 非空 | 创建时间 |
-/// | updated_at | INTEGER | 非空 | 更新时间 |
-/// | deleted_at | INTEGER | 可空 | 软删除时间；空表示仍在 |
+/// # 错误
+/// 读版本、建表或写版本失败时返回 `PlanError::Internal`
 ///
-/// 索引：`plan_scheduled (scheduled_at) WHERE deleted_at IS NULL`，
-/// `plan_group_sort (group_id, sort) WHERE deleted_at IS NULL`，
-/// `plan_due (due_at) WHERE deleted_at IS NULL AND archived = 0 AND status != 'done'`，
-/// `plan_parent (parent_id) WHERE parent_id IS NOT NULL`。
+/// # Panics
+/// 不会主动 panic
 ///
-/// ## plan_step
-///
-/// 一行是计划下的一个步骤，`plan_id` 指向 `plan.id`。
-/// 传来步骤时整份替换，`sort` 按写入顺序从 `0` 起。删除计划时一并清掉。
-///
-/// | 列 | 类型 | 约束 | 含义 |
-/// | --- | --- | --- | --- |
-/// | id | TEXT | 主键 | UUID |
-/// | plan_id | TEXT | 非空 | 所属计划 |
-/// | title | TEXT | 非空 | 步骤标题 |
-/// | done | INTEGER | 非空，默认 `0` | 是否完成 |
-/// | sort | INTEGER | 非空，默认 `0` | 排序，从小到大 |
-///
-/// 索引：`plan_step_plan (plan_id, sort)`。
-///
-/// ## plan_group
-///
-/// 一行是一份清单。删除清单只摘掉计划上的 `group_id`，不删计划。
-///
-/// | 列 | 类型 | 约束 | 含义 |
-/// | --- | --- | --- | --- |
-/// | id | TEXT | 主键 | UUID |
-/// | name | TEXT | 非空 | 名称；未删除的名字唯一 |
-/// | color | TEXT | 非空，默认 `''` | 颜色 |
-/// | system | INTEGER | 非空，默认 `0` | 系统清单不可删除 |
-/// | sort | INTEGER | 非空，默认 `0` | 排序 |
-/// | created_at | INTEGER | 非空 | 创建时间 |
-/// | updated_at | INTEGER | 非空 | 更新时间 |
-/// | deleted_at | INTEGER | 可空 | 软删除时间 |
-///
-/// 索引：`plan_group_name (name) WHERE deleted_at IS NULL`，
-/// `plan_group_order (sort) WHERE deleted_at IS NULL`。
-///
-/// ## plan_repeat
-///
-/// 一条计划最多一行。计划自己就是重复模板，不生成实例。
-///
-/// | 列 | 类型 | 约束 | 含义 |
-/// | --- | --- | --- | --- |
-/// | id | TEXT | 主键 | UUID |
-/// | plan_id | TEXT | 非空，唯一 | 所属计划 |
-/// | kind | TEXT | 非空 | `daily` / `weekly` / `monthly` / `yearly` |
-/// | interval | INTEGER | 非空，默认 `1` | 间隔，至少为 `1` |
-/// | weekdays | TEXT | 非空，默认 `''` | 每周重复的星期，例如 `1,3,5` |
-/// | until_at | INTEGER | 可空 | 截止 |
-/// | created_at | INTEGER | 非空 | 创建时间 |
-/// | updated_at | INTEGER | 非空 | 更新时间 |
-///
-/// ## plan_reminder
-///
-/// 一行是一次提醒。这里只存记录，不到点弹出。
-///
-/// | 列 | 类型 | 约束 | 含义 |
-/// | --- | --- | --- | --- |
-/// | id | TEXT | 主键 | UUID |
-/// | plan_id | TEXT | 非空 | 所属计划 |
-/// | remind_at | INTEGER | 非空 | 提醒时间 |
-/// | note | TEXT | 非空，默认 `''` | 说明 |
-/// | triggered | INTEGER | 非空，默认 `0` | 是否已触发 |
-/// | triggered_at | INTEGER | 可空 | 触发时间 |
-/// | created_at | INTEGER | 非空 | 创建时间 |
-///
-/// 索引：`plan_reminder_plan (plan_id)`，`plan_reminder_due (remind_at) WHERE triggered = 0`。
-///
-/// ## plan_comment
-///
-/// 一行是一条评论。没有作者。删除是硬删除。
-///
-/// | 列 | 类型 | 约束 | 含义 |
-/// | --- | --- | --- | --- |
-/// | id | TEXT | 主键 | UUID |
-/// | plan_id | TEXT | 非空 | 所属计划 |
-/// | body | TEXT | 非空 | 正文 |
-/// | created_at | INTEGER | 非空 | 创建时间 |
-/// | updated_at | INTEGER | 非空 | 更新时间 |
-///
-/// 索引：`plan_comment_plan (plan_id)`。
-///
-/// 成员、标签、地点、媒体不在这些表里，经 `owner = "plan"` 挂在各自的表上。
+/// # 示例
+/// ```ignore
+/// ensure_schema(conn)?;
+/// ```
 pub(super) fn ensure_schema(conn: &Connection) -> Result<(), PlanError> {
   let current = crate::db::schema::read_version(conn, SCHEMA_VERSION_KEY).map_err(|e| db_fail("plan schema", e))?;
   if current < 1 {
@@ -220,21 +124,65 @@ pub(super) fn ensure_schema(conn: &Connection) -> Result<(), PlanError> {
   Ok(())
 }
 
+/// 记录数据库错误并返回内部错误
+///
+/// # 参数
+/// - `context`: 日志中的操作说明
+/// - `err`: 原始数据库错误
+///
+/// # 返回值
+/// 返回 `PlanError::Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let err = db_fail("plan", rusqlite_err);
+/// ```
 fn db_fail(context: &str, err: rusqlite::Error) -> PlanError {
   tauri_plugin_log::log::error!("{context}: {err}");
   PlanError::Internal
 }
 
-/// 这次写入是否被 SQLite 的约束拦住。
+/// 判断数据库错误是否为约束冲突
 ///
-/// 写入违反表规则时会失败，常见的有主键或唯一索引重复、`NOT NULL`、外键和 `CHECK`。
-/// rusqlite 把这类失败记成 `ErrorCode::ConstraintViolation`。
-/// 清单创建和改名用它识别重名：`plan_group_name` 要求未删除的清单名称唯一，撞上就映射成 `NameTaken`。
+/// # 参数
+/// - `err`: 数据库错误
+///
+/// # 返回值
+/// 错误码为 `ConstraintViolation` 时返回 true，否则返回 false
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let hit = is_constraint(&err);
+/// ```
 fn is_constraint(err: &rusqlite::Error) -> bool {
   matches!(err, rusqlite::Error::SqliteFailure(e, _) if e.code == rusqlite::ErrorCode::ConstraintViolation)
 }
 
-/// 给 `owner` 用，错误保持 `rusqlite::Error`。
+/// 查询未删除计划是否存在
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `id`: 计划主键
+///
+/// # 返回值
+/// 存在时返回 true，不存在时返回 false
+///
+/// # 错误
+/// 查询失败时返回 `rusqlite::Error`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let found = exists(conn, id)?;
+/// ```
 pub(super) fn exists(conn: &Connection, id: &str) -> Result<bool, rusqlite::Error> {
   let found: Option<i64> = conn
     .query_row("SELECT 1 FROM plan WHERE id = ?1 AND deleted_at IS NULL", [id], |row| {
@@ -244,11 +192,48 @@ pub(super) fn exists(conn: &Connection, id: &str) -> Result<bool, rusqlite::Erro
   Ok(found.is_some())
 }
 
-/// 同一条查询，错误收成 `PlanError`，给本模块用。
+/// 查询未删除计划是否存在
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `id`: 计划主键
+///
+/// # 返回值
+/// 存在时返回 true，不存在时返回 false
+///
+/// # 错误
+/// 查询失败时返回 `PlanError::Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let found = plan_exists(conn, id)?;
+/// ```
 pub(super) fn plan_exists(conn: &Connection, id: &str) -> Result<bool, PlanError> {
   exists(conn, id).map_err(|e| db_fail("plan exists", e))
 }
 
+/// 查询未删除清单是否存在
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `id`: 清单主键
+///
+/// # 返回值
+/// 存在时返回 true，不存在时返回 false
+///
+/// # 错误
+/// 查询失败时返回 `PlanError::Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let found = group_exists(conn, id)?;
+/// ```
 pub(super) fn group_exists(conn: &Connection, id: &str) -> Result<bool, PlanError> {
   let sql = format!("SELECT 1 FROM {PLAN_GROUP_TABLE} WHERE id = ?1 AND deleted_at IS NULL");
   let found: Option<i64> =
@@ -256,7 +241,25 @@ pub(super) fn group_exists(conn: &Connection, id: &str) -> Result<bool, PlanErro
   Ok(found.is_some())
 }
 
-/// 计划不存在时返回 `None`。存在时返回它的父计划，没有父计划则是 `Some(None)`。
+/// 读取未删除计划的父计划
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `id`: 计划主键
+///
+/// # 返回值
+/// 计划不存在时返回 `None`；没有父计划时返回 `Some(None)`；有父计划时返回 `Some(Some(父主键))`
+///
+/// # 错误
+/// 查询失败时返回 `PlanError::Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let parent = parent_of(conn, id)?;
+/// ```
 pub(super) fn parent_of(conn: &Connection, id: &str) -> Result<Option<Option<String>>, PlanError> {
   conn
     .query_row("SELECT parent_id FROM plan WHERE id = ?1 AND deleted_at IS NULL", [id], |row| {
@@ -266,14 +269,72 @@ pub(super) fn parent_of(conn: &Connection, id: &str) -> Result<Option<Option<Str
     .map_err(|e| db_fail("plan parent", e))
 }
 
+/// 按条件列出未删除计划
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `filter`: 时间范围和清单条件
+///
+/// # 返回值
+/// 返回计划列表，并带上步骤、重复、提醒、成员、标签、地点和媒体
+///
+/// # 错误
+/// 查询失败时返回 `PlanError::Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let plans = list(conn, filter)?;
+/// ```
 pub(super) fn list(conn: &Connection, filter: &PlanQuery) -> Result<Vec<Plan>, PlanError> {
   query(conn, None, filter.from, filter.to, filter.group_id.as_deref())
 }
 
+/// 按时间范围列出未删除计划
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `from`: 起始时间，空则不限制
+/// - `to`: 结束时间，空则不限制
+///
+/// # 返回值
+/// 返回范围内的计划列表
+///
+/// # 错误
+/// 查询失败时返回 `PlanError::Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let plans = list_between(conn, from, to)?;
+/// ```
 pub(super) fn list_between(conn: &Connection, from: Option<i64>, to: Option<i64>) -> Result<Vec<Plan>, PlanError> {
   query(conn, None, from, to, None)
 }
 
+/// 按主键读取未删除计划并附带评论
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `id`: 计划主键
+///
+/// # 返回值
+/// 返回计划
+///
+/// # 错误
+/// 没有对应行时返回 `PlanError::NotFound`，查询失败时返回 `PlanError::Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let plan = get(conn, id)?;
+/// ```
 pub(super) fn get(conn: &Connection, id: &str) -> Result<Plan, PlanError> {
   let mut items = query(conn, Some(id), None, None, None)?;
   let mut plan = items.pop().ok_or(PlanError::NotFound)?;
@@ -281,6 +342,25 @@ pub(super) fn get(conn: &Connection, id: &str) -> Result<Plan, PlanError> {
   Ok(plan)
 }
 
+/// 插入计划及其步骤、引用、重复和提醒
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `input`: 新建计划内容
+///
+/// # 返回值
+/// 返回写入后的计划
+///
+/// # 错误
+/// 写入或回读失败时返回 `PlanError::Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let plan = create(conn, input)?;
+/// ```
 pub(super) fn create(conn: &Connection, input: &PlanInput) -> Result<Plan, PlanError> {
   let id = new_uuid_v4();
   let now = now_unix_ms();
@@ -321,6 +401,26 @@ pub(super) fn create(conn: &Connection, input: &PlanInput) -> Result<Plan, PlanE
   get(conn, &id)
 }
 
+/// 用补丁更新未删除计划，并按需替换步骤、引用、重复和提醒
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `id`: 计划主键
+/// - `patch`: 要改的字段，空字段保持原值
+///
+/// # 返回值
+/// 返回更新后的计划
+///
+/// # 错误
+/// 没有对应行时返回 `PlanError::NotFound`，写入失败时返回 `PlanError::Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let plan = update(conn, id, patch)?;
+/// ```
 pub(super) fn update(conn: &Connection, id: &str, patch: &PlanPatch) -> Result<Plan, PlanError> {
   let now = now_unix_ms();
   let tx = conn.unchecked_transaction().map_err(|e| db_fail("plan update tx", e))?;
@@ -391,6 +491,28 @@ pub(super) fn update(conn: &Connection, id: &str, patch: &PlanPatch) -> Result<P
   get(conn, id)
 }
 
+/// 写入完成状态、结果和完成时间
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `id`: 计划主键
+/// - `status`: 状态
+/// - `result`: 完成结果
+/// - `completed_at`: 完成时间
+///
+/// # 返回值
+/// 返回更新后的计划
+///
+/// # 错误
+/// 没有对应行时返回 `PlanError::NotFound`，写入失败时返回 `PlanError::Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let plan = complete(conn, id, status, result, completed_at)?;
+/// ```
 pub(super) fn complete(
   conn: &Connection,
   id: &str,
@@ -410,6 +532,25 @@ pub(super) fn complete(
   get(conn, id)
 }
 
+/// 软删除计划，并清掉子计划父级、步骤、重复、提醒、评论和引用
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `id`: 计划主键
+///
+/// # 返回值
+/// 成功时返回空
+///
+/// # 错误
+/// 没有对应行时返回 `PlanError::NotFound`，写入失败时返回 `PlanError::Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// delete(conn, id)?;
+/// ```
 pub(super) fn delete(conn: &Connection, id: &str) -> Result<(), PlanError> {
   let now = now_unix_ms();
   let tx = conn.unchecked_transaction().map_err(|e| db_fail("plan delete tx", e))?;
@@ -436,6 +577,24 @@ pub(super) fn delete(conn: &Connection, id: &str) -> Result<(), PlanError> {
   Ok(())
 }
 
+/// 按排序和名称列出未删除清单
+///
+/// # 参数
+/// - `conn`: 数据库连接
+///
+/// # 返回值
+/// 返回清单列表
+///
+/// # 错误
+/// 查询失败时返回 `PlanError::Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let groups = group_list(conn)?;
+/// ```
 pub(super) fn group_list(conn: &Connection) -> Result<Vec<PlanGroup>, PlanError> {
   let sql = format!(
     "SELECT id, name, color, system, sort, created_at, updated_at
@@ -458,6 +617,25 @@ pub(super) fn group_list(conn: &Connection) -> Result<Vec<PlanGroup>, PlanError>
   rows.collect::<Result<Vec<_>, _>>().map_err(|e| db_fail("plan group list", e))
 }
 
+/// 按主键读取未删除清单
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `id`: 清单主键
+///
+/// # 返回值
+/// 返回清单
+///
+/// # 错误
+/// 没有对应行时返回 `PlanError::NotFound`，查询失败时返回 `PlanError::Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let group = group_get(conn, id)?;
+/// ```
 pub(super) fn group_get(conn: &Connection, id: &str) -> Result<PlanGroup, PlanError> {
   let sql = format!(
     "SELECT id, name, color, system, sort, created_at, updated_at
@@ -481,6 +659,25 @@ pub(super) fn group_get(conn: &Connection, id: &str) -> Result<PlanGroup, PlanEr
     })
 }
 
+/// 插入清单并回读
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `input`: 新建清单内容
+///
+/// # 返回值
+/// 返回新建的清单
+///
+/// # 错误
+/// 名称冲突时返回 `PlanError::NameTaken`，其余写入失败返回 `PlanError::Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let group = group_create(conn, input)?;
+/// ```
 pub(super) fn group_create(conn: &Connection, input: &PlanGroupInput) -> Result<PlanGroup, PlanError> {
   let id = new_uuid_v4();
   let now = now_unix_ms();
@@ -494,6 +691,26 @@ pub(super) fn group_create(conn: &Connection, input: &PlanGroupInput) -> Result<
   group_get(conn, &id)
 }
 
+/// 用补丁更新未删除清单
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `id`: 清单主键
+/// - `patch`: 要改的名称、颜色和排序
+///
+/// # 返回值
+/// 返回更新后的清单
+///
+/// # 错误
+/// 名称冲突时返回 `PlanError::NameTaken`，没有对应行时返回 `PlanError::NotFound`，其余失败返回 `PlanError::Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let group = group_update(conn, id, patch)?;
+/// ```
 pub(super) fn group_update(conn: &Connection, id: &str, patch: &PlanGroupPatch) -> Result<PlanGroup, PlanError> {
   let now = now_unix_ms();
   let sql = format!(
@@ -513,6 +730,25 @@ pub(super) fn group_update(conn: &Connection, id: &str, patch: &PlanGroupPatch) 
   group_get(conn, id)
 }
 
+/// 摘掉计划上的清单归属并软删除清单
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `id`: 清单主键
+///
+/// # 返回值
+/// 成功时返回空
+///
+/// # 错误
+/// 没有对应行时返回 `PlanError::NotFound`，写入失败时返回 `PlanError::Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// group_delete(conn, id)?;
+/// ```
 pub(super) fn group_delete(conn: &Connection, id: &str) -> Result<(), PlanError> {
   let now = now_unix_ms();
   let tx = conn.unchecked_transaction().map_err(|e| db_fail("plan group delete tx", e))?;
@@ -531,6 +767,26 @@ pub(super) fn group_delete(conn: &Connection, id: &str) -> Result<(), PlanError>
   Ok(())
 }
 
+/// 插入评论并回读
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `plan_id`: 计划主键
+/// - `body`: 评论正文
+///
+/// # 返回值
+/// 返回新建的评论
+///
+/// # 错误
+/// 写入或回读失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let comment = comment_create(conn, plan_id, body)?;
+/// ```
 pub(super) fn comment_create(conn: &Connection, plan_id: &str, body: &str) -> Result<PlanComment, PlanError> {
   let id = new_uuid_v4();
   let now = now_unix_ms();
@@ -540,6 +796,26 @@ pub(super) fn comment_create(conn: &Connection, plan_id: &str, body: &str) -> Re
   comment_get(conn, &id)
 }
 
+/// 更新评论正文并回读
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `id`: 评论主键
+/// - `body`: 评论正文
+///
+/// # 返回值
+/// 返回更新后的评论
+///
+/// # 错误
+/// 没有对应行时返回 `PlanError::NotFound`，写入失败时返回 `PlanError::Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let comment = comment_update(conn, id, body)?;
+/// ```
 pub(super) fn comment_update(conn: &Connection, id: &str, body: &str) -> Result<PlanComment, PlanError> {
   let now = now_unix_ms();
   let sql = format!("UPDATE {PLAN_COMMENT_TABLE} SET body = ?1, updated_at = ?2 WHERE id = ?3");
@@ -550,6 +826,25 @@ pub(super) fn comment_update(conn: &Connection, id: &str, body: &str) -> Result<
   comment_get(conn, id)
 }
 
+/// 按主键硬删除评论
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `id`: 评论主键
+///
+/// # 返回值
+/// 成功时返回空
+///
+/// # 错误
+/// 没有对应行时返回 `PlanError::NotFound`，删除失败时返回 `PlanError::Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// comment_delete(conn, id)?;
+/// ```
 pub(super) fn comment_delete(conn: &Connection, id: &str) -> Result<(), PlanError> {
   let sql = format!("DELETE FROM {PLAN_COMMENT_TABLE} WHERE id = ?1");
   let n = conn.execute(&sql, [id]).map_err(|e| db_fail("plan comment delete", e))?;
@@ -559,6 +854,28 @@ pub(super) fn comment_delete(conn: &Connection, id: &str) -> Result<(), PlanErro
   Ok(())
 }
 
+/// 按主键、时间和清单查询未删除计划并填上关联数据
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `id`: 计划主键，空则不限
+/// - `from`: 起始时间，含，空则不限
+/// - `to`: 结束时间，不含，空则不限
+/// - `group_id`: 清单主键，空则不限
+///
+/// # 返回值
+/// 返回按安排时间或创建时间排序的计划，评论留空
+///
+/// # 错误
+/// 查询关联数据失败时返回 `PlanError::Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let plans = query(conn, id, from, to, group_id)?;
+/// ```
 fn query(
   conn: &Connection,
   id: Option<&str>,
@@ -624,6 +941,25 @@ fn query(
   Ok(items)
 }
 
+/// 按排序读取计划步骤
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `plan_id`: 计划主键
+///
+/// # 返回值
+/// 返回步骤列表
+///
+/// # 错误
+/// 查询失败时返回 `PlanError::Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let steps = steps_for(conn, plan_id)?;
+/// ```
 fn steps_for(conn: &Connection, plan_id: &str) -> Result<Vec<PlanStep>, PlanError> {
   let sql = format!("SELECT id, title, done, sort FROM {PLAN_STEP_TABLE} WHERE plan_id = ?1 ORDER BY sort");
   let mut stmt = conn.prepare(&sql).map_err(|e| db_fail("plan steps", e))?;
@@ -635,6 +971,25 @@ fn steps_for(conn: &Connection, plan_id: &str) -> Result<Vec<PlanStep>, PlanErro
   rows.collect::<Result<Vec<_>, _>>().map_err(|e| db_fail("plan steps", e))
 }
 
+/// 读取计划的重复规则
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `plan_id`: 计划主键
+///
+/// # 返回值
+/// 有规则时返回 `Some`，没有时返回 `None`
+///
+/// # 错误
+/// 查询失败时返回 `PlanError::Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let repeat = repeat_for(conn, plan_id)?;
+/// ```
 fn repeat_for(conn: &Connection, plan_id: &str) -> Result<Option<PlanRepeat>, PlanError> {
   let sql = format!("SELECT id, kind, interval, weekdays, until_at FROM {PLAN_REPEAT_TABLE} WHERE plan_id = ?1");
   conn
@@ -651,6 +1006,25 @@ fn repeat_for(conn: &Connection, plan_id: &str) -> Result<Option<PlanRepeat>, Pl
     .map_err(|e| db_fail("plan repeat", e))
 }
 
+/// 按提醒时间读取计划提醒
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `plan_id`: 计划主键
+///
+/// # 返回值
+/// 返回提醒列表
+///
+/// # 错误
+/// 查询失败时返回 `PlanError::Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let reminders = reminders_for(conn, plan_id)?;
+/// ```
 fn reminders_for(conn: &Connection, plan_id: &str) -> Result<Vec<PlanReminder>, PlanError> {
   let sql = format!(
     "SELECT id, remind_at, note, triggered, triggered_at, created_at
@@ -672,6 +1046,25 @@ fn reminders_for(conn: &Connection, plan_id: &str) -> Result<Vec<PlanReminder>, 
   rows.collect::<Result<Vec<_>, _>>().map_err(|e| db_fail("plan reminders", e))
 }
 
+/// 按创建时间读取计划评论
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `plan_id`: 计划主键
+///
+/// # 返回值
+/// 返回评论列表
+///
+/// # 错误
+/// 查询失败时返回 `PlanError::Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let comments = comments_for(conn, plan_id)?;
+/// ```
 fn comments_for(conn: &Connection, plan_id: &str) -> Result<Vec<PlanComment>, PlanError> {
   let sql =
     format!("SELECT id, body, created_at, updated_at FROM {PLAN_COMMENT_TABLE} WHERE plan_id = ?1 ORDER BY created_at");
@@ -684,6 +1077,25 @@ fn comments_for(conn: &Connection, plan_id: &str) -> Result<Vec<PlanComment>, Pl
   rows.collect::<Result<Vec<_>, _>>().map_err(|e| db_fail("plan comments", e))
 }
 
+/// 按主键读取评论
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `id`: 评论主键
+///
+/// # 返回值
+/// 返回评论
+///
+/// # 错误
+/// 没有对应行时返回 `PlanError::NotFound`，查询失败时返回 `PlanError::Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let comment = comment_get(conn, id)?;
+/// ```
 fn comment_get(conn: &Connection, id: &str) -> Result<PlanComment, PlanError> {
   let sql = format!("SELECT id, body, created_at, updated_at FROM {PLAN_COMMENT_TABLE} WHERE id = ?1");
   conn
@@ -696,6 +1108,26 @@ fn comment_get(conn: &Connection, id: &str) -> Result<PlanComment, PlanError> {
     })
 }
 
+/// 删掉原步骤并按传入顺序重新插入
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `plan_id`: 计划主键
+/// - `steps`: 新的步骤
+///
+/// # 返回值
+/// 成功时返回空
+///
+/// # 错误
+/// 写入失败时返回 `PlanError::Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// replace_steps(conn, plan_id, steps)?;
+/// ```
 fn replace_steps(conn: &Connection, plan_id: &str, steps: &[PlanStepInput]) -> Result<(), PlanError> {
   let sql = format!("DELETE FROM {PLAN_STEP_TABLE} WHERE plan_id = ?1");
   conn.execute(&sql, [plan_id]).map_err(|e| db_fail("plan steps", e))?;
@@ -708,6 +1140,27 @@ fn replace_steps(conn: &Connection, plan_id: &str, steps: &[PlanStepInput]) -> R
   Ok(())
 }
 
+/// 删掉原提醒并重新插入为未触发
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `plan_id`: 计划主键
+/// - `reminders`: 新的提醒
+/// - `now`: 创建时间
+///
+/// # 返回值
+/// 成功时返回空
+///
+/// # 错误
+/// 写入失败时返回 `PlanError::Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// replace_reminders(conn, plan_id, reminders, now)?;
+/// ```
 fn replace_reminders(
   conn: &Connection,
   plan_id: &str,
@@ -728,6 +1181,27 @@ fn replace_reminders(
   Ok(())
 }
 
+/// 删掉原重复规则并插入新规则
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `plan_id`: 计划主键
+/// - `repeat`: 新的重复规则
+/// - `now`: 写入时间
+///
+/// # 返回值
+/// 成功时返回空
+///
+/// # 错误
+/// 写入失败时返回 `PlanError::Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// replace_repeat(conn, plan_id, repeat, now)?;
+/// ```
 fn replace_repeat(conn: &Connection, plan_id: &str, repeat: &PlanRepeatInput, now: i64) -> Result<(), PlanError> {
   let sql = format!("DELETE FROM {PLAN_REPEAT_TABLE} WHERE plan_id = ?1");
   conn.execute(&sql, [plan_id]).map_err(|e| db_fail("plan repeat", e))?;
@@ -744,6 +1218,28 @@ fn replace_repeat(conn: &Connection, plan_id: &str, repeat: &PlanRepeatInput, no
   Ok(())
 }
 
+/// 按传入列表替换计划的成员、标签和地点
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `id`: 计划主键
+/// - `member_ids`: 成员主键，空则不改
+/// - `tag_ids`: 标签主键，空则不改
+/// - `place_ids`: 地点主键，空则不改
+///
+/// # 返回值
+/// 成功时返回空
+///
+/// # 错误
+/// 引用不存在时返回 `PlanError::ReferencedMissing`，其余失败返回 `PlanError::Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// replace_refs(conn, id, member_ids, tag_ids, place_ids)?;
+/// ```
 fn replace_refs(
   conn: &Connection,
   id: &str,
@@ -764,6 +1260,25 @@ fn replace_refs(
   Ok(())
 }
 
+/// 清除计划的成员、标签、地点和媒体引用
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `id`: 计划主键
+///
+/// # 返回值
+/// 成功时返回空
+///
+/// # 错误
+/// 清除失败时返回 `PlanError::Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// clear_refs(conn, id)?;
+/// ```
 fn clear_refs(conn: &Connection, id: &str) -> Result<(), PlanError> {
   let owner = Owner::Plan.as_str();
   crate::member::clear(conn, owner, id).map_err(|_| PlanError::Internal)?;
@@ -773,6 +1288,21 @@ fn clear_refs(conn: &Connection, id: &str) -> Result<(), PlanError> {
   Ok(())
 }
 
+/// 把引用错误映射成计划错误
+///
+/// # 参数
+/// - `err`: 引用模块返回的错误
+///
+/// # 返回值
+/// 文本为「引用不存在」时返回 `ReferencedMissing`，否则返回 `Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let err = ref_err(source);
+/// ```
 fn ref_err<E: std::fmt::Display>(err: E) -> PlanError {
   let text = err.to_string();
   if text == "引用不存在" { PlanError::ReferencedMissing } else { PlanError::Internal }

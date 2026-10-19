@@ -1,6 +1,24 @@
 //! 中文 / 阿拉伯
 
-/// 解析常见中文数字 / 阿拉伯数字（约 1–9999）
+/// 解析阿拉伯数字或中文数字
+///
+/// 先去掉首尾空白。空串返回 `None`。能按十进制 `u32` 解析时直接返回，否则交给中文数字解析。
+///
+/// # 参数
+/// - `s`: 数字文本
+///
+/// # 返回值
+/// 解析成功返回整数，否则返回 `None`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// assert_eq!(parse_chinese_or_arabic("12"), Some(12));
+/// assert_eq!(parse_chinese_or_arabic("十二"), Some(12));
+/// assert_eq!(parse_chinese_or_arabic(""), None);
+/// ```
 pub(super) fn parse_chinese_or_arabic(s: &str) -> Option<u32> {
   let s = s.trim();
   if s.is_empty() {
@@ -12,6 +30,26 @@ pub(super) fn parse_chinese_or_arabic(s: &str) -> Option<u32> {
   parse_chinese_num(s)
 }
 
+/// 把中文数字字符串解析成整数
+///
+/// 纯阿拉伯数字直接按 `u32` 解析。中文逐字累计：零到九写入当前数，十、百、千写入节，万、亿进位到总计。没有任何有效数字字符时返回 `None`。末尾余数在上一单位大于 10 且不超过 1000、并且原文不含「零」时，按上一单位的十分之一补位。
+///
+/// # 参数
+/// - `s`: 中文或阿拉伯数字文本
+///
+/// # 返回值
+/// 解析成功返回整数，否则返回 `None`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// assert_eq!(parse_chinese_num("十"), Some(10));
+/// assert_eq!(parse_chinese_num("二十三"), Some(23));
+/// assert_eq!(parse_chinese_num("一百零一"), Some(101));
+/// assert_eq!(parse_chinese_num("abc"), None);
+/// ```
 pub(super) fn parse_chinese_num(s: &str) -> Option<u32> {
   // 如果已经是纯阿拉伯数字，直接解析并返回 Some
   if let Ok(num) = s.parse::<u32>() {

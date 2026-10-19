@@ -31,6 +31,21 @@ pub enum JournalError {
 }
 
 impl From<DbError> for JournalError {
+/// 把数据库错误转成手记错误
+///
+/// # 参数
+/// - `err`: 数据库错误
+///
+/// # 返回值
+/// 锁定时返回 `Locked`，其余返回 `Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let err = JournalError::from(DbError::Locked);
+/// ```
   fn from(err: DbError) -> Self {
     match err {
       DbError::Locked => JournalError::Locked,
@@ -40,6 +55,24 @@ impl From<DbError> for JournalError {
 }
 
 impl Serialize for JournalError {
+/// 把手记错误序列化成错误文本
+///
+/// # 参数
+/// - `serializer`: 序列化器
+///
+/// # 返回值
+/// 成功时返回序列化器的完成值
+///
+/// # 错误
+/// 序列化器拒绝写入时返回其错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let text = serde_json::to_string(&JournalError::NotFound);
+/// ```
   fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
     serializer.serialize_str(&self.to_string())
   }

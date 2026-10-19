@@ -51,6 +51,30 @@ pub enum FileError {
   Internal,
 }
 
+/// 把输入文件加密写到另一个路径
+///
+/// # 参数
+/// - `input`: 明文文件
+/// - `output`: 密文输出路径
+/// - `password`: 文件密码
+/// - `progress`: 按已处理字节和总长度回调；返回错误时中止
+///
+/// # 返回值
+/// 成功时不返回数据
+///
+/// # 错误
+/// - 密码为空返回 `PasswordEmpty`
+/// - 输入和输出是同一路径返回 `SamePath`
+/// - 打开文件或读取长度失败返回 `Internal`
+/// - 写出密文失败时返回 `encrypt_reader` 给出的 `FileError`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// encrypt_path(input, output, password, &mut |done, total| Ok(()))?;
+/// ```
 pub(crate) fn encrypt_path(
   input: &Path,
   output: &Path,
@@ -63,6 +87,32 @@ pub(crate) fn encrypt_path(
   encrypt_reader(reader, output, password, total, progress)
 }
 
+/// 把加密文件解密写到另一个路径
+///
+/// 总长度按文件长度减去文件头计算，不足头长度时按 0。
+///
+/// # 参数
+/// - `input`: 密文文件
+/// - `output`: 明文输出路径
+/// - `password`: 文件密码
+/// - `progress`: 按已处理字节和总长度回调；返回错误时中止
+///
+/// # 返回值
+/// 成功时不返回数据
+///
+/// # 错误
+/// - 密码为空返回 `PasswordEmpty`
+/// - 输入和输出是同一路径返回 `SamePath`
+/// - 打开文件或读取长度失败返回 `Internal`
+/// - 解密失败时返回 `write_new_file` 传出的 `FileError`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// decrypt_path(input, output, password, &mut |done, total| Ok(()))?;
+/// ```
 pub(crate) fn decrypt_path(
   input: &Path,
   output: &Path,
@@ -76,6 +126,25 @@ pub(crate) fn decrypt_path(
   write_new_file(output, |writer| decrypt_into(&mut reader, writer, password, total, progress))
 }
 
+/// 把字节加密成带 `chacha20` 头的缓冲区
+///
+/// # 参数
+/// - `plaintext`: 明文
+/// - `password`: 文件密码
+///
+/// # 返回值
+/// 魔数、版本、盐、nonce 和密钥流处理后的正文
+///
+/// # 错误
+/// 密码为空返回 `PasswordEmpty`；生成盐、nonce 或派生密钥失败返回 `Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let sealed = encrypt_bytes(b"hello", "password")?;
+/// ```
 pub(crate) fn encrypt_bytes(plaintext: &[u8], password: &str) -> Result<Vec<u8>, FileError> {
   if password.is_empty() {
     return Err(FileError::PasswordEmpty);
@@ -94,6 +163,33 @@ pub(crate) fn encrypt_bytes(plaintext: &[u8], password: &str) -> Result<Vec<u8>,
   Ok(out)
 }
 
+/// 按文件头解开内存中的密文
+///
+/// 密码不对时不会返回错误，只会得到另一串字节。
+///
+/// # 参数
+/// - `encrypted`: 带文件头的密文
+/// - `password`: 文件密码
+///
+/// # 返回值
+/// 密钥流处理后的正文
+///
+/// # 错误
+/// - 密码为空返回 `PasswordEmpty`
+/// - 短于文件头返回 `Truncated`
+/// - 魔数不符返回 `BadMagic`
+/// - 版本不符返回 `BadVersion`
+/// - 盐或 nonce 切片无法转成定长数组时返回 `Truncated`
+/// - 派生密钥失败返回 `Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// assert!(matches!(decrypt_bytes(b"short", "password"), Err(FileError::Truncated)));
+/// assert!(matches!(decrypt_bytes(b"short", ""), Err(FileError::PasswordEmpty)));
+/// ```
 pub(crate) fn decrypt_bytes(encrypted: &[u8], password: &str) -> Result<Vec<u8>, FileError> {
   if password.is_empty() {
     return Err(FileError::PasswordEmpty);
@@ -117,6 +213,26 @@ pub(crate) fn decrypt_bytes(encrypted: &[u8], password: &str) -> Result<Vec<u8>,
   Ok(plain)
 }
 
+/// 拒绝空密码和同一路径上的输入输出
+///
+/// # 参数
+/// - `input`: 输入路径
+/// - `output`: 输出路径
+/// - `password`: 文件密码
+///
+/// # 返回值
+/// 通过时不返回数据
+///
+/// # 错误
+/// 密码为空返回 `PasswordEmpty`；两条路径相同返回 `SamePath`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// check_request(input, output, password)?;
+/// ```
 fn check_request(input: &Path, output: &Path, password: &str) -> Result<(), FileError> {
   if password.is_empty() {
     return Err(FileError::PasswordEmpty);
@@ -127,6 +243,24 @@ fn check_request(input: &Path, output: &Path, password: &str) -> Result<(), File
   Ok(())
 }
 
+/// 判断两个路径是不是同一个文件
+///
+/// 原始路径相等时直接返回 true。两边都能规范化时再比较规范化结果；任一侧失败则返回 false。
+///
+/// # 参数
+/// - `input`: 输入路径
+/// - `output`: 输出路径
+///
+/// # 返回值
+/// 视为同一路径时为 true
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let same = same_path(input, output);
+/// ```
 fn same_path(input: &Path, output: &Path) -> bool {
   if input == output {
     return true;
@@ -137,6 +271,28 @@ fn same_path(input: &Path, output: &Path) -> bool {
   }
 }
 
+/// 生成盐和 nonce，把读入的明文加密写到新文件
+///
+/// # 参数
+/// - `reader`: 明文来源
+/// - `output`: 密文输出路径
+/// - `password`: 文件密码
+/// - `total`: 进度回调使用的总长度
+/// - `progress`: 按已处理字节和总长度回调
+///
+/// # 返回值
+/// 成功时不返回数据
+///
+/// # 错误
+/// 生成盐或 nonce 失败返回 `Internal`；写文件失败时返回 `write_new_file` 传出的 `FileError`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// encrypt_reader(reader, output, password, total, progress)?;
+/// ```
 fn encrypt_reader(
   reader: impl Read,
   output: &Path,
@@ -156,6 +312,28 @@ fn encrypt_reader(
   })
 }
 
+/// 读文件头后把正文解密写到已打开的文件
+///
+/// # 参数
+/// - `reader`: 已打开的密文
+/// - `writer`: 明文输出文件
+/// - `password`: 文件密码
+/// - `total`: 进度回调使用的总长度
+/// - `progress`: 按已处理字节和总长度回调
+///
+/// # 返回值
+/// 成功时不返回数据
+///
+/// # 错误
+/// 文件头、派生密钥或密钥流处理失败时返回对应的 `FileError`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// decrypt_into(&mut reader, writer, password, total, progress)?;
+/// ```
 fn decrypt_into(
   reader: &mut impl Read,
   writer: &mut File,
@@ -168,6 +346,25 @@ fn decrypt_into(
   apply_stream(reader, writer, &key, &nonce, total, progress)
 }
 
+/// 创建输出文件并执行写入；失败时删掉该文件
+///
+/// # 参数
+/// - `output`: 输出路径
+/// - `body`: 拿到新文件后要执行的写入
+///
+/// # 返回值
+/// 成功时不返回数据
+///
+/// # 错误
+/// 创建文件失败返回 `Internal`；`body` 失败时删除输出文件并返回原来的 `FileError`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// write_new_file(output, |file| Ok(()))?;
+/// ```
 fn write_new_file(output: &Path, body: impl FnOnce(&mut File) -> Result<(), FileError>) -> Result<(), FileError> {
   let mut file = File::create(output).map_err(io_fail)?;
   let result = body(&mut file);
@@ -178,6 +375,26 @@ fn write_new_file(output: &Path, body: impl FnOnce(&mut File) -> Result<(), File
   result
 }
 
+/// 读取并核对魔数、版本、盐和 nonce
+///
+/// # 参数
+/// - `reader`: 密文读取器
+///
+/// # 返回值
+/// 成功时返回盐和 nonce
+///
+/// # 错误
+/// - 读不满返回 `Truncated` 或其他 `read_exact` 错误
+/// - 魔数不符返回 `BadMagic`
+/// - 版本不符返回 `BadVersion`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let (salt, nonce) = read_header(&mut reader)?;
+/// ```
 fn read_header(reader: &mut impl Read) -> Result<([u8; SALT_LEN], [u8; NONCE_LEN]), FileError> {
   let mut magic = [0u8; MAGIC.len()];
   let mut version = [0u8; VERSION.len()];
@@ -196,12 +413,56 @@ fn read_header(reader: &mut impl Read) -> Result<([u8; SALT_LEN], [u8; NONCE_LEN
   Ok((salt, nonce))
 }
 
+/// 读满缓冲区，并把提前结束区分出来
+///
+/// # 参数
+/// - `reader`: 密文读取器
+/// - `buf`: 要填满的缓冲区
+///
+/// # 返回值
+/// 成功时不返回数据
+///
+/// # 错误
+/// `UnexpectedEof` 返回 `Truncated`；其他读错误返回 `Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// read_exact(&mut reader, &mut buf)?;
+/// ```
 fn read_exact(reader: &mut impl Read, buf: &mut [u8]) -> Result<(), FileError> {
   reader.read_exact(buf).map_err(|err| {
     if err.kind() == io::ErrorKind::UnexpectedEof { FileError::Truncated } else { io_fail(err) }
   })
 }
 
+/// 按块把密钥流作用到读入的数据并写出
+///
+/// 总长度为 0 时仍先回调一次 `(0, 0)`。读到 0 字节后刷出写入端。
+///
+/// # 参数
+/// - `reader`: 数据来源
+/// - `writer`: 数据去向
+/// - `key`: 32 字节密钥
+/// - `nonce`: 12 字节 nonce
+/// - `total`: 进度回调使用的总长度
+/// - `progress`: 按已处理字节和总长度回调
+///
+/// # 返回值
+/// 成功时不返回数据
+///
+/// # 错误
+/// 读、写或刷出失败返回 `Internal`；回调返回的 `FileError` 原样传出
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// apply_stream(reader, writer, key, nonce, total, progress)?;
+/// ```
 fn apply_stream(
   mut reader: impl Read,
   mut writer: impl Write,
@@ -229,12 +490,55 @@ fn apply_stream(
   Ok(())
 }
 
+/// 从给定偏移把 ChaCha20 密钥流作用到缓冲区
+///
+/// # 参数
+/// - `data`: 就地处理的字节
+/// - `offset`: 密钥流起始偏移
+/// - `key`: 32 字节密钥
+/// - `nonce`: 12 字节 nonce
+///
+/// # 返回值
+/// 不返回数据
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let mut data = b"hello".to_vec();
+/// let key = [1u8; 32];
+/// let nonce = [2u8; 12];
+/// apply_at(&mut data, 0, &key, &nonce);
+/// apply_at(&mut data, 0, &key, &nonce);
+/// assert_eq!(data, b"hello");
+/// ```
 fn apply_at(data: &mut [u8], offset: u64, key: &[u8; KEY_LEN], nonce: &[u8; NONCE_LEN]) {
   let mut cipher = ChaCha20::new(key.into(), nonce.into());
   cipher.seek(offset);
   cipher.apply_keystream(data);
 }
 
+/// 用固定的 Argon2id 参数从密码和盐派生 32 字节密钥
+///
+/// # 参数
+/// - `password`: 文件密码
+/// - `salt`: 盐
+///
+/// # 返回值
+/// 成功时返回会在丢弃时清零的密钥
+///
+/// # 错误
+/// 参数无法构造或哈希失败时返回 `Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let key = derive_key("password", b"salt").unwrap();
+/// assert_eq!(key.len(), 32);
+/// ```
 fn derive_key(password: &str, salt: &[u8]) -> Result<Zeroizing<[u8; KEY_LEN]>, FileError> {
   let params = Params::new(KDF_M_KIB, KDF_T, KDF_P, Some(KEY_LEN)).map_err(|_| FileError::Internal)?;
   let argon2 = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
@@ -243,12 +547,42 @@ fn derive_key(password: &str, salt: &[u8]) -> Result<Zeroizing<[u8; KEY_LEN]>, F
   Ok(key)
 }
 
+/// 从系统随机源生成 `N` 字节
+///
+/// # 返回值
+/// 成功时返回字节数组
+///
+/// # 错误
+/// 随机源失败时返回 `Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let salt = random_bytes::<16>()?;
+/// ```
 fn random_bytes<const N: usize>() -> Result<[u8; N], FileError> {
   let mut buf = [0u8; N];
   SysRng.try_fill_bytes(&mut buf).map_err(|_| FileError::Internal)?;
   Ok(buf)
 }
 
+/// 记下 I/O 错误并返回 `Internal`
+///
+/// # 参数
+/// - `err`: 标准库 I/O 错误
+///
+/// # 返回值
+/// `FileError::Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let err = io_fail(io::Error::other("boom"));
+/// ```
 fn io_fail(err: io::Error) -> FileError {
   tauri_plugin_log::log::error!("file cipher: {err}");
   FileError::Internal

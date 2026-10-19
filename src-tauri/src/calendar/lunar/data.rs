@@ -84,7 +84,18 @@ pub const ZHI_SHEN_NAMES: [&str; 12] =
 pub const JIAN_CHU_NAMES: [&str; 12] =
   ["建日", "除日", "满日", "平日", "定日", "执日", "破日", "危日", "成日", "收日", "开日", "闭日"];
 
-/// 当日宜忌数据
+/// 加载并缓存当日宜忌字典
+///
+/// # 返回值
+/// 返回缓存的字典，解析失败时为空表
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let dict = daily_suit_avoid_dict();
+/// ```
 pub fn daily_suit_avoid_dict() -> &'static std::collections::HashMap<String, DailySuitAvoid> {
   use std::collections::HashMap;
   use std::sync::OnceLock;
@@ -107,7 +118,18 @@ pub struct DailySuitAvoid {
   pub ji: String,
 }
 
-/// 六十甲子 × 十二时辰宜忌
+/// 加载并缓存六十甲子时辰宜忌
+///
+/// # 返回值
+/// 返回缓存的条目，解析失败时为空表
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let rows = almanac_core_dict();
+/// ```
 pub fn almanac_core_dict() -> &'static [AlmanacCoreEntry] {
   use std::sync::OnceLock;
   static CACHE: OnceLock<Vec<AlmanacCoreEntry>> = OnceLock::new();
@@ -145,7 +167,18 @@ pub struct AlmanacCoreEntry {
   pub ji11: String,
 }
 
-/// 吉神宜趋、凶神宜忌 (神煞) 字典，key 为 "月建码-日干支" 如 "1-甲子"
+/// 加载并缓存吉神凶神字典
+///
+/// # 返回值
+/// 返回缓存的字典，解析失败时为空表
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let dict = auspicious_gods_dict();
+/// ```
 pub fn auspicious_gods_dict() -> &'static std::collections::HashMap<String, ShenShaEntry> {
   use std::collections::HashMap;
   use std::sync::OnceLock;
@@ -161,7 +194,18 @@ pub struct ShenShaEntry {
   pub xsyj: String,
 }
 
-/// 节气偏移数据 - 从 terms_offset.txt 解析
+/// 加载并缓存节气偏移
+///
+/// # 返回值
+/// 返回解析出的偏移，无法解析的片段被跳过
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let offsets = terms_offset();
+/// ```
 pub fn terms_offset() -> &'static [u16] {
   use std::sync::OnceLock;
   static CACHE: OnceLock<Vec<u16>> = OnceLock::new();
@@ -169,7 +213,21 @@ pub fn terms_offset() -> &'static [u16] {
     .get_or_init(|| include_str!("./data/terms_offset.txt").split(',').filter_map(|s| s.trim().parse().ok()).collect())
 }
 
-/// 纳音五行 lookup
+/// 按干支查纳音
+///
+/// # 参数
+/// - `gz`: 干支
+///
+/// # 返回值
+/// 查到时返回纳音，否则返回空字符串
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let nayin = get_nayin("甲子");
+/// ```
 pub fn get_nayin(gz: &str) -> String {
   const MAP: [(&str, &str); 60] = [
     ("甲子", "海中金"),
@@ -236,7 +294,21 @@ pub fn get_nayin(gz: &str) -> String {
   MAP.iter().find(|(k, _)| *k == gz).map(|(_, v)| (*v).to_string()).unwrap_or_default()
 }
 
-/// 天干 → 五行
+/// 按天干查五行
+///
+/// # 参数
+/// - `gan`: 天干
+///
+/// # 返回值
+/// 查到时返回五行，否则返回空字符串
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let wx = gan_to_wuxing("甲");
+/// ```
 pub fn gan_to_wuxing(gan: &str) -> String {
   const MAP: [(&str, &str); 10] = [
     ("甲", "木"),
@@ -253,7 +325,21 @@ pub fn gan_to_wuxing(gan: &str) -> String {
   MAP.iter().find(|(k, _)| *k == gan).map(|(_, v)| (*v).to_string()).unwrap_or_default()
 }
 
-/// 地支 → 五行
+/// 按地支查五行
+///
+/// # 参数
+/// - `zhi`: 地支
+///
+/// # 返回值
+/// 查到时返回五行，否则返回空字符串
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let wx = zhi_to_wuxing("子");
+/// ```
 pub fn zhi_to_wuxing(zhi: &str) -> String {
   const MAP: [(&str, &str); 12] = [
     ("子", "水"),
@@ -272,7 +358,18 @@ pub fn zhi_to_wuxing(zhi: &str) -> String {
   MAP.iter().find(|(k, _)| *k == zhi).map(|(_, v)| (*v).to_string()).unwrap_or_default()
 }
 
-/// 胎神方位字典 (宜避)，key 为 "月建码-日干支" 如 "1-甲子"
+/// 加载并缓存胎神方位字典
+///
+/// # 返回值
+/// 返回缓存的字典，解析失败时为空表
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let dict = inuspicious_gods_dict();
+/// ```
 pub fn inuspicious_gods_dict() -> &'static std::collections::HashMap<String, String> {
   use std::collections::HashMap;
   use std::sync::OnceLock;

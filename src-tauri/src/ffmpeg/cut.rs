@@ -1,4 +1,5 @@
-//! 视频裁剪：按时间段编码后无损拼接
+//! 视频裁剪：逐段编码，再无损拼起来。编码参数只作用在前面的编码上。
+//! 帧率、尺寸、音轨规则和转码相同。标题和字幕按成片时间换算到各片段。
 
 use std::fs::File;
 use std::io::Write;
@@ -13,14 +14,57 @@ use crate::ffmpeg::models::{
   RatePolicy, TimeSegment, VideoContainer, VideoEncode, VideoParams, encode_args, ensure_audio, plan_audio, push_output,
 };
 use crate::ffmpeg::utils::{FfmpegNotes, parse_duration_str, parse_time_from_ffmpeg_output};
+use crate::sidecar::cache::{clear_cache_temp_dir, get_cache_temp_dir};
 use crate::sidecar::{SidecarError, SidecarResult, clear_current_child, secure_spawn_step};
 use crate::task::JobCtx;
-use crate::utils::cache::{clear_cache_temp_dir, get_cache_temp_dir};
 
+/// 把片段时间文本解析成秒
+///
+/// # 参数
+/// - `raw`: `HH:MM:SS` 或秒数文本
+///
+/// # 返回值
+/// 成功时返回秒数
+///
+/// # 错误
+/// 解析失败时返回 `SidecarError::Invalid`，消息以「无效的片段时间:」开头
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// assert!(matches!(segment_seconds("00:00:01"), Ok(v) if v == 1.0));
+/// ```
 fn segment_seconds(raw: &str) -> SidecarResult<f64> {
   parse_duration_str(raw).ok_or_else(|| SidecarError::invalid(format!("无效的片段时间: {raw}")))
 }
 
+/// 逐段转码后再无损拼成输出文件
+///
+/// 片段编码关掉 faststart。HEVC 写入 MP4 或 MOV 时拼接加上 `hvc1`。faststart 只在最后拼接、且容器是 MP4 或 MOV 时加上。取消或失败时清掉临时目录。
+///
+/// # 参数
+/// - `app`: Tauri 应用句柄
+/// - `job`: 任务执行期句柄
+/// - `video_path`: 源视频
+/// - `output_path`: 输出路径
+/// - `segments`: 时间片段
+/// - `encode`: 编码配置
+///
+/// # 返回值
+/// 成功时无额外值
+///
+/// # 错误
+/// 时间无效、没有音轨、没有裁出视频、取消、启动失败、非 0 退出或写清单失败时返回 `SidecarError`。时间无效和没有片段是 `Invalid`，取消是 `Canceled`，启动失败是 `Spawn`，非 0 退出是 `Exit`，写清单失败是 `Io`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// run_cut(app, job, video_path, output_path, segments, encode).await?;
+/// ```
 pub async fn run_cut(
   app: &tauri::AppHandle,
   job: &JobCtx,
@@ -209,6 +253,23 @@ pub async fn run_cut(
   Ok(())
 }
 
+/// 返回容器对应的临时文件扩展名
+///
+/// MP4 是 `mp4`，MOV 是 `mov`，MPEG-TS 是 `ts`。
+///
+/// # 参数
+/// - `container`: 写出容器
+///
+/// # 返回值
+/// 扩展名
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// assert_eq!(extension(VideoContainer::MpegTs), "ts");
+/// ```
 fn extension(container: VideoContainer) -> &'static str {
   match container {
     VideoContainer::Mp4 => "mp4",

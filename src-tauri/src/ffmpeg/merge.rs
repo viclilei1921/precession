@@ -1,4 +1,6 @@
 //! 视频合并：统一分辨率和帧率后拼成一条。
+//! 帧率取各段的上中位数，忽略传入值。尺寸空则取最大宽高并补边。
+//! 每段各选一条音轨，再用 `aresample`、`aformat` 统一到 48000 和同一声道数。标题和字幕每段各烧。
 
 use tauri_plugin_shell::ShellExt;
 use tauri_plugin_shell::process::CommandEvent;
@@ -9,9 +11,9 @@ use crate::ffmpeg::models::{
   AudioMode, AudioPlan, RatePolicy, VideoEncode, VideoInfo, encode_args, plan_audio, push_output,
 };
 use crate::ffmpeg::utils::{FfmpegNotes, calculate_target_params, parse_time_from_ffmpeg_output};
+use crate::sidecar::cache::clear_cache_temp_dir;
 use crate::sidecar::{SidecarError, SidecarResult, clear_current_child, secure_spawn_step};
 use crate::task::JobCtx;
-use crate::utils::cache::clear_cache_temp_dir;
 
 struct Piece {
   path: String,
@@ -19,6 +21,30 @@ struct Piece {
   audio: AudioPlan,
 }
 
+/// 把多段视频收成同一画面和帧率后拼成一条
+///
+/// 读失败的输入只记日志并跳过。未指定声道且不是丢掉音频时，全是单声道就用 1，否则用 2。帧率用上中位数，不大于 0 时用 30。进度消息带上当前段的文件名。
+///
+/// # 参数
+/// - `app`: Tauri 应用句柄
+/// - `job`: 任务执行期句柄
+/// - `inputs`: 源视频
+/// - `output_path`: 输出路径
+/// - `encode`: 编码配置
+///
+/// # 返回值
+/// 成功时无额外值
+///
+/// # 错误
+/// 输入为空、没有可读取的视频、要保留音频但某段没有音轨、滤镜为空、取消、启动失败或非 0 退出时返回 `SidecarError`。前四项是 `Invalid`，取消是 `Canceled`，启动失败是 `Spawn`，非 0 退出是 `Exit`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// run_merge_smart(app, job, inputs, output_path, encode).await?;
+/// ```
 pub async fn run_merge_smart(
   app: &tauri::AppHandle,
   job: &JobCtx,
@@ -184,6 +210,24 @@ pub async fn run_merge_smart(
   Ok(())
 }
 
+/// 按累计时长找出当前时间落在哪一段，返回它的文件名
+///
+/// 时间不落在任一段时，返回第一段的文件名；一段都没有则返回空字符串。
+///
+/// # 参数
+/// - `pieces`: 已读到的片段
+/// - `current_time`: 成片上的当前秒数
+///
+/// # 返回值
+/// 文件名
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let name = name_at(&pieces, 0.0);
+/// ```
 fn name_at(pieces: &[Piece], current_time: f64) -> String {
   let mut elapsed = 0.0;
   for piece in pieces {

@@ -46,7 +46,31 @@ pub struct ResolvedHref {
   pub fragment: Option<String>,
 }
 
-/// 解析 nav.xhtml（对应 epub.js parseNav）
+/// 解析 nav 文档里的导航列表
+///
+/// 遍历所有 `nav`。按 `epub:type` 或 `type` 把第一份 `toc`、`page-list`、`landmarks` 放进对应字段，其余放进 `others`，标签取该 `nav` 第一个子元素的文本。
+///
+/// # 参数
+/// - `xhtml`: nav 文档文本
+/// - `nav_href`: 解析条目相对链接用的基准路径
+///
+/// # 返回值
+/// 成功返回导航文档
+///
+/// # 错误
+/// XML 解析失败时返回 `Err`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let xhtml = r#"<nav epub:type="toc"><ol><li><a href="c.xhtml">章</a></li></ol></nav>"#;
+/// let doc = parse_nav_document(xhtml, "nav.xhtml").unwrap();
+/// assert_eq!(doc.toc.len(), 1);
+/// assert_eq!(doc.toc[0].label, "章");
+/// assert_eq!(doc.toc[0].href.as_deref(), Some("c.xhtml"));
+/// ```
 pub fn parse_nav_document(xhtml: &str, nav_href: &str) -> Result<NavDoc, EpubError> {
   let doc = Document::parse(xhtml).map_err(|e| EpubError(format!("nav 解析失败: {}", e)))?;
   let mut out = NavDoc::default();
@@ -75,7 +99,31 @@ pub fn parse_nav_document(xhtml: &str, nav_href: &str) -> Result<NavDoc, EpubErr
   Ok(out)
 }
 
-/// 解析 NCX（对应 epub.js parseNCX）
+/// 解析 NCX 文档里的导航列表
+///
+/// `navMap` 下的 `navPoint` 进入目录，`pageList` 下的 `pageTarget` 进入页码列表。每个 `navList` 用其中 `navLabel/text` 作标签，子级 `navTarget` 作列表，放进 `others`。
+///
+/// # 参数
+/// - `xml`: NCX 文本
+/// - `ncx_href`: 解析 `content src` 用的基准路径
+///
+/// # 返回值
+/// 成功返回 NCX 文档
+///
+/// # 错误
+/// XML 解析失败时返回 `Err`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let xml = r#"<ncx><navMap><navPoint><navLabel><text>章</text></navLabel><content src="c.xhtml"/></navPoint></navMap></ncx>"#;
+/// let doc = parse_ncx_document(xml, "toc.ncx").unwrap();
+/// assert_eq!(doc.toc.len(), 1);
+/// assert_eq!(doc.toc[0].label, "章");
+/// assert_eq!(doc.toc[0].href.as_deref(), Some("c.xhtml"));
+/// ```
 pub fn parse_ncx_document(xml: &str, ncx_href: &str) -> Result<NcxDoc, EpubError> {
   let doc = Document::parse(xml).map_err(|e| EpubError(format!("ncx 解析失败: {}", e)))?;
   let mut out = NcxDoc::default();
@@ -116,7 +164,32 @@ pub fn parse_ncx_document(xml: &str, ncx_href: &str) -> Result<NcxDoc, EpubError
   Ok(out)
 }
 
-/// 在 TOC 列表中按 href 查找最匹配项（返回 flatten 后的索引）
+/// 在导航项里按链接查找最匹配的一项
+///
+/// 先把树按先序摊平。路径相同且片段也相同则立即返回；目标没有片段时，返回第一个路径相同的项。
+///
+/// # 参数
+/// - `items`: 导航树
+/// - `href`: 要查找的链接，可带 `#` 片段
+///
+/// # 返回值
+/// 找到时返回摊平后的下标、路径和片段，否则返回 `None`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let items = [NavItem {
+///   label: "章".to_string(),
+///   href: Some("c.xhtml#a".to_string()),
+///   subitems: Vec::new(),
+///   type_props: Vec::new(),
+/// }];
+/// let hit = resolve_href_in_nav(&items, "c.xhtml#a").unwrap();
+/// assert_eq!(hit.index, 0);
+/// assert_eq!(hit.fragment.as_deref(), Some("a"));
+/// ```
 pub fn resolve_href_in_nav(items: &[NavItem], href: &str) -> Option<ResolvedHref> {
   let (want_path, want_frag) = split_toc_href(href);
   let flat = flatten_nav(items);
@@ -137,6 +210,29 @@ pub fn resolve_href_in_nav(items: &[NavItem], href: &str) -> Option<ResolvedHref
   None
 }
 
+/// 解析 nav 下第一层 ol 里的 li
+///
+/// 没有 `ol` 时返回空列表。
+///
+/// # 参数
+/// - `nav`: `nav` 元素
+/// - `nav_href`: 解析链接用的基准路径
+/// - `with_type`: 为真时读取每个链接上的 epub type
+///
+/// # 返回值
+/// 该层列表项
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let doc = roxmltree::Document::parse(r#"<nav><ol><li><a href="c.xhtml">章</a></li></ol></nav>"#).unwrap();
+/// let nav = doc.descendants().find(|n| n.tag_name().name() == "nav").unwrap();
+/// let items = parse_nav_ol(nav, "nav.xhtml", false);
+/// assert_eq!(items.len(), 1);
+/// assert_eq!(items[0].label, "章");
+/// ```
 fn parse_nav_ol(nav: roxmltree::Node<'_, '_>, nav_href: &str, with_type: bool) -> Vec<NavItem> {
   let Some(ol) = nav.children().find(|n| n.is_element() && n.tag_name().name() == "ol") else {
     return Vec::new();
@@ -148,6 +244,29 @@ fn parse_nav_ol(nav: roxmltree::Node<'_, '_>, nav_href: &str, with_type: bool) -
     .collect()
 }
 
+/// 解析一个 li 导航项
+///
+/// 链接和标签取自第一个 `a` 或 `span`。标签优先用非空文本，否则用 `title`。嵌套 `ol` 递归解析。`with_type` 为真时读取该元素的 epub type。
+///
+/// # 参数
+/// - `li`: `li` 元素
+/// - `nav_href`: 解析 `href` 用的基准路径
+/// - `with_type`: 为真时填充 `type_props`
+///
+/// # 返回值
+/// 含标签、链接、子项和类型的导航项
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let doc = roxmltree::Document::parse(r#"<li><a href="c.xhtml">章</a></li>"#).unwrap();
+/// let li = doc.descendants().find(|n| n.tag_name().name() == "li").unwrap();
+/// let item = parse_nav_li(li, "nav.xhtml", false);
+/// assert_eq!(item.label, "章");
+/// assert_eq!(item.href.as_deref(), Some("c.xhtml"));
+/// ```
 fn parse_nav_li(li: roxmltree::Node<'_, '_>, nav_href: &str, with_type: bool) -> NavItem {
   let a_or_span =
     li.children().find(|n| n.is_element() && (n.tag_name().name() == "a" || n.tag_name().name() == "span"));
@@ -174,6 +293,31 @@ fn parse_nav_li(li: roxmltree::Node<'_, '_>, nav_href: &str, with_type: bool) ->
   NavItem { label, href, subitems, type_props }
 }
 
+/// 解析一个 NCX 导航节点
+///
+/// 标签取自子级 `navLabel` 里的 `text`。链接取自子级 `content` 的 `src`。节点本身是 `navPoint` 时，子级 `navPoint` 递归成为子项。
+///
+/// # 参数
+/// - `node`: `navPoint`、`pageTarget` 或 `navTarget`
+/// - `ncx_href`: 解析 `src` 用的基准路径
+///
+/// # 返回值
+/// 导航项，`type_props` 为空
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let doc = roxmltree::Document::parse(
+///   r#"<navPoint><navLabel><text>章</text></navLabel><content src="c.xhtml"/></navPoint>"#,
+/// )
+/// .unwrap();
+/// let node = doc.descendants().find(|n| n.tag_name().name() == "navPoint").unwrap();
+/// let item = parse_ncx_item(node, "toc.ncx");
+/// assert_eq!(item.label, "章");
+/// assert_eq!(item.href.as_deref(), Some("c.xhtml"));
+/// ```
 fn parse_ncx_item(node: roxmltree::Node<'_, '_>, ncx_href: &str) -> NavItem {
   let label = node
     .children()
@@ -203,6 +347,36 @@ fn parse_ncx_item(node: roxmltree::Node<'_, '_>, ncx_href: &str) -> NavItem {
   NavItem { label, href, subitems, type_props: Vec::new() }
 }
 
+/// 按先序把导航树摊平
+///
+/// 先放入当前项，再递归放入其子项。
+///
+/// # 参数
+/// - `items`: 导航树
+///
+/// # 返回值
+/// 先序排列的导航项副本
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let items = [NavItem {
+///   label: "父".to_string(),
+///   href: None,
+///   subitems: vec![NavItem {
+///     label: "子".to_string(),
+///     href: None,
+///     subitems: Vec::new(),
+///     type_props: Vec::new(),
+///   }],
+///   type_props: Vec::new(),
+/// }];
+/// let flat = flatten_nav(&items);
+/// assert_eq!(flat.len(), 2);
+/// assert_eq!(flat[1].label, "子");
+/// ```
 fn flatten_nav(items: &[NavItem]) -> Vec<NavItem> {
   let mut out = Vec::new();
   for item in items {
@@ -212,10 +386,48 @@ fn flatten_nav(items: &[NavItem]) -> Vec<NavItem> {
   out
 }
 
+/// 读取元素上的 epub type 列表
+///
+/// 没有可用属性时返回空列表。
+///
+/// # 参数
+/// - `node`: 要读取的元素
+///
+/// # 返回值
+/// 按空白拆开的 type 值；没有时为空
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let doc = roxmltree::Document::parse(r#"<nav epub:type="toc landmarks"/>"#).unwrap();
+/// let nav = doc.descendants().find(|n| n.tag_name().name() == "nav").unwrap();
+/// assert_eq!(get_epub_type(nav), vec!["toc".to_string(), "landmarks".to_string()]);
+/// ```
 fn get_epub_type(node: roxmltree::Node<'_, '_>) -> Vec<String> {
   get_epub_type_attr(node).unwrap_or_default()
 }
 
+/// 读取元素上的 epub type 属性
+///
+/// 查找名字为 `type` 或以 `:type` 结尾的属性，按空白拆成非空值。找到非空列表就返回。
+///
+/// # 参数
+/// - `node`: 要读取的元素
+///
+/// # 返回值
+/// 有非空 type 时返回 `Some`，否则返回 `None`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let doc = roxmltree::Document::parse(r#"<nav epub:type="toc"/>"#).unwrap();
+/// let nav = doc.descendants().find(|n| n.tag_name().name() == "nav").unwrap();
+/// assert_eq!(get_epub_type_attr(nav), Some(vec!["toc".to_string()]));
+/// ```
 fn get_epub_type_attr(node: roxmltree::Node<'_, '_>) -> Option<Vec<String>> {
   for attr in node.attributes() {
     if attr.name().ends_with(":type") || attr.name() == "type" {

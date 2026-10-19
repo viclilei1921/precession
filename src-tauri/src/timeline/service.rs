@@ -6,6 +6,27 @@ use crate::db::state::DbState;
 
 const KINDS: &[&str] = &["plan", "diary", "spark", "writing", "milestone", "moment", "excerpt", "note"];
 
+/// 校验类型后按时间范围汇总时间线条目
+///
+/// # 参数
+/// - `db`: 数据库状态
+/// - `from`: 起始发生时间
+/// - `to`: 结束发生时间
+/// - `kinds`: 要包含的类型，未指定时不校验
+///
+/// # 返回值
+/// 返回汇总后的时间线条目
+///
+/// # 错误
+/// 任一类型不在允许列表中时返回类型不正确；查询失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let rows = list(db, from, to, kinds)?;
+/// ```
 pub fn list(
   db: &DbState,
   from: Option<i64>,
@@ -23,6 +44,27 @@ pub fn list(
   db.with_conn(move |conn| list_between(conn, from, to, selected.as_deref()))
 }
 
+/// 按时间范围和类型汇总计划、手记、成长记录和书摘
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `from`: 起始发生时间
+/// - `to`: 结束发生时间
+/// - `kinds`: 要包含的类型，未指定时全部纳入
+///
+/// # 返回值
+/// 返回按发生时间倒序、标识倒序排列的条目；计划的发生时间取计划时间，没有计划时间时取创建时间
+///
+/// # 错误
+/// 任一来源查询失败时返回内部错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let rows = list_between(conn, from, to, kinds)?;
+/// ```
 pub(super) fn list_between(
   conn: &rusqlite::Connection,
   from: Option<i64>,

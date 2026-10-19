@@ -1,4 +1,6 @@
-//! 视频转码：单文件转换
+//! 视频转码：单文件转换。
+//! 容器、编码、音频码率、faststart、帧率、尺寸、音轨都可改。帧率和尺寸空则跟源。标题和字幕烧整片。
+//! 采样率没指定时，44100 和 48000 保持原样，其他值改成 48000。
 
 use tauri_plugin_shell::ShellExt;
 use tauri_plugin_shell::process::CommandEvent;
@@ -10,6 +12,30 @@ use crate::ffmpeg::utils::{FfmpegNotes, parse_time_from_ffmpeg_output};
 use crate::sidecar::{SidecarError, SidecarResult, clear_current_child, secure_spawn_step};
 use crate::task::JobCtx;
 
+/// 把单个视频按编码配置转成输出文件
+///
+/// 音轨序号不存在时改用第一条并记警告。进度按输出里的 `time=` 相对时长上报。退出码 0 视为成功。通道结束且未取消时也返回成功。
+///
+/// # 参数
+/// - `app`: Tauri 应用句柄
+/// - `job`: 任务执行期句柄
+/// - `video_path`: 源视频
+/// - `output_path`: 输出路径
+/// - `encode`: 编码配置
+///
+/// # 返回值
+/// 成功时无额外值
+///
+/// # 错误
+/// 读视频、要保留音频但没有音轨、启动失败、非 0 退出或取消时返回 `SidecarError`。没有音轨是 `Invalid`，启动失败是 `Spawn`，非 0 退出是 `Exit`，取消是 `Canceled`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// run_convert(app, job, video_path, output_path, encode).await?;
+/// ```
 pub async fn run_convert(
   app: &tauri::AppHandle,
   job: &JobCtx,
@@ -88,6 +114,25 @@ pub async fn run_convert(
   Ok(())
 }
 
+/// 写入视频流映射，有音轨序号时再映射那一条
+///
+/// 视频固定 `-map 0:v:0`。音轨写成 `-map 0:{index}?`。
+///
+/// # 参数
+/// - `args`: 参数列表
+/// - `audio`: 音轨计划
+///
+/// # 返回值
+/// 无返回值
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let mut args = Vec::new();
+/// push_maps(&mut args, &audio);
+/// ```
 pub(crate) fn push_maps(args: &mut Vec<String>, audio: &AudioPlan) {
   args.push("-map".to_string());
   args.push("0:v:0".to_string());

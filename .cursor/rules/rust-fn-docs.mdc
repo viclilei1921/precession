@@ -1,0 +1,52 @@
+---
+description: Rust 函数文档注释。写或改 fn 时按此补全。
+globs: src-tauri/**/*.rs
+alwaysApply: false
+---
+
+# Rust 函数注释
+
+每个 `fn`（含私有、方法、`async`）用 `///`，中文，摘要动词开头。`#[cfg(test)]` 和 `#[test]` 不写这套文档。`//!` 模块说明、结构体、枚举、字段上的短注释保持原样。行内 `//` 只在和函数文档重复时删掉。
+
+章节顺序固定。没有的章节不要留空标题。注释只描述函数里已经写明的行为。
+
+- 摘要：一行
+- 空行后写行为、边界、平台差异。没有额外信息就不要第二段凑字
+- `# 参数`：每个参数一行，写含义和约束。无参数则省略整节
+- `# 返回值`：成功时的含义
+- `# 错误`：仅 `Result`。写清何时 `Err`、对应变体
+- `# Panics`：必写。没有 `panic!`、`unwrap`、`expect`、`assert`、`todo!`、`unreachable!` 就写「不会主动 panic」
+- `# 示例`：必写。能脱离应用独立编译运行的纯函数用普通代码块；依赖数据库、Tauri、文件、ffmpeg、系统 API 的用 `ignore`
+
+```rust
+/// 按偏移截取字节切片
+///
+/// 从 `data` 中从 `offset` 开始截取指定长度，直接返回原切片的子切片。
+///
+/// # 参数
+/// - `data`: 源字节切片
+/// - `offset`: 起始偏移，从 0 计
+/// - `len`: 需要截取的长度
+///
+/// # 返回值
+/// 成功返回子切片
+///
+/// # 错误
+/// `offset + len` 超过 `data` 长度时返回 `Err("out of range")`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let buf = b"hello world";
+/// let sub = slice_sub(buf, 0, 5).unwrap();
+/// assert_eq!(sub, b"hello");
+/// ```
+fn slice_sub(data: &[u8], offset: usize, len: usize) -> Result<&[u8], &'static str> {
+    if offset + len > data.len() {
+        return Err("out of range");
+    }
+    Ok(&data[offset..offset + len])
+}
+```

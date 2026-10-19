@@ -9,42 +9,100 @@ use super::error::PlanError;
 use super::service;
 use crate::db::state::DbState;
 
-/// 获取计划列表。条件都可省略，省略时返回全部未删除计划。
-/// `from` 含、`to` 不含：某一天传当天 0 点到次日 0 点，某个月传当月 1 日 0 点到下月 1 日 0 点。
-/// `group_id` 只返回该清单里的计划，可与时间一起用。
+/// 整理查询条件后列出计划
+///
+/// # 参数
+/// - `state`: 数据库状态
+/// - `query`: 查询条件，空则使用默认条件
+///
+/// # 返回值
+/// 返回计划列表
+///
+/// # 错误
+/// 查询失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let plans = plan_list(state, query).await?;
+/// ```
 #[tauri::command]
 pub async fn plan_list(state: State<'_, DbState>, query: Option<PlanQuery>) -> Result<Vec<Plan>, PlanError> {
   let query = prepare_query(query.unwrap_or_default());
   service::list(&state, &query)
 }
 
-/// 获取计划详情
-/// #### Arguments
-/// * `id` - 计划ID
-/// #### Returns
-/// * `Plan` - 计划
+/// 按主键读取计划
+///
+/// # 参数
+/// - `state`: 数据库状态
+/// - `id`: 计划主键
+///
+/// # 返回值
+/// 返回计划
+///
+/// # 错误
+/// 查询失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let plan = plan_get(state, id).await?;
+/// ```
 #[tauri::command]
 pub async fn plan_get(state: State<'_, DbState>, id: String) -> Result<Plan, PlanError> {
   service::get(&state, id.as_str())
 }
 
-/// 创建计划
-/// #### Arguments
-/// * `input` - 计划输入
-/// #### Returns
-/// * `Plan` - 计划
+/// 整理输入后创建计划
+///
+/// # 参数
+/// - `state`: 数据库状态
+/// - `input`: 新建计划内容
+///
+/// # 返回值
+/// 返回新建的计划
+///
+/// # 错误
+/// 输入不合法或写入失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let plan = plan_create(state, input).await?;
+/// ```
 #[tauri::command]
 pub async fn plan_create(state: State<'_, DbState>, input: PlanInput) -> Result<Plan, PlanError> {
   let input = prepare_input(input)?;
   service::create(&state, input)
 }
 
-/// 更新计划。只改传来的字段。
-/// #### Arguments
-/// * `id` - 计划ID
-/// * `patch` - 要改的字段
-/// #### Returns
-/// * `Plan` - 计划
+/// 整理补丁并拒绝自父后更新计划
+///
+/// # 参数
+/// - `state`: 数据库状态
+/// - `id`: 计划主键
+/// - `patch`: 要改的字段
+///
+/// # 返回值
+/// 返回更新后的计划
+///
+/// # 错误
+/// 输入不合法或写入失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let plan = plan_update(state, id, patch).await?;
+/// ```
 #[tauri::command]
 pub async fn plan_update(state: State<'_, DbState>, id: String, patch: PlanPatch) -> Result<Plan, PlanError> {
   let patch = prepare_patch(patch)?;
@@ -52,50 +110,123 @@ pub async fn plan_update(state: State<'_, DbState>, id: String, patch: PlanPatch
   service::update(&state, id.as_str(), patch)
 }
 
-/// 完成计划
-/// #### Arguments
-/// * `id` - 计划ID
-/// * `result` - 计划结果
-/// #### Returns
-/// * `Plan` - 计划
+/// 去掉结果首尾空白后完成计划
+///
+/// # 参数
+/// - `state`: 数据库状态
+/// - `id`: 计划主键
+/// - `result`: 完成结果
+///
+/// # 返回值
+/// 返回完成后的计划
+///
+/// # 错误
+/// 写入失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let plan = plan_complete(state, id, result).await?;
+/// ```
 #[tauri::command]
 pub async fn plan_complete(state: State<'_, DbState>, id: String, result: String) -> Result<Plan, PlanError> {
   service::complete(&state, id.as_str(), result.trim())
 }
 
-/// 删除计划
-/// #### Arguments
-/// * `id` - 计划ID
-/// #### Returns
-/// * `()` - 空
+/// 按主键删除计划
+///
+/// # 参数
+/// - `state`: 数据库状态
+/// - `id`: 计划主键
+///
+/// # 返回值
+/// 成功时返回空
+///
+/// # 错误
+/// 删除失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// plan_delete(state, id).await?;
+/// ```
 #[tauri::command]
 pub async fn plan_delete(state: State<'_, DbState>, id: String) -> Result<(), PlanError> {
   service::delete(&state, id.as_str())
 }
 
-/// 获取清单列表
+/// 列出清单
+///
+/// # 参数
+/// - `state`: 数据库状态
+///
+/// # 返回值
+/// 返回清单列表
+///
+/// # 错误
+/// 查询失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let groups = plan_group_list(state).await?;
+/// ```
 #[tauri::command]
 pub async fn plan_group_list(state: State<'_, DbState>) -> Result<Vec<PlanGroup>, PlanError> {
   service::group_list(&state)
 }
 
-/// 创建清单
-/// #### Arguments
-/// * `input` - 清单输入
-/// #### Returns
-/// * `PlanGroup` - 清单
+/// 整理输入后创建清单
+///
+/// # 参数
+/// - `state`: 数据库状态
+/// - `input`: 新建清单内容
+///
+/// # 返回值
+/// 返回新建的清单
+///
+/// # 错误
+/// 输入不合法或写入失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let group = plan_group_create(state, input).await?;
+/// ```
 #[tauri::command]
 pub async fn plan_group_create(state: State<'_, DbState>, input: PlanGroupInput) -> Result<PlanGroup, PlanError> {
   let input = prepare_group(input)?;
   service::group_create(&state, input)
 }
 
-/// 更新清单。只改传来的名称、颜色和排序。
-/// #### Arguments
-/// * `id` - 清单ID
-/// * `patch` - 要改的字段
-/// #### Returns
-/// * `PlanGroup` - 清单
+/// 整理补丁后更新清单
+///
+/// # 参数
+/// - `state`: 数据库状态
+/// - `id`: 清单主键
+/// - `patch`: 要改的名称、颜色和排序
+///
+/// # 返回值
+/// 返回更新后的清单
+///
+/// # 错误
+/// 输入不合法或写入失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let group = plan_group_update(state, id, patch).await?;
+/// ```
 #[tauri::command]
 pub async fn plan_group_update(
   state: State<'_, DbState>,
@@ -106,20 +237,50 @@ pub async fn plan_group_update(
   service::group_update(&state, id.as_str(), patch)
 }
 
-/// 删除清单。挂在上面的计划会失去归属。
-/// #### Arguments
-/// * `id` - 清单ID
+/// 按主键删除清单
+///
+/// # 参数
+/// - `state`: 数据库状态
+/// - `id`: 清单主键
+///
+/// # 返回值
+/// 成功时返回空
+///
+/// # 错误
+/// 删除失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// plan_group_delete(state, id).await?;
+/// ```
 #[tauri::command]
 pub async fn plan_group_delete(state: State<'_, DbState>, id: String) -> Result<(), PlanError> {
   service::group_delete(&state, id.as_str())
 }
 
-/// 添加评论
-/// #### Arguments
-/// * `plan_id` - 计划ID
-/// * `body` - 评论正文
-/// #### Returns
-/// * `PlanComment` - 评论
+/// 整理正文后创建评论
+///
+/// # 参数
+/// - `state`: 数据库状态
+/// - `plan_id`: 计划主键
+/// - `body`: 评论正文
+///
+/// # 返回值
+/// 返回新建的评论
+///
+/// # 错误
+/// 正文为空或写入失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let comment = plan_comment_create(state, plan_id, body).await?;
+/// ```
 #[tauri::command]
 pub async fn plan_comment_create(
   state: State<'_, DbState>,
@@ -130,12 +291,26 @@ pub async fn plan_comment_create(
   service::comment_create(&state, plan_id.as_str(), &body)
 }
 
-/// 修改评论
-/// #### Arguments
-/// * `id` - 评论ID
-/// * `body` - 评论正文
-/// #### Returns
-/// * `PlanComment` - 评论
+/// 整理正文后更新评论
+///
+/// # 参数
+/// - `state`: 数据库状态
+/// - `id`: 评论主键
+/// - `body`: 评论正文
+///
+/// # 返回值
+/// 返回更新后的评论
+///
+/// # 错误
+/// 正文为空或写入失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let comment = plan_comment_update(state, id, body).await?;
+/// ```
 #[tauri::command]
 pub async fn plan_comment_update(
   state: State<'_, DbState>,
@@ -146,15 +321,48 @@ pub async fn plan_comment_update(
   service::comment_update(&state, id.as_str(), &body)
 }
 
-/// 删除评论
-/// #### Arguments
-/// * `id` - 评论ID
+/// 按主键删除评论
+///
+/// # 参数
+/// - `state`: 数据库状态
+/// - `id`: 评论主键
+///
+/// # 返回值
+/// 成功时返回空
+///
+/// # 错误
+/// 删除失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// plan_comment_delete(state, id).await?;
+/// ```
 #[tauri::command]
 pub async fn plan_comment_delete(state: State<'_, DbState>, id: String) -> Result<(), PlanError> {
   service::comment_delete(&state, id.as_str())
 }
 
-/// 准备计划输入。trim 前后空白，转换空字符串为 None。
+/// 去掉文本空白并校验标题、状态、步骤和重复
+///
+/// # 参数
+/// - `input`: 新建计划内容
+///
+/// # 返回值
+/// 返回整理后的输入
+///
+/// # 错误
+/// 标题为空时返回 `TitleEmpty`，状态非法时返回 `StatusInvalid`，步骤标题为空时返回 `StepTitleEmpty`，重复非法时返回 `RepeatInvalid`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let input = prepare_input(input)?;
+/// ```
 fn prepare_input(mut input: PlanInput) -> Result<PlanInput, PlanError> {
   input.title = input.title.trim().to_string();
   input.body = input.body.trim().to_string();
@@ -179,7 +387,24 @@ fn prepare_input(mut input: PlanInput) -> Result<PlanInput, PlanError> {
   Ok(input)
 }
 
-/// 准备计划更新。trim 前后空白，转换空字符串为 None。
+/// 去掉已传字段的空白并校验标题、状态、步骤和重复
+///
+/// # 参数
+/// - `patch`: 要改的字段
+///
+/// # 返回值
+/// 返回整理后的补丁
+///
+/// # 错误
+/// 标题为空时返回 `TitleEmpty`，状态非法时返回 `StatusInvalid`，步骤标题为空时返回 `StepTitleEmpty`，重复非法时返回 `RepeatInvalid`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let patch = prepare_patch(patch)?;
+/// ```
 fn prepare_patch(mut patch: PlanPatch) -> Result<PlanPatch, PlanError> {
   if let Some(title) = &mut patch.title {
     *title = title.trim().to_string();
@@ -218,7 +443,25 @@ fn prepare_patch(mut patch: PlanPatch) -> Result<PlanPatch, PlanError> {
   Ok(patch)
 }
 
-/// 拒绝计划把自己设成父计划。
+/// 拒绝把计划自己设成父计划
+///
+/// # 参数
+/// - `id`: 计划主键
+/// - `patch`: 要改的字段
+///
+/// # 返回值
+/// 父计划不是自己时返回空
+///
+/// # 错误
+/// 父计划主键与 `id` 相同时返回 `PlanError::ParentInvalid`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// reject_self_parent(id, patch)?;
+/// ```
 fn reject_self_parent(id: &str, patch: &PlanPatch) -> Result<(), PlanError> {
   if let Some(parent_id) = &patch.parent_id
     && parent_id == id
@@ -228,7 +471,24 @@ fn reject_self_parent(id: &str, patch: &PlanPatch) -> Result<(), PlanError> {
   Ok(())
 }
 
-/// 准备计划步骤。trim 前后空白，转换空字符串为 None。
+/// 去掉步骤标题空白并拒绝空标题
+///
+/// # 参数
+/// - `steps`: 步骤列表
+///
+/// # 返回值
+/// 成功时返回空
+///
+/// # 错误
+/// 任一标题去空白后为空时返回 `PlanError::StepTitleEmpty`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// prepare_steps(steps)?;
+/// ```
 fn prepare_steps(steps: &mut [PlanStepInput]) -> Result<(), PlanError> {
   for step in steps {
     step.title = step.title.trim().to_string();
@@ -239,7 +499,24 @@ fn prepare_steps(steps: &mut [PlanStepInput]) -> Result<(), PlanError> {
   Ok(())
 }
 
-/// 准备重复规则。trim 前后空白，转换空字符串为 None。
+/// 去掉重复种类和星期空白，并校验种类与间隔
+///
+/// # 参数
+/// - `repeat`: 重复规则
+///
+/// # 返回值
+/// 成功时返回空
+///
+/// # 错误
+/// 种类不在允许列表或间隔小于 1 时返回 `PlanError::RepeatInvalid`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// prepare_repeat(repeat)?;
+/// ```
 fn prepare_repeat(repeat: &mut PlanRepeatInput) -> Result<(), PlanError> {
   repeat.kind = repeat.kind.trim().to_string();
   repeat.weekdays = repeat.weekdays.trim().to_string();
@@ -249,7 +526,24 @@ fn prepare_repeat(repeat: &mut PlanRepeatInput) -> Result<(), PlanError> {
   Ok(())
 }
 
-/// 准备清单输入。trim 前后空白，转换空字符串为 None。
+/// 去掉名称和颜色空白并拒绝空名称
+///
+/// # 参数
+/// - `input`: 新建清单内容
+///
+/// # 返回值
+/// 返回整理后的输入
+///
+/// # 错误
+/// 名称去空白后为空时返回 `PlanError::NameEmpty`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let input = prepare_group(input)?;
+/// ```
 fn prepare_group(mut input: PlanGroupInput) -> Result<PlanGroupInput, PlanError> {
   input.name = input.name.trim().to_string();
   input.color = input.color.trim().to_string();
@@ -259,7 +553,24 @@ fn prepare_group(mut input: PlanGroupInput) -> Result<PlanGroupInput, PlanError>
   Ok(input)
 }
 
-/// 准备清单更新。trim 前后空白，转换空字符串为 None。
+/// 去掉已传名称和颜色的空白并拒绝空名称
+///
+/// # 参数
+/// - `patch`: 要改的字段
+///
+/// # 返回值
+/// 返回整理后的补丁
+///
+/// # 错误
+/// 名称去空白后为空时返回 `PlanError::NameEmpty`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let patch = prepare_group_patch(patch)?;
+/// ```
 fn prepare_group_patch(mut patch: PlanGroupPatch) -> Result<PlanGroupPatch, PlanError> {
   if let Some(name) = &mut patch.name {
     *name = name.trim().to_string();
@@ -273,19 +584,64 @@ fn prepare_group_patch(mut patch: PlanGroupPatch) -> Result<PlanGroupPatch, Plan
   Ok(patch)
 }
 
-/// 准备评论正文。trim 前后空白，转换空字符串为 None。
+/// 去掉评论空白并拒绝空正文
+///
+/// # 参数
+/// - `body`: 评论正文
+///
+/// # 返回值
+/// 返回去空白后的正文
+///
+/// # 错误
+/// 去空白后为空时返回 `PlanError::CommentEmpty`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let body = prepare_comment(body)?;
+/// ```
 fn prepare_comment(body: &str) -> Result<String, PlanError> {
   let body = body.trim().to_string();
   if body.is_empty() { Err(PlanError::CommentEmpty) } else { Ok(body) }
 }
 
-/// 准备计划查询条件。转换空字符串为 None。
+/// 把空白清单主键转成空
+///
+/// # 参数
+/// - `query`: 查询条件
+///
+/// # 返回值
+/// 返回整理后的查询条件
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let query = prepare_query(query);
+/// ```
 fn prepare_query(mut query: PlanQuery) -> PlanQuery {
   query.group_id = blank_to_none(query.group_id);
   query
 }
 
-/// 转换空字符串为 None
+/// 去掉空白并把空字符串转成空
+///
+/// # 参数
+/// - `value`: 可选文本
+///
+/// # 返回值
+/// 去空白后为空或原本为空时返回 `None`，否则返回 `Some`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let value = blank_to_none(Some("  ".into()));
+/// ```
 fn blank_to_none(value: Option<String>) -> Option<String> {
   value.and_then(|text| {
     let text = text.trim().to_string();

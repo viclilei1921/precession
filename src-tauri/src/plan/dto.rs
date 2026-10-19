@@ -3,12 +3,34 @@ use serde::{Deserialize, Serialize};
 use crate::media::dto::Media;
 use crate::plan::constants::{REPEAT_KINDS, STATUS_DRAFT};
 
-/// 默认计划状态 草稿
+/// 返回默认计划状态
+///
+/// # 返回值
+/// 返回草稿状态文本
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let status = default_status();
+/// ```
 fn default_status() -> String {
   STATUS_DRAFT.to_string()
 }
 
-/// 默认重复间隔 1
+/// 返回默认重复间隔
+///
+/// # 返回值
+/// 返回 1
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let interval = default_interval();
+/// ```
 fn default_interval() -> i64 {
   1
 }
@@ -204,6 +226,18 @@ pub struct PlanPatch {
 }
 
 impl PlanPatch {
+  /// 判断计划补丁是否没有要改的字段
+  ///
+  /// # 返回值
+  /// 与默认值相等时返回 true
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let empty = PlanPatch::default().is_empty();
+  /// ```
   pub(super) fn is_empty(&self) -> bool {
     self == &Self::default()
   }
@@ -245,12 +279,38 @@ pub struct PlanGroupPatch {
 }
 
 impl PlanGroupPatch {
+  /// 判断清单补丁是否没有要改的字段
+  ///
+  /// # 返回值
+  /// 与默认值相等时返回 true
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let empty = PlanGroupPatch::default().is_empty();
+  /// ```
   pub(super) fn is_empty(&self) -> bool {
     self == &Self::default()
   }
 }
 
-/// 重复规则是否有效
+/// 判断重复种类是否在允许列表中
+///
+/// # 参数
+/// - `kind`: 重复种类
+///
+/// # 返回值
+/// 属于每天、每周、每月或每年时返回 true
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let ok = repeat_kind_ok("daily");
+/// ```
 pub(super) fn repeat_kind_ok(kind: &str) -> bool {
   REPEAT_KINDS.contains(&kind)
 }

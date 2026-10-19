@@ -5,17 +5,75 @@ use super::error::MediaError;
 use super::repository;
 use crate::db::state::DbState;
 
+/// 列出所属记录上的媒体
+///
+/// # 参数
+/// - `db`: 数据库状态
+/// - `owner`: 所属类型
+/// - `owner_id`: 所属记录标识
+///
+/// # 返回值
+/// 返回媒体列表
+///
+/// # 错误
+/// 查询失败时返回媒体错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let rows = list(db, owner, owner_id)?;
+/// ```
 pub fn list(db: &DbState, owner: &str, owner_id: &str) -> Result<Vec<Media>, MediaError> {
   let owner = owner.to_string();
   let owner_id = owner_id.to_string();
   db.with_conn(move |conn| repository::list(conn, &owner, &owner_id))
 }
 
+/// 校验输入后创建媒体
+///
+/// # 参数
+/// - `db`: 数据库状态
+/// - `input`: 媒体输入
+///
+/// # 返回值
+/// 返回新建的媒体
+///
+/// # 错误
+/// 输入不合法或写入失败时返回媒体错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let row = create(db, input)?;
+/// ```
 pub fn create(db: &DbState, input: MediaInput) -> Result<Media, MediaError> {
   let (owner, input) = repository::prepare(input)?;
   db.with_conn(|conn| repository::create(conn, owner, &input))
 }
 
+/// 按标识删除媒体
+///
+/// # 参数
+/// - `db`: 数据库状态
+/// - `id`: 媒体标识
+///
+/// # 返回值
+/// 删除成功时返回空成功
+///
+/// # 错误
+/// 删除失败时返回媒体错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// delete(db, id)?;
+/// ```
 pub fn delete(db: &DbState, id: &str) -> Result<(), MediaError> {
   db.with_conn(|conn| repository::delete(conn, id))
 }

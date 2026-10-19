@@ -5,7 +5,26 @@ use crate::book::types::{BookMeta, Chapter, Format};
 use super::heading::extract_chapter_title;
 use super::meta::{extract_author, extract_title};
 
-/// 按章节标题切分；无明确章节时整篇为「正文」一章
+/// 按章节标题把全文切成章节
+///
+/// 片头最多扫描 13 行提取书名和作者，遇到章节标题就停止；书名仍为空时用 `stem`。之后每遇到标题，若上一章标题非空就先保存上一章。扫完后若还没有标题，则把整篇存成标题为「正文」的一章。
+///
+/// # 参数
+/// - `text`: 已解码的全文
+/// - `stem`: 文件名主干，用作书名回退
+///
+/// # 返回值
+/// 元数据和按出现顺序编号的章节
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let (meta, chapters) = split_txt_book("第一章 开篇\n\n正文\n", "文件名");
+/// assert_eq!(meta.title, "文件名");
+/// assert_eq!(chapters[0].title, "第1章: 开篇");
+/// ```
 pub(super) fn split_txt_book(text: &str, stem: &str) -> (BookMeta, Vec<Chapter>) {
   let lines: Vec<&str> = text.lines().collect();
   let mut meta = BookMeta { title: String::new(), author: String::new(), format: Format::Txt };

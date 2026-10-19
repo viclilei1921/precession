@@ -27,13 +27,54 @@ pub enum OpenedBook {
 }
 
 impl OpenedBook {
-  /// 按路径探测格式并打开；文件须可读
+  /// 按路径探测格式并打开电子书
+  ///
+  /// 探测失败时返回不支持的格式。探测成功后交给已知格式的打开逻辑。
+  ///
+  /// # 参数
+  /// - `path`: 书籍文件路径
+  ///
+  /// # 返回值
+  /// 成功返回对应格式的已打开书籍
+  ///
+  /// # 错误
+  /// 认不出格式时返回 `BookError::Unsupported`；打开过程中的错误原样返回
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```ignore
+  /// let book = OpenedBook::open(Path::new("book.epub")).unwrap();
+  /// let _meta = book.metadata();
+  /// ```
   pub fn open(path: &Path) -> Result<Self, BookError> {
     let format = detect_format(path).ok_or(BookError::Unsupported)?;
     Self::open_with_format(path, format)
   }
 
-  /// 使用已知格式打开（跳过探测）
+  /// 用已知格式打开电子书
+  ///
+  /// 路径不存在时返回未找到。存在时按 `format` 分别打开 EPUB、MOBI 或 TXT。
+  ///
+  /// # 参数
+  /// - `path`: 书籍文件路径
+  /// - `format`: 已经确定的格式
+  ///
+  /// # 返回值
+  /// 成功返回对应格式的已打开书籍
+  ///
+  /// # 错误
+  /// 文件不存在时返回 `BookError::NotFound`；各格式打开失败时返回其转换后的错误
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```ignore
+  /// let book = OpenedBook::open_with_format(Path::new("book.txt"), Format::Txt).unwrap();
+  /// assert_eq!(book.metadata().format, Format::Txt);
+  /// ```
   pub fn open_with_format(path: &Path, format: Format) -> Result<Self, BookError> {
     if !path.exists() {
       return Err(BookError::NotFound);
@@ -45,6 +86,19 @@ impl OpenedBook {
     }
   }
 
+  /// 返回当前书籍的元数据
+  ///
+  /// # 返回值
+  /// 内部 EPUB、MOBI 或 TXT 书籍的元数据引用
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```ignore
+  /// let book = OpenedBook::open(Path::new("book.txt")).unwrap();
+  /// let _meta = book.metadata();
+  /// ```
   pub fn metadata(&self) -> &BookMeta {
     match self {
       OpenedBook::Epub(b) => b.metadata(),
@@ -53,7 +107,19 @@ impl OpenedBook {
     }
   }
 
-  /// 仅目录（标题列表）
+  /// 返回当前书籍的章节目录
+  ///
+  /// # 返回值
+  /// 转发给内部书籍得到的目录项
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```ignore
+  /// let book = OpenedBook::open(Path::new("book.txt")).unwrap();
+  /// let _outline = book.outline();
+  /// ```
   pub fn outline(&self) -> Vec<ChapterRef> {
     match self {
       OpenedBook::Epub(b) => b.outline(),
@@ -62,7 +128,26 @@ impl OpenedBook {
     }
   }
 
-  /// 按索引取单章正文
+  /// 按索引取一章正文
+  ///
+  /// # 参数
+  /// - `index`: 从 0 开始的章节下标
+  ///
+  /// # 返回值
+  /// 成功返回内部书籍的该章
+  ///
+  /// # 错误
+  /// 内部书籍取章失败时返回其错误
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```ignore
+  /// let book = OpenedBook::open(Path::new("book.txt")).unwrap();
+  /// let chapter = book.chapter(0).unwrap();
+  /// assert_eq!(chapter.index, 0);
+  /// ```
   pub fn chapter(&self, index: usize) -> Result<Chapter, BookError> {
     match self {
       OpenedBook::Epub(b) => b.chapter(index),
@@ -71,7 +156,23 @@ impl OpenedBook {
     }
   }
 
-  /// 一次性取出全书各章（兼容旧「整本解析」调用）
+  /// 取出全书元数据和全部章节
+  ///
+  /// # 返回值
+  /// 成功返回内部书籍交出的元数据和章节
+  ///
+  /// # 错误
+  /// 内部书籍取全文失败时返回其错误
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```ignore
+  /// let book = OpenedBook::open(Path::new("book.txt")).unwrap();
+  /// let (_meta, chapters) = book.content().unwrap();
+  /// assert!(!chapters.is_empty());
+  /// ```
   pub fn content(self) -> Result<(BookMeta, Vec<Chapter>), BookError> {
     match self {
       OpenedBook::Epub(b) => b.content(),
@@ -80,7 +181,27 @@ impl OpenedBook {
     }
   }
 
-  /// 仅解析元数据（不建立完整章节缓存；EPUB 仍会解析 OPF）
+  /// 解析路径对应书籍的元数据
+  ///
+  /// 先探测格式。EPUB 取包内标题和作者，MOBI 取解析器标题和作者，TXT 走文本片头提取。
+  ///
+  /// # 参数
+  /// - `path`: 书籍文件路径
+  ///
+  /// # 返回值
+  /// 成功返回统一的 `BookMeta`
+  ///
+  /// # 错误
+  /// 认不出格式时返回 `BookError::Unsupported`；各格式解析失败时返回 `BookError::Invalid` 或 TXT 的读取错误
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```ignore
+  /// let meta = OpenedBook::parse_metadata(Path::new("book.epub")).unwrap();
+  /// assert_eq!(meta.format, Format::Epub);
+  /// ```
   pub fn parse_metadata(path: &Path) -> Result<BookMeta, BookError> {
     let format = detect_format(path).ok_or(BookError::Unsupported)?;
     match format {

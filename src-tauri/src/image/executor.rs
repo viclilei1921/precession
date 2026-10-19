@@ -12,7 +12,21 @@ use crate::image::params::{AvifEncodeParams, JxlColorEncoding, JxlEncodeParams};
 use crate::sidecar::{SidecarError, SidecarResult, clear_current_child, secure_spawn_step};
 use crate::task::JobCtx;
 
-/// cjxl `-x color_space=` 可识别值
+/// 返回 cjxl `color_space` 能识别的名字
+///
+/// # 参数
+/// - `value`: 颜色编码
+///
+/// # 返回值
+/// `sRGB`、`RGB_D65_SRG_Lin_SRG`、`Gray_D65_SRG_Per_SRG` 或 `Gray_D65_SRG_Lin_SRG`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// assert_eq!(jxl_color_space_hint(JxlColorEncoding::Srgb), "sRGB");
+/// ```
 fn jxl_color_space_hint(value: JxlColorEncoding) -> &'static str {
   match value {
     JxlColorEncoding::Srgb => "sRGB",
@@ -22,6 +36,28 @@ fn jxl_color_space_hint(value: JxlColorEncoding) -> &'static str {
   }
 }
 
+/// 按 AVIF 参数组装 avifenc 参数，最后接输入和输出路径
+///
+/// 质量和透明质量夹到 0–100，速度夹到 0–10。`yuv` 为 `auto` 或其他未列出的值时不传 `-y`。位深只接受 8、10、12。自动分块时不写行列 tile。要注入 EXIF 时不写 `--ignore-exif`。`irot` 只接受 0 到 3，`imir` 只接受 0 或 1。
+///
+/// # 参数
+/// - `input_path`: 输入路径
+/// - `output_path`: 输出路径
+/// - `params`: AVIF 参数
+/// - `exif_inject`: 要注入的 EXIF 文件。有值时追加 `--exif`
+///
+/// # 返回值
+/// avifenc 参数
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let args = build_avifenc_args("a.png", "a.avif", &AvifEncodeParams::default(), None);
+/// assert_eq!(args[args.len() - 2], "a.png");
+/// assert_eq!(args[args.len() - 1], "a.avif");
+/// ```
 fn build_avifenc_args(
   input_path: &str,
   output_path: &str,
@@ -168,6 +204,27 @@ fn build_avifenc_args(
   args
 }
 
+/// 按 JXL 参数组装 cjxl 参数，最后接输入和输出路径
+///
+/// 无损时距离写 0，否则把质量夹到 0–25。effort 夹到 1–10，解码速度夹到 0–4。不写 `--container=0`。`use_container` 为真或要注入 EXIF 时写 `--container=1`。超出各自允许范围的可选数值不写入。
+///
+/// # 参数
+/// - `input_path`: 输入路径
+/// - `output_path`: 输出路径
+/// - `params`: JXL 参数
+/// - `exif_inject`: 要注入的 EXIF 文件。有值时追加 `-x exif=`
+///
+/// # 返回值
+/// cjxl 参数
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let args = build_cjxl_args("a.png", "a.jxl", &JxlEncodeParams::default(), None);
+/// assert!(args.iter().any(|arg| arg == "-d"));
+/// ```
 fn build_cjxl_args(
   input_path: &str,
   output_path: &str,
@@ -364,6 +421,26 @@ fn build_cjxl_args(
   args
 }
 
+/// 创建输出路径的父目录
+///
+/// 没有父目录，或父目录是空路径时什么都不做。
+///
+/// # 参数
+/// - `output_path`: 输出路径
+///
+/// # 返回值
+/// 成功时无额外值
+///
+/// # 错误
+/// 创建目录失败时返回 `SidecarError::Io`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// ensure_output_parent(output_path).await?;
+/// ```
 async fn ensure_output_parent(output_path: &str) -> SidecarResult<()> {
   let out = Path::new(output_path);
   if let Some(parent) = out.parent() {
@@ -374,6 +451,30 @@ async fn ensure_output_parent(output_path: &str) -> SidecarResult<()> {
   Ok(())
 }
 
+/// 启动侧车编码并上报进度
+///
+/// 开始时进度记 10。输出到达且距上次上报至少 500 毫秒时，进度记 40 并带上已用秒数。标准错误尾部最多留 4000 字节。退出码 0 时进度记 100。
+///
+/// # 参数
+/// - `app`: Tauri 应用句柄
+/// - `job`: 任务执行期句柄
+/// - `sidecar_name`: 侧车名
+/// - `args`: 参数
+/// - `progress_label`: 进度说明
+///
+/// # 返回值
+/// 成功时无额外值
+///
+/// # 错误
+/// 取消返回 `SidecarError::Canceled`。启动失败返回 `Spawn`。非 0 退出返回 `Exit`，并附上错误尾部最后最多 800 字节。没有退出码返回 `Exit`，消息是「异常退出（无退出码）」。循环结束仍未退出返回 `Exit`，消息是「进程意外结束」
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// run_sidecar_encode(app, job, "avifenc", &args, label).await?;
+/// ```
 async fn run_sidecar_encode(
   app: &AppHandle,
   job: &JobCtx,
@@ -456,6 +557,29 @@ async fn run_sidecar_encode(
   Err(SidecarError::sidecar_exit(sidecar_name, "进程意外结束"))
 }
 
+/// 决定编码用的输入路径，需要时先桥接成 PNG
+///
+/// 扩展名已是该目标的原生格式时直接用原路径。否则解码成临时 PNG，并在提取到 EXIF 时带上载荷路径。
+///
+/// # 参数
+/// - `app`: Tauri 应用句柄
+/// - `input_path`: 源图片
+/// - `target`: 编码目标
+/// - `inject_exif`: 是否提取 EXIF
+///
+/// # 返回值
+/// 成功时返回编码输入路径、可选的桥接句柄、可选的 EXIF 路径
+///
+/// # 错误
+/// 没有扩展名、扩展名不在支持列表，或临时 PNG 路径不是合法 Unicode 时返回 `SidecarError::Invalid`。桥接失败时返回对应的 `SidecarError`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let (path, bridge, exif) = resolve_encode_input(app, input_path, EncodeTarget::Avif, true)?;
+/// ```
 fn resolve_encode_input(
   app: &AppHandle,
   input_path: &str,
@@ -477,6 +601,30 @@ fn resolve_encode_input(
   Ok((encode_path, Some(bridge), exif))
 }
 
+/// 把图片转成 AVIF
+///
+/// 非原生格式先报「桥接转 PNG…」再解码。忽略 EXIF 时不提取。质量、透明质量和速度先夹到范围内，桥接句柄留到函数结束才清理。
+///
+/// # 参数
+/// - `app`: Tauri 应用句柄
+/// - `job`: 任务执行期句柄
+/// - `input_path`: 源图片
+/// - `output_path`: 输出路径
+/// - `params`: AVIF 参数
+///
+/// # 返回值
+/// 成功时无额外值
+///
+/// # 错误
+/// 已取消返回 `SidecarError::Canceled`。创建输出目录、桥接或 avifenc 失败时返回对应的 `SidecarError`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// run_convert_avif(app, job, input_path, output_path, params).await?;
+/// ```
 pub async fn run_convert_avif(
   app: &AppHandle,
   job: &JobCtx,
@@ -526,6 +674,30 @@ pub async fn run_convert_avif(
   run_sidecar_encode(app, job, "avifenc", &args, &label).await
 }
 
+/// 把图片转成 JXL
+///
+/// 非原生格式先桥接。总是尝试提取 EXIF。质量夹到 0–25，effort 夹到 1–10，解码速度夹到 0–4。无损时进度说明里的距离写成 0。
+///
+/// # 参数
+/// - `app`: Tauri 应用句柄
+/// - `job`: 任务执行期句柄
+/// - `input_path`: 源图片
+/// - `output_path`: 输出路径
+/// - `params`: JXL 参数
+///
+/// # 返回值
+/// 成功时无额外值
+///
+/// # 错误
+/// 已取消返回 `SidecarError::Canceled`。创建输出目录、桥接或 cjxl 失败时返回对应的 `SidecarError`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// run_convert_jxl(app, job, input_path, output_path, params).await?;
+/// ```
 pub async fn run_convert_jxl(
   app: &AppHandle,
   job: &JobCtx,

@@ -66,6 +66,22 @@ pub enum TaskError {
 }
 
 impl From<DbError> for TaskError {
+  /// 把数据库锁定映射为 `Locked`，其余映射为 `Internal`
+  ///
+  /// # 参数
+  /// - `err`: 数据库错误
+  ///
+  /// # 返回值
+  /// 对应的 `TaskError`
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let err = TaskError::from(DbError::Locked);
+  /// assert!(matches!(err, TaskError::Locked));
+  /// ```
   fn from(err: DbError) -> Self {
     match err {
       DbError::Locked => TaskError::Locked,
@@ -75,6 +91,22 @@ impl From<DbError> for TaskError {
 }
 
 impl From<MediaError> for TaskError {
+  /// 按同名变体把媒体错误映射成任务错误
+  ///
+  /// # 参数
+  /// - `err`: 媒体错误
+  ///
+  /// # 返回值
+  /// 对应的 `TaskError`
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let err = TaskError::from(MediaError::NotFound);
+  /// assert!(matches!(err, TaskError::NotFound));
+  /// ```
   fn from(err: MediaError) -> Self {
     match err {
       MediaError::KindInvalid => TaskError::KindInvalid,
@@ -87,6 +119,25 @@ impl From<MediaError> for TaskError {
 }
 
 impl Serialize for TaskError {
+  /// 把错误的显示文本序列化成字符串
+  ///
+  /// # 参数
+  /// - `serializer`: serde 序列化器
+  ///
+  /// # 返回值
+  /// 序列化成功时的输出
+  ///
+  /// # 错误
+  /// `serialize_str` 失败时返回 `S::Error`
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let text = serde_json::to_string(&TaskError::Canceled).unwrap();
+  /// assert!(text.contains("已取消"));
+  /// ```
   fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
     serializer.serialize_str(&self.to_string())
   }
@@ -94,6 +145,22 @@ impl Serialize for TaskError {
 
 #[cfg(desktop)]
 impl From<crate::sidecar::SidecarError> for TaskError {
+  /// 把取消保持为 `Canceled`，其余包进 `Failed`
+  ///
+  /// # 参数
+  /// - `err`: 侧车错误
+  ///
+  /// # 返回值
+  /// 对应的 `TaskError`。非取消时消息是侧车错误的显示文本
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let err = TaskError::from(crate::sidecar::SidecarError::canceled());
+  /// assert!(matches!(err, TaskError::Canceled));
+  /// ```
   fn from(err: crate::sidecar::SidecarError) -> Self {
     match err {
       crate::sidecar::SidecarError::Canceled => TaskError::Canceled,

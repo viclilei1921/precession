@@ -1,4 +1,10 @@
-//! 视频追加：基准能直接拼就复制，否则连基准一起按同一套参数重编码。
+//! 视频追加：先把各段收成同一种编码、同尺寸、同帧率、同像素格式，再用 MPEG-TS 拼好，最后复制进目标容器。
+//! VP9 的中间文件用 MP4，因为 VP9 不能写入 MPEG-TS。
+//! 帧率跟基准，忽略传入值。尺寸空则跟基准。音轨选择和合并一样，每段各选一条。
+//! 基准已经和目标一致，而且不用在基准上烧标题或字幕时，基准直接复制，音频也复制。
+//! 否则基准也走同一套参数重编码。默认 AV1 时，常见的 H.264 基准会重编码。这一步不单独做开关。
+//! 新片段各烧标题和字幕。基准要烧就必须重编码。
+//! 采样率在基准被复制时跟基准，基准被重编码时用 48000。
 
 use std::fs::File;
 use std::io::Write;
@@ -14,9 +20,9 @@ use crate::ffmpeg::models::{
   push_output, source_codec_matches,
 };
 use crate::ffmpeg::utils::{FfmpegNotes, parse_time_from_ffmpeg_output};
+use crate::sidecar::cache::{clear_cache_temp_dir, get_cache_temp_dir};
 use crate::sidecar::{SidecarError, SidecarResult, clear_current_child, secure_spawn_step};
 use crate::task::JobCtx;
-use crate::utils::cache::{clear_cache_temp_dir, get_cache_temp_dir};
 
 struct CopyPlan {
   keep_audio: bool,
@@ -25,6 +31,31 @@ struct CopyPlan {
   stream_index: Option<u32>,
 }
 
+/// 把新片段接到基准视频后面
+///
+/// 基准与目标一致且不用烧标题或字幕时直接复制。否则基准也重编码。VP9 的中间文件用 MP4，其他用 MPEG-TS。重编码且未指定声道时，全是单声道就用 1，否则用 2。最后用 concat 复制进目标容器。
+///
+/// # 参数
+/// - `app`: Tauri 应用句柄
+/// - `job`: 任务执行期句柄
+/// - `base`: 基准视频
+/// - `inputs`: 要追加的视频
+/// - `output_path`: 输出路径
+/// - `encode`: 编码配置
+///
+/// # 返回值
+/// 成功时无额外值
+///
+/// # 错误
+/// 没有要追加的视频、取消、没有音轨、写清单失败、启动失败、封装或编码非 0 退出时返回 `SidecarError`。空列表和没有音轨是 `Invalid`，取消是 `Canceled`，写清单失败是 `Io`，启动失败是 `Spawn`，非 0 退出是 `Exit`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// run_append_smart(app, job, base, inputs, output_path, encode).await?;
+/// ```
 pub async fn run_append_smart(
   app: &tauri::AppHandle,
   job: &JobCtx,
@@ -183,6 +214,24 @@ pub async fn run_append_smart(
   Ok(())
 }
 
+/// 选择中间容器和扩展名
+///
+/// VP9 用 `mp4` / `mp4`，其他用 `mpegts` / `ts`。
+///
+/// # 参数
+/// - `encode`: 编码配置
+///
+/// # 返回值
+/// `(封装名, 扩展名)`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let (muxer, ext) = intermediate(&VideoEncode::default());
+/// assert_eq!((muxer, ext), ("mpegts", "ts"));
+/// ```
 fn intermediate(encode: &VideoEncode) -> (&'static str, &'static str) {
   match encode.video {
     VideoParams::Vp9 { .. } => ("mp4", "mp4"),
@@ -190,6 +239,26 @@ fn intermediate(encode: &VideoEncode) -> (&'static str, &'static str) {
   }
 }
 
+/// 判断基准能不能直接复制
+///
+/// 有标题或字幕、编码或像素格式对不上、宽高对不上时返回 `None`。丢掉音频时可以复制且不保留音频。保留音频时要求选中轨是 AAC、1 或 2 声道、44100 或 48000，并且和指定的声道、采样率一致。
+///
+/// # 参数
+/// - `info`: 基准视频信息
+/// - `encode`: 编码配置
+/// - `width`: 输出宽度
+/// - `height`: 输出高度
+///
+/// # 返回值
+/// 可以复制时返回复制计划
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let plan = copy_plan(&info, &encode, width, height);
+/// ```
 fn copy_plan(info: &VideoInfo, encode: &VideoEncode, width: u32, height: u32) -> Option<CopyPlan> {
   if encode.title.is_some() || encode.subtitle.is_some() {
     return None;
@@ -222,6 +291,28 @@ fn copy_plan(info: &VideoInfo, encode: &VideoEncode, width: u32, height: u32) ->
   }
 }
 
+/// 为一段视频选定音轨计划
+///
+/// 基准复制并保留音频时，强制使用那条的声道和采样率。丢掉音频时按 48000 规划。否则强制 48000；序号不存在时改用第一条并记警告。
+///
+/// # 参数
+/// - `encode`: 编码配置
+/// - `info`: 这一段的视频信息
+/// - `copy`: 基准复制计划。新片段或基准要重编码时为空
+///
+/// # 返回值
+/// 成功时返回音轨计划
+///
+/// # 错误
+/// 要保留音频但没有可选音轨时返回 `SidecarError::Invalid`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let audio = segment_audio(&encode, &info, None)?;
+/// ```
 fn segment_audio(encode: &VideoEncode, info: &VideoInfo, copy: Option<&CopyPlan>) -> SidecarResult<AudioPlan> {
   if let Some(plan) = copy.filter(|plan| plan.keep_audio) {
     let mut selection = encode.audio.clone();
@@ -245,6 +336,31 @@ fn segment_audio(encode: &VideoEncode, info: &VideoInfo, copy: Option<&CopyPlan>
   Ok(audio)
 }
 
+/// 把基准视频复制进中间容器
+///
+/// 保留音频时映射那条流，否则加 `-an`。中间容器是 MPEG-TS 时，HEVC 或 H.264 加上对应的 annexb 比特流滤镜。
+///
+/// # 参数
+/// - `app`: Tauri 应用句柄
+/// - `base`: 基准视频
+/// - `info`: 基准视频信息
+/// - `plan`: 复制计划
+/// - `muxer`: 中间封装名
+/// - `output`: 中间文件路径
+///
+/// # 返回值
+/// 成功时无额外值
+///
+/// # 错误
+/// 启动失败返回 `SidecarError::Spawn`。退出码不是 0 或通道结束时返回 `SidecarError::Exit`，消息以「基准视频封装失败」开头
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// remux_base(app, base, info, plan, muxer, output).await?;
+/// ```
 async fn remux_base(
   app: &tauri::AppHandle,
   base: &str,
@@ -296,6 +412,38 @@ async fn remux_base(
   Err(SidecarError::sidecar_exit("ffmpeg", "基准视频封装失败"))
 }
 
+/// 把一段视频编码进中间容器
+///
+/// 中间容器是 MPEG-TS 且视频是 HEVC 时加上 `hevc_mp4toannexb`。进度按这一段自己的时长上报。取消或失败时清掉临时目录。
+///
+/// # 参数
+/// - `app`: Tauri 应用句柄
+/// - `job`: 任务执行期句柄
+/// - `input`: 源视频
+/// - `info`: 源视频信息
+/// - `encode`: 这一段使用的编码配置
+/// - `audio`: 音轨计划
+/// - `size`: 目标画面
+/// - `fps`: 目标帧率
+/// - `offset`: 这一段在成片上的起点
+/// - `source_start`: 源视频上的起点
+/// - `muxer`: 中间封装名
+/// - `output`: 中间文件路径
+/// - `message`: 进度说明
+///
+/// # 返回值
+/// 成功时无额外值
+///
+/// # 错误
+/// 取消返回 `SidecarError::Canceled`。启动失败返回 `Spawn`。非 0 退出返回 `Exit`。通道结束且未取消时返回成功
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// encode_part(app, job, input, info, encode, audio, size, fps, offset, None, muxer, output, message).await?;
+/// ```
 async fn encode_part(
   app: &tauri::AppHandle,
   job: &JobCtx,
@@ -378,6 +526,24 @@ async fn encode_part(
   Ok(())
 }
 
+/// 按源编码选择 MPEG-TS 用的 annexb 滤镜
+///
+/// HEVC 或 H.265 用 `hevc_mp4toannexb`。H.264 或 AVC 用 `h264_mp4toannexb`。其他返回 `None`。
+///
+/// # 参数
+/// - `codec`: 源视频编码名
+///
+/// # 返回值
+/// 滤镜名
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// assert_eq!(source_annexb("hevc"), Some("hevc_mp4toannexb"));
+/// assert_eq!(source_annexb("av1"), None);
+/// ```
 fn source_annexb(codec: &str) -> Option<&'static str> {
   let codec = codec.to_ascii_lowercase();
   if codec.contains("hevc") || codec.contains("h265") {
@@ -389,6 +555,23 @@ fn source_annexb(codec: &str) -> Option<&'static str> {
   }
 }
 
+/// 按目标编码选择 MPEG-TS 用的 annexb 滤镜
+///
+/// HEVC 返回 `hevc_mp4toannexb`。AV1 和 VP9 返回 `None`。
+///
+/// # 参数
+/// - `video`: 目标视频参数
+///
+/// # 返回值
+/// 滤镜名
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// assert_eq!(output_annexb(&VideoParams::default()), None);
+/// ```
 fn output_annexb(video: &VideoParams) -> Option<&'static str> {
   match video {
     VideoParams::Hevc { .. } => Some("hevc_mp4toannexb"),

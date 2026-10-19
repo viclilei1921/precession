@@ -5,28 +5,141 @@ use super::error::MemberError;
 use super::repository;
 use crate::db::state::DbState;
 
+/// 列出成员
+///
+/// # 参数
+/// - `db`: 数据库状态
+///
+/// # 返回值
+/// 返回成员列表
+///
+/// # 错误
+/// 连接或查询失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let members = list(db)?;
+/// ```
 pub fn list(db: &DbState) -> Result<Vec<Member>, MemberError> {
   db.with_conn(repository::list)
 }
 
+/// 按主键读取成员
+///
+/// # 参数
+/// - `db`: 数据库状态
+/// - `id`: 成员主键
+///
+/// # 返回值
+/// 返回成员
+///
+/// # 错误
+/// 连接或查询失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let member = get(db, id)?;
+/// ```
 pub fn get(db: &DbState, id: &str) -> Result<Member, MemberError> {
   db.with_conn(|conn| repository::get(conn, id))
 }
 
+/// 整理输入后创建成员
+///
+/// # 参数
+/// - `db`: 数据库状态
+/// - `input`: 成员内容
+///
+/// # 返回值
+/// 返回新建的成员
+///
+/// # 错误
+/// 输入不合法或写入失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let member = create(db, input)?;
+/// ```
 pub fn create(db: &DbState, input: MemberInput) -> Result<Member, MemberError> {
   let input = prepare(input)?;
   db.with_conn(|conn| repository::create(conn, &input))
 }
 
+/// 整理输入后更新成员
+///
+/// # 参数
+/// - `db`: 数据库状态
+/// - `id`: 成员主键
+/// - `input`: 成员内容
+///
+/// # 返回值
+/// 返回更新后的成员
+///
+/// # 错误
+/// 输入不合法或写入失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let member = update(db, id, input)?;
+/// ```
 pub fn update(db: &DbState, id: &str, input: MemberInput) -> Result<Member, MemberError> {
   let input = prepare(input)?;
   db.with_conn(|conn| repository::update(conn, id, &input))
 }
 
+/// 删除成员
+///
+/// # 参数
+/// - `db`: 数据库状态
+/// - `id`: 成员主键
+///
+/// # 返回值
+/// 成功时返回空
+///
+/// # 错误
+/// 连接或删除失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// delete(db, id)?;
+/// ```
 pub fn delete(db: &DbState, id: &str) -> Result<(), MemberError> {
   db.with_conn(|conn| repository::delete(conn, id))
 }
 
+/// 去掉名称、关系和性别的空白，并拒绝空名称
+///
+/// # 参数
+/// - `input`: 成员内容
+///
+/// # 返回值
+/// 返回整理后的输入
+///
+/// # 错误
+/// 名称去空白后为空时返回 `MemberError::NameEmpty`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let input = prepare(input)?;
+/// ```
 fn prepare(mut input: MemberInput) -> Result<MemberInput, MemberError> {
   input.name = input.name.trim().to_string();
   if input.name.is_empty() {

@@ -50,6 +50,24 @@ pub enum DbError {
 }
 
 impl From<DeviceError> for DbError {
+  /// 把设备槽错误映射成数据库错误
+  ///
+  /// `Unavailable`、`Cancelled`、`Invalid`、`Internal` 分别对应同名含义的 `DbError` 变体。
+  ///
+  /// # 参数
+  /// - `err`: 设备槽错误
+  ///
+  /// # 返回值
+  /// 对应的 `DbError`
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let err = DbError::from(DeviceError::Cancelled);
+  /// assert!(matches!(err, DbError::DeviceCancelled));
+  /// ```
   fn from(err: DeviceError) -> Self {
     match err {
       DeviceError::Unavailable => DbError::DeviceUnavailable,
@@ -61,6 +79,24 @@ impl From<DeviceError> for DbError {
 }
 
 impl From<CryptoError> for DbError {
+  /// 把加密层错误映射成数据库错误
+  ///
+  /// `WrongPassword`、`Corrupt`、`Internal` 分别对应同名的 `DbError` 变体。
+  ///
+  /// # 参数
+  /// - `err`: 加密层错误
+  ///
+  /// # 返回值
+  /// 对应的 `DbError`
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let err = DbError::from(CryptoError::WrongPassword);
+  /// assert!(matches!(err, DbError::WrongPassword));
+  /// ```
   fn from(err: CryptoError) -> Self {
     match err {
       CryptoError::WrongPassword => DbError::WrongPassword,
@@ -71,6 +107,25 @@ impl From<CryptoError> for DbError {
 }
 
 impl Serialize for DbError {
+  /// 把错误显示文本序列化成字符串
+  ///
+  /// # 参数
+  /// - `serializer`: serde 序列化器
+  ///
+  /// # 返回值
+  /// 序列化成功时的 `S::Ok`
+  ///
+  /// # 错误
+  /// `serialize_str` 失败时返回 `S::Error`
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let json = serde_json::to_string(&DbError::Locked).unwrap();
+  /// assert_eq!(json, "\"数据库未解锁\"");
+  /// ```
   fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
     serializer.serialize_str(&self.to_string())
   }

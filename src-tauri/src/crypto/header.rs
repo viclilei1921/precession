@@ -44,7 +44,37 @@ pub struct WrapHeader {
 }
 
 impl KeyHeader {
-  /// 验证密钥头是否合法
+  /// 核对密钥头的版本和算法字段
+  ///
+  /// # 返回值
+  /// 版本、KDF 算法、Argon2 版本和包装算法都匹配时不返回数据
+  ///
+  /// # 错误
+  /// 任一字段不匹配时返回 `Corrupt`
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let header = KeyHeader {
+  ///   v: 1,
+  ///   kdf: KdfHeader {
+  ///     algo: "argon2id".into(),
+  ///     version: 0x13,
+  ///     m: 8,
+  ///     t: 1,
+  ///     p: 1,
+  ///     salt: String::new(),
+  ///   },
+  ///   wrap: WrapHeader {
+  ///     algo: "xchacha20poly1305".into(),
+  ///     nonce: String::new(),
+  ///     ct: String::new(),
+  ///   },
+  /// };
+  /// assert!(header.validate().is_ok());
+  /// ```
   pub fn validate(&self) -> Result<(), CryptoError> {
     if self.v != HEADER_VERSION {
       return Err(CryptoError::Corrupt);
@@ -58,15 +88,64 @@ impl KeyHeader {
     Ok(())
   }
 
-  /// 从 JSON 字符串解析密钥头
+  /// 从 JSON 文本解析密钥头并校验字段
+  ///
+  /// # 参数
+  /// - `raw`: 密钥头 JSON
+  ///
+  /// # 返回值
+  /// 通过校验的 `KeyHeader`
+  ///
+  /// # 错误
+  /// JSON 无法解析，或 `validate` 失败时返回 `Corrupt`
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let raw = r#"{"v":1,"kdf":{"algo":"argon2id","version":19,"m":8,"t":1,"p":1,"salt":""},"wrap":{"algo":"xchacha20poly1305","nonce":"","ct":""}}"#;
+  /// assert!(KeyHeader::from_json(raw).is_ok());
+  /// assert!(KeyHeader::from_json("[]").is_err());
+  /// ```
   pub fn from_json(raw: &str) -> Result<Self, CryptoError> {
     let header: KeyHeader = serde_json::from_str(raw).map_err(|_| CryptoError::Corrupt)?;
     header.validate()?;
     Ok(header)
   }
 
-  /// 将密钥头转换为 JSON 字符串
-  /// 格式化输出，便于阅读
+  /// 把密钥头格式化成 JSON 字节
+  ///
+  /// # 返回值
+  /// 带缩进的 JSON 字节
+  ///
+  /// # 错误
+  /// 序列化失败时返回 `Internal`
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let header = KeyHeader {
+  ///   v: 1,
+  ///   kdf: KdfHeader {
+  ///     algo: "argon2id".into(),
+  ///     version: 0x13,
+  ///     m: 8,
+  ///     t: 1,
+  ///     p: 1,
+  ///     salt: String::new(),
+  ///   },
+  ///   wrap: WrapHeader {
+  ///     algo: "xchacha20poly1305".into(),
+  ///     nonce: String::new(),
+  ///     ct: String::new(),
+  ///   },
+  /// };
+  /// let bytes = header.to_pretty_json().unwrap();
+  /// assert!(bytes.starts_with(b"{"));
+  /// ```
   pub fn to_pretty_json(&self) -> Result<Vec<u8>, CryptoError> {
     serde_json::to_vec_pretty(self).map_err(|_| CryptoError::Internal)
   }

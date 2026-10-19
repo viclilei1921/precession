@@ -11,7 +11,20 @@ pub enum Format {
 }
 
 impl Format {
-  /// 和文件扩展名一致的格式名
+  /// 返回与扩展名一致的格式名
+  ///
+  /// # 返回值
+  /// `epub`、`mobi` 或 `txt`
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// assert_eq!(Format::Epub.as_str(), "epub");
+  /// assert_eq!(Format::Mobi.as_str(), "mobi");
+  /// assert_eq!(Format::Txt.as_str(), "txt");
+  /// ```
   pub fn as_str(self) -> &'static str {
     match self {
       Format::Epub => "epub",
@@ -20,7 +33,22 @@ impl Format {
     }
   }
 
-  /// 从探测结果字符串解析
+  /// 把格式名解析为枚举
+  ///
+  /// # 参数
+  /// - `s`: 格式名，只接受 `epub`、`mobi`、`txt`
+  ///
+  /// # 返回值
+  /// 匹配时返回对应格式，其余返回 `None`
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// assert_eq!(Format::parse("epub"), Some(Format::Epub));
+  /// assert_eq!(Format::parse("pdf"), None);
+  /// ```
   pub fn parse(s: &str) -> Option<Self> {
     match s {
       "epub" => Some(Format::Epub),
@@ -32,6 +60,24 @@ impl Format {
 }
 
 impl fmt::Display for Format {
+  /// 把格式名写入格式化器
+  ///
+  /// # 参数
+  /// - `f`: 输出格式化器
+  ///
+  /// # 返回值
+  /// 写入成功时返回 `Ok(())`
+  ///
+  /// # 错误
+  /// 写入失败时返回 `Err`
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// assert_eq!(Format::Txt.to_string(), "txt");
+  /// ```
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     f.write_str(self.as_str())
   }
@@ -86,7 +132,24 @@ pub enum BookError {
 }
 
 impl BookError {
-  /// 记下解析细节，对外只返回「无法解析该电子书」
+  /// 记录解析细节并返回统一的无效错误
+  ///
+  /// 把 `err` 的显示文本写入错误日志，对外只返回 `BookError::Invalid`。
+  ///
+  /// # 参数
+  /// - `err`: 需要记入日志的解析细节
+  ///
+  /// # 返回值
+  /// 始终返回 `BookError::Invalid`
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```ignore
+  /// let err = BookError::invalid("opf 缺少 spine");
+  /// assert!(matches!(err, BookError::Invalid));
+  /// ```
   pub(crate) fn invalid(err: impl std::fmt::Display) -> Self {
     tauri_plugin_log::log::error!("book: {err}");
     Self::Invalid

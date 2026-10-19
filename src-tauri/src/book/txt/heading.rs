@@ -14,6 +14,28 @@ pub enum NovelLine {
   Special { kind: String, num: Option<u32>, title: String },
 }
 
+/// 把解析后的行格式化成标题文本
+///
+/// 章节写成 `第{num}章: {title}`，卷写成 `卷{num}: {title}`。特殊章节在没有数字也没有标题时只返回类型名，否则拼成 `{kind}{num}: {title}`，标题为空时不写冒号。
+///
+/// # 参数
+/// - `line`: 已分类的章节、卷或特殊行
+///
+/// # 返回值
+/// 规范化后的标题
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// assert_eq!(format_line(&NovelLine::Chapter(1, "开头".to_string())), "第1章: 开头");
+/// assert_eq!(format_line(&NovelLine::Volume(2, "上".to_string())), "卷2: 上");
+/// assert_eq!(
+///   format_line(&NovelLine::Special { kind: "后记".to_string(), num: None, title: String::new() }),
+///   "后记"
+/// );
+/// ```
 pub fn format_line(line: &NovelLine) -> String {
   match line {
     NovelLine::Chapter(num, title) => format!("第{}章: {}", num, title),
@@ -36,7 +58,25 @@ pub fn format_line(line: &NovelLine) -> String {
   }
 }
 
-/// 若该行是章节标题，返回规范化后的标题文本
+/// 识别一行是否为章节标题并返回规范化文本
+///
+/// 去掉首尾空白后，空行或超过 32 个字符返回 `None`。依次尝试章节、卷、特殊章节三类正则；数字能解析时用 `format_line` 输出。特殊章节会把关键字前后的文字合成标题。
+///
+/// # 参数
+/// - `line`: 待检查的一行
+///
+/// # 返回值
+/// 是标题时返回规范化文本，否则返回 `None`
+///
+/// # Panics
+/// 正则编译失败或捕获组缺失时 `unwrap` 会 panic
+///
+/// # 示例
+/// ```
+/// assert_eq!(extract_chapter_title("第1章: 开头").as_deref(), Some("第1章: 开头"));
+/// assert_eq!(extract_chapter_title("后记").as_deref(), Some("后记"));
+/// assert_eq!(extract_chapter_title("普通正文"), None);
+/// ```
 pub(super) fn extract_chapter_title(line: &str) -> Option<String> {
   let t = line.trim();
 

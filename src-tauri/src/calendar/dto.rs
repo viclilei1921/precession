@@ -32,6 +32,21 @@ pub struct Lunar {
 }
 
 impl From<LunarCell> for Lunar {
+  /// 把轻量农历抄成月历农历
+  ///
+  /// # 参数
+  /// - `cell`: 轻量农历
+  ///
+  /// # 返回值
+  /// 返回月历用的农历字段
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let lunar = Lunar::from(cell);
+  /// ```
   fn from(cell: LunarCell) -> Self {
     Lunar {
       year: cell.year,
@@ -123,6 +138,21 @@ pub struct AlmanacWuXing {
 }
 
 impl From<WuXing> for AlmanacWuXing {
+  /// 把五行抄成黄历五行
+  ///
+  /// # 参数
+  /// - `value`: 五行
+  ///
+  /// # 返回值
+  /// 返回纳音、天干五行和地支五行
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let wu_xing = AlmanacWuXing::from(value);
+  /// ```
   fn from(value: WuXing) -> Self {
     AlmanacWuXing { nayin: value.nayin, gan_wx: value.gan_wx, zhi_wx: value.zhi_wx }
   }
@@ -144,6 +174,21 @@ pub struct AlmanacHour {
 }
 
 impl From<HourYiJi> for AlmanacHour {
+  /// 把时辰宜忌抄成黄历时辰
+  ///
+  /// # 参数
+  /// - `value`: 时辰宜忌
+  ///
+  /// # 返回值
+  /// 返回时辰字段
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let hour = AlmanacHour::from(value);
+  /// ```
   fn from(value: HourYiJi) -> Self {
     AlmanacHour {
       hour_index: value.hour_index,
@@ -187,6 +232,21 @@ pub struct Almanac {
 }
 
 impl From<ComprehensiveAlmanac> for Almanac {
+  /// 把综合黄历抄成对外黄历
+  ///
+  /// # 参数
+  /// - `value`: 综合黄历
+  ///
+  /// # 返回值
+  /// 返回对外黄历，时辰逐项转换
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let book = Almanac::from(value);
+  /// ```
   fn from(value: ComprehensiveAlmanac) -> Self {
     Almanac {
       solar_date: value.solar_date,

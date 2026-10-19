@@ -1,6 +1,19 @@
 use std::path::Path;
 
-/// 标题和字幕用的系统字体。返回普通路径，滤镜里再转义。
+/// 返回第一个存在的系统字体路径
+///
+/// Windows、macOS 和其他系统各查一组候选。命中后把反斜杠换成 `/`。都不存在时记警告并返回 `arial.ttf`。
+///
+/// # 返回值
+/// 字体文件路径
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let path = get_default_font_path();
+/// ```
 pub fn get_default_font_path() -> String {
   let candidates = if cfg!(target_os = "windows") {
     vec![
@@ -36,7 +49,20 @@ pub fn get_default_font_path() -> String {
   "arial.ttf".to_string()
 }
 
-/// 默认字体所在目录，给字幕的 `fontsdir` 用。
+/// 返回默认字体所在目录
+///
+/// 父目录缺失或为空时，返回字体路径本身。
+///
+/// # 返回值
+/// 目录路径；没有可用父目录时为字体路径
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let dir = default_fonts_dir();
+/// ```
 pub fn default_fonts_dir() -> String {
   let font = get_default_font_path();
   Path::new(&font)

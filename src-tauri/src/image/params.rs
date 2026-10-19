@@ -11,26 +11,98 @@ pub enum JxlColorEncoding {
   LinearSrgbLuma,
 }
 
+/// 返回 AVIF 质量的默认值
+///
+/// # 返回值
+/// `60`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// assert_eq!(avif_qcolor(), 60);
+/// ```
 fn avif_qcolor() -> u8 {
   60
 }
 
+/// 返回 AVIF 速度的默认值
+///
+/// # 返回值
+/// `6`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// assert_eq!(avif_speed(), 6);
+/// ```
 fn avif_speed() -> u8 {
   6
 }
 
+/// 返回 AVIF 位深的默认值
+///
+/// # 返回值
+/// `"8"`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// assert_eq!(avif_depth(), "8");
+/// ```
 fn avif_depth() -> String {
   "8".to_string()
 }
 
+/// 返回 AVIF 自动分块的默认值
+///
+/// # 返回值
+/// `true`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// assert!(avif_autotiling());
+/// ```
 fn avif_autotiling() -> bool {
   true
 }
 
+/// 返回 JXL 距离的默认值
+///
+/// # 返回值
+/// `1.0`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// assert_eq!(jxl_quality(), 1.0);
+/// ```
 fn jxl_quality() -> f32 {
   1.0
 }
 
+/// 返回 JXL effort 的默认值
+///
+/// # 返回值
+/// `7`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// assert_eq!(jxl_effort(), 7);
+/// ```
 fn jxl_effort() -> u8 {
   7
 }
@@ -73,6 +145,22 @@ pub struct AvifEncodeParams {
 }
 
 impl Default for AvifEncodeParams {
+  /// 返回默认的 AVIF 参数
+  ///
+  /// 色彩和透明质量都是 60，速度 6，位深 `"8"`，自动分块打开，其余开关关闭、文本为空。
+  ///
+  /// # 返回值
+  /// 默认的 `AvifEncodeParams`
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let params = AvifEncodeParams::default();
+  /// assert_eq!(params.qcolor, 60);
+  /// assert!(params.autotiling);
+  /// ```
   fn default() -> Self {
     Self {
       qcolor: avif_qcolor(),
@@ -151,6 +239,22 @@ pub struct JxlEncodeParams {
 }
 
 impl Default for JxlEncodeParams {
+  /// 返回默认的 JXL 参数
+  ///
+  /// 距离 1.0，effort 7，解码速度 0，有损，不用容器。
+  ///
+  /// # 返回值
+  /// 默认的 `JxlEncodeParams`
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let params = JxlEncodeParams::default();
+  /// assert_eq!(params.quality, 1.0);
+  /// assert_eq!(params.effort, 7);
+  /// ```
   fn default() -> Self {
     Self {
       lossless: false,

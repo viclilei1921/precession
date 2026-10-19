@@ -22,8 +22,8 @@
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
-    "@tanstack/react-query": "^5.104.3",
-    "@tanstack/react-router": "^1.170.44",
+    "@tanstack/react-query": "^5.104.4",
+    "@tanstack/react-router": "^1.170.45",
     "@tauri-apps/api": "^2.12.4",
     "@tauri-apps/plugin-dialog": "^2.8.3",
     "@tauri-apps/plugin-log": "^2.10.1",

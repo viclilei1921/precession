@@ -12,6 +12,22 @@ use crate::owner::Owner;
 use crate::utils::id::new_uuid_v4;
 use crate::utils::time::now_unix_ms;
 
+/// 记录数据库错误并返回内部错误
+///
+/// # 参数
+/// - `context`: 日志中的操作说明
+/// - `err`: 原始数据库错误
+///
+/// # 返回值
+/// 返回 `JournalError::Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let err = db_fail("journal", rusqlite_err);
+/// ```
 fn db_fail(context: &str, err: rusqlite::Error) -> JournalError {
   tauri_plugin_log::log::error!("{context}: {err}");
   JournalError::Internal
@@ -19,6 +35,24 @@ fn db_fail(context: &str, err: rusqlite::Error) -> JournalError {
 
 const COLUMNS: &str = "id, kind, occurred_at, title, body, locked, highlight, created_at, updated_at";
 
+/// 从查询行组装手记
+///
+/// # 参数
+/// - `row`: 查询行
+///
+/// # 返回值
+/// 返回手记，成员、标签和地点先留空
+///
+/// # 错误
+/// 列读取失败时返回 `rusqlite::Error`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let entry = map_entry(row)?;
+/// ```
 fn map_entry(row: &rusqlite::Row<'_>) -> rusqlite::Result<JournalEntry> {
   Ok(JournalEntry {
     id: row.get(0)?,
@@ -36,6 +70,24 @@ fn map_entry(row: &rusqlite::Row<'_>) -> rusqlite::Result<JournalEntry> {
   })
 }
 
+/// 按架构版本创建手记、流转和书摘引用表
+///
+/// # 参数
+/// - `conn`: 数据库连接
+///
+/// # 返回值
+/// 成功时返回空
+///
+/// # 错误
+/// 读版本、建表或写版本失败时返回 `JournalError::Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// ensure_schema(conn)?;
+/// ```
 pub(super) fn ensure_schema(conn: &Connection) -> Result<(), JournalError> {
   let current = crate::db::schema::read_version(conn, SCHEMA_VERSION_KEY).map_err(|e| db_fail("journal schema", e))?;
   if current < 1 {
@@ -79,6 +131,25 @@ pub(super) fn ensure_schema(conn: &Connection) -> Result<(), JournalError> {
   Ok(())
 }
 
+/// 查询未删除手记是否存在
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `id`: 手记主键
+///
+/// # 返回值
+/// 存在时返回 true，不存在时返回 false
+///
+/// # 错误
+/// 查询失败时返回 `rusqlite::Error`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let found = exists(conn, id)?;
+/// ```
 pub(super) fn exists(conn: &Connection, id: &str) -> Result<bool, rusqlite::Error> {
   let found: Option<i64> = conn
     .query_row(
@@ -90,6 +161,27 @@ pub(super) fn exists(conn: &Connection, id: &str) -> Result<bool, rusqlite::Erro
   Ok(found.is_some())
 }
 
+/// 按类型和时间列出未删除手记
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `kind`: 手记类型，空则不限
+/// - `from`: 起始发生时间，含，空则不限
+/// - `to`: 结束发生时间，不含，空则不限
+///
+/// # 返回值
+/// 返回手记列表
+///
+/// # 错误
+/// 查询失败时返回 `JournalError::Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let entries = list(conn, kind, from, to)?;
+/// ```
 pub(super) fn list(
   conn: &Connection,
   kind: Option<&str>,
@@ -99,6 +191,26 @@ pub(super) fn list(
   query(conn, None, kind, from, to)
 }
 
+/// 按发生时间范围列出未删除手记
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `from`: 起始时间，空则不限制
+/// - `to`: 结束时间，空则不限制
+///
+/// # 返回值
+/// 返回手记列表
+///
+/// # 错误
+/// 查询失败时返回 `JournalError::Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let entries = list_between(conn, from, to)?;
+/// ```
 pub(super) fn list_between(
   conn: &Connection,
   from: Option<i64>,
@@ -107,11 +219,49 @@ pub(super) fn list_between(
   query(conn, None, None, from, to)
 }
 
+/// 按主键读取未删除手记
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `id`: 手记主键
+///
+/// # 返回值
+/// 返回手记
+///
+/// # 错误
+/// 没有对应行时返回 `JournalError::NotFound`，查询失败时返回 `JournalError::Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let entry = get(conn, id)?;
+/// ```
 pub(super) fn get(conn: &Connection, id: &str) -> Result<JournalEntry, JournalError> {
   let mut items = query(conn, Some(id), None, None, None)?;
   items.pop().ok_or(JournalError::NotFound)
 }
 
+/// 插入手记并替换成员、标签和地点
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `input`: 手记内容
+///
+/// # 返回值
+/// 返回写入后的手记
+///
+/// # 错误
+/// 写入或回读失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let entry = create(conn, input)?;
+/// ```
 pub(super) fn create(conn: &Connection, input: &JournalEntryInput) -> Result<JournalEntry, JournalError> {
   let id = new_uuid_v4();
   let now = now_unix_ms();
@@ -128,6 +278,26 @@ pub(super) fn create(conn: &Connection, input: &JournalEntryInput) -> Result<Jou
   get(conn, &id)
 }
 
+/// 更新未删除手记并替换成员、标签和地点
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `id`: 手记主键
+/// - `input`: 手记内容
+///
+/// # 返回值
+/// 返回更新后的手记
+///
+/// # 错误
+/// 没有对应行时返回 `JournalError::NotFound`，写入失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let entry = update(conn, id, input)?;
+/// ```
 pub(super) fn update(conn: &Connection, id: &str, input: &JournalEntryInput) -> Result<JournalEntry, JournalError> {
   let now = now_unix_ms();
   let tx = conn.unchecked_transaction().map_err(|e| db_fail("journal update tx", e))?;
@@ -147,6 +317,25 @@ pub(super) fn update(conn: &Connection, id: &str, input: &JournalEntryInput) -> 
   get(conn, id)
 }
 
+/// 软删除手记，并清掉流转、书摘引用和关联引用
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `id`: 手记主键
+///
+/// # 返回值
+/// 成功时返回空
+///
+/// # 错误
+/// 没有对应行时返回 `JournalError::NotFound`，写入失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// delete(conn, id)?;
+/// ```
 pub(super) fn delete(conn: &Connection, id: &str) -> Result<(), JournalError> {
   let now = now_unix_ms();
   let tx = conn.unchecked_transaction().map_err(|e| db_fail("journal delete tx", e))?;
@@ -167,6 +356,25 @@ pub(super) fn delete(conn: &Connection, id: &str) -> Result<(), JournalError> {
   Ok(())
 }
 
+/// 按创建时间列出与手记相关的流转
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `entry_id`: 手记主键
+///
+/// # 返回值
+/// 返回作为起点或终点的流转
+///
+/// # 错误
+/// 查询失败时返回 `JournalError::Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let links = link_list(conn, entry_id)?;
+/// ```
 pub(super) fn link_list(conn: &Connection, entry_id: &str) -> Result<Vec<JournalLink>, JournalError> {
   let sql = format!(
     "SELECT id, from_id, to_id, kind, created_at FROM {LINK_TABLE}
@@ -187,6 +395,27 @@ pub(super) fn link_list(conn: &Connection, entry_id: &str) -> Result<Vec<Journal
   rows.collect::<Result<Vec<_>, _>>().map_err(|e| db_fail("journal link list", e))
 }
 
+/// 校验流转类型和两端手记后插入流转
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `from_id`: 起点手记主键
+/// - `to_id`: 终点手记主键
+/// - `kind`: 流转类型
+///
+/// # 返回值
+/// 返回新建的流转
+///
+/// # 错误
+/// 类型不是灵感到写作或写作到日记时返回 `KindInvalid`，手记不存在时返回 `NotFound`，写入失败时返回 `Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let link = link_create(conn, from_id, to_id, kind)?;
+/// ```
 pub(super) fn link_create(
   conn: &Connection,
   from_id: &str,
@@ -212,6 +441,25 @@ pub(super) fn link_create(
   Ok(JournalLink { id, from_id: from_id.into(), to_id: to_id.into(), kind: kind.into(), created_at: now })
 }
 
+/// 按主键硬删除流转
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `id`: 流转主键
+///
+/// # 返回值
+/// 成功时返回空
+///
+/// # 错误
+/// 没有对应行时返回 `JournalError::NotFound`，删除失败时返回 `JournalError::Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// link_delete(conn, id)?;
+/// ```
 pub(super) fn link_delete(conn: &Connection, id: &str) -> Result<(), JournalError> {
   let n =
     conn.execute("DELETE FROM journal_link WHERE id = ?1", [id]).map_err(|e| db_fail("journal link delete", e))?;
@@ -221,6 +469,25 @@ pub(super) fn link_delete(conn: &Connection, id: &str) -> Result<(), JournalErro
   Ok(())
 }
 
+/// 按创建时间列出手记的书摘引用
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `entry_id`: 手记主键
+///
+/// # 返回值
+/// 返回书摘引用列表
+///
+/// # 错误
+/// 查询失败时返回 `JournalError::Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let citations = citation_list(conn, entry_id)?;
+/// ```
 pub(super) fn citation_list(conn: &Connection, entry_id: &str) -> Result<Vec<JournalCitation>, JournalError> {
   let sql = format!(
     "SELECT id, entry_id, book_note_id, created_at FROM {CITATION_TABLE} WHERE entry_id = ?1 ORDER BY created_at"
@@ -234,6 +501,26 @@ pub(super) fn citation_list(conn: &Connection, entry_id: &str) -> Result<Vec<Jou
   rows.collect::<Result<Vec<_>, _>>().map_err(|e| db_fail("journal citation list", e))
 }
 
+/// 确认手记和书摘存在后插入引用
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `entry_id`: 手记主键
+/// - `book_note_id`: 书摘主键
+///
+/// # 返回值
+/// 返回新建的引用
+///
+/// # 错误
+/// 手记不存在时返回 `NotFound`，书摘不存在时返回 `ReferencedMissing`，写入失败时返回 `Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let citation = citation_create(conn, entry_id, book_note_id)?;
+/// ```
 pub(super) fn citation_create(
   conn: &Connection,
   entry_id: &str,
@@ -257,6 +544,25 @@ pub(super) fn citation_create(
   Ok(JournalCitation { id, entry_id: entry_id.into(), book_note_id: book_note_id.into(), created_at: now })
 }
 
+/// 按主键硬删除书摘引用
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `id`: 引用主键
+///
+/// # 返回值
+/// 成功时返回空
+///
+/// # 错误
+/// 没有对应行时返回 `JournalError::NotFound`，删除失败时返回 `JournalError::Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// citation_delete(conn, id)?;
+/// ```
 pub(super) fn citation_delete(conn: &Connection, id: &str) -> Result<(), JournalError> {
   let n = conn
     .execute("DELETE FROM journal_citation WHERE id = ?1", [id])
@@ -267,6 +573,25 @@ pub(super) fn citation_delete(conn: &Connection, id: &str) -> Result<(), Journal
   Ok(())
 }
 
+/// 删除指向该书摘的全部引用
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `book_note_id`: 书摘主键
+///
+/// # 返回值
+/// 成功时返回空
+///
+/// # 错误
+/// 删除失败时返回 `JournalError::Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// clear_note(conn, book_note_id)?;
+/// ```
 pub(super) fn clear_note(conn: &Connection, book_note_id: &str) -> Result<(), JournalError> {
   conn
     .execute("DELETE FROM journal_citation WHERE book_note_id = ?1", [book_note_id])
@@ -274,10 +599,47 @@ pub(super) fn clear_note(conn: &Connection, book_note_id: &str) -> Result<(), Jo
   Ok(())
 }
 
+/// 判断手记类型是否为日记、灵感或写作
+///
+/// # 参数
+/// - `kind`: 手记类型
+///
+/// # 返回值
+/// 是这三种之一时返回 true
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let ok = allowed_kind("diary");
+/// ```
 pub(super) fn allowed_kind(kind: &str) -> bool {
   kind == KIND_DIARY || kind == KIND_SPARK || kind == KIND_WRITING
 }
 
+/// 按主键、类型和发生时间查询未删除手记并填上引用
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `id`: 手记主键，空则不限
+/// - `kind`: 类型，空则不限
+/// - `from`: 起始发生时间，含，空则不限
+/// - `to`: 结束发生时间，不含，空则不限
+///
+/// # 返回值
+/// 返回按发生时间倒序的手记
+///
+/// # 错误
+/// 查询失败时返回 `JournalError::Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let entries = query(conn, id, kind, from, to)?;
+/// ```
 fn query(
   conn: &Connection,
   id: Option<&str>,
@@ -303,6 +665,25 @@ fn query(
   Ok(items)
 }
 
+/// 填入手记的成员、标签和地点
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `entry`: 待填充的手记
+///
+/// # 返回值
+/// 成功时返回空
+///
+/// # 错误
+/// 读取引用失败时返回 `JournalError::Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// fill_refs(conn, entry)?;
+/// ```
 fn fill_refs(conn: &Connection, entry: &mut JournalEntry) -> Result<(), JournalError> {
   let owner = Owner::JournalEntry.as_str();
   entry.member_ids = crate::member::list_ids(conn, owner, &entry.id).map_err(|_| JournalError::Internal)?;
@@ -311,6 +692,26 @@ fn fill_refs(conn: &Connection, entry: &mut JournalEntry) -> Result<(), JournalE
   Ok(())
 }
 
+/// 替换手记的成员、标签和地点
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `id`: 手记主键
+/// - `input`: 手记内容
+///
+/// # 返回值
+/// 成功时返回空
+///
+/// # 错误
+/// 引用不存在时返回 `ReferencedMissing`，其余失败返回 `Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// replace_refs(conn, id, input)?;
+/// ```
 fn replace_refs(conn: &Connection, id: &str, input: &JournalEntryInput) -> Result<(), JournalError> {
   let owner = Owner::JournalEntry.as_str();
   crate::member::replace(conn, owner, id, &input.member_ids).map_err(ref_err)?;
@@ -319,6 +720,25 @@ fn replace_refs(conn: &Connection, id: &str, input: &JournalEntryInput) -> Resul
   Ok(())
 }
 
+/// 清除手记的成员、标签、地点和媒体引用
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `id`: 手记主键
+///
+/// # 返回值
+/// 成功时返回空
+///
+/// # 错误
+/// 清除失败时返回 `JournalError::Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// clear_refs(conn, id)?;
+/// ```
 fn clear_refs(conn: &Connection, id: &str) -> Result<(), JournalError> {
   let owner = Owner::JournalEntry.as_str();
   crate::member::clear(conn, owner, id).map_err(|_| JournalError::Internal)?;
@@ -328,6 +748,21 @@ fn clear_refs(conn: &Connection, id: &str) -> Result<(), JournalError> {
   Ok(())
 }
 
+/// 把引用错误映射成手记错误
+///
+/// # 参数
+/// - `err`: 引用模块返回的错误
+///
+/// # 返回值
+/// 文本为「引用不存在」时返回 `ReferencedMissing`，否则返回 `Internal`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// let err = ref_err(source);
+/// ```
 fn ref_err<E: std::fmt::Display>(err: E) -> JournalError {
   if err.to_string() == "引用不存在" { JournalError::ReferencedMissing } else { JournalError::Internal }
 }

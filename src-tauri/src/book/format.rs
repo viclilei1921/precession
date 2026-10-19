@@ -6,7 +6,24 @@ use std::path::Path;
 
 use super::types::Format;
 
-/// 从路径解析格式（扩展名优先，失败则按文件头嗅探）
+/// 按路径判断电子书格式
+///
+/// 先看小写扩展名：`epub` 为 EPUB，`mobi`、`azw`、`azw3` 为 MOBI，`txt` 为 TXT。扩展名不认识时再按文件头嗅探。
+///
+/// # 参数
+/// - `path`: 书籍文件路径
+///
+/// # 返回值
+/// 识别成功返回格式，否则返回 `None`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let format = detect_format(Path::new("novel.epub"));
+/// assert_eq!(format, Some(Format::Epub));
+/// ```
 pub fn detect_format(path: &Path) -> Option<Format> {
   if let Some(ext) = path.extension().and_then(|e| e.to_str()).map(|s| s.to_lowercase()) {
     match ext.as_str() {
@@ -19,7 +36,24 @@ pub fn detect_format(path: &Path) -> Option<Format> {
   detect_format_by_sniff(path)
 }
 
-/// 按文件头嗅探：ZIP → epub，PDB type BOOKMOBI/TEXtREAd → mobi
+/// 按文件头嗅探电子书格式
+///
+/// 读取最多 68 字节。以 `PK` 压缩头开头视为 EPUB；偏移 60 处为 `BOOKMOBI` 或 `TEXtREAd` 视为 MOBI。打不开文件或读失败时返回 `None`。
+///
+/// # 参数
+/// - `path`: 书籍文件路径
+///
+/// # 返回值
+/// 识别成功返回格式，否则返回 `None`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let format = detect_format_by_sniff(Path::new("book.bin"));
+/// assert!(format.is_none() || matches!(format, Some(Format::Epub | Format::Mobi)));
+/// ```
 fn detect_format_by_sniff(path: &Path) -> Option<Format> {
   let mut file = fs::File::open(path).ok()?;
   let mut buf = [0u8; 68];
