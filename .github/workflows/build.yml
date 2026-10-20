@@ -2,8 +2,9 @@
 # Precession 跨平台构建 — GitHub Actions
 # =============================================================================
 # 触发条件：推送 tag（v*）时自动构建，也可手动触发。
-# 构建矩阵：Windows (NSIS)、macOS Apple Silicon (DMG)。
+# 构建矩阵：Windows (NSIS)、macOS Apple Silicon (DMG)、Android arm64 (APK)。
 # 产物：每个平台的安装包上传为 Artifacts，tag 推送时额外创建 GitHub Release 草稿。
+# Android 不走 tauri-action：在 Ubuntu 上装 SDK/NDK 后执行 `tauri android build`。
 #
 # 侧车（ffmpeg / cjxl / avifenc）提交在 Git LFS，以仓库中的裁剪静态构建为准。
 # 检出后若文件缺失、或仍是 LFS 指针，构建直接失败，不下载兜底。
@@ -182,7 +183,7 @@ jobs:
           # 避免把分支名（如 main）当成 tag 去建一个发布。
           tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
           releaseName: ${{ github.ref_type == 'tag' && format('Precession {0}', github.ref_name) || '' }}
-          releaseBody: ${{ github.ref_type == 'tag' && format('Precession {0} 桌面安装包。', github.ref_name) || '' }}
+          releaseBody: ${{ github.ref_type == 'tag' && format('Precession {0} 安装包（Windows、macOS、Android）。', github.ref_name) || '' }}
           releaseDraft: true                   # 先创建为草稿，确认后手动发布
           prerelease: false
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundle }}
@@ -203,3 +204,193 @@ jobs:
             src-tauri/target/${{ matrix.target }}/release/bundle/**/*.AppImage
           if-no-files-found: warn              # 找不到文件时发出警告而非失败
           retention-days: 30                   # 产物保留 30 天
+
+  # Android 与桌面 bundle 不是同一条构建链：需要 JDK、SDK、NDK，
+  # 以及 openssl-src 交叉编译用的 AR / RANLIB / CC。侧车不参与
+  # （tauri.android.conf.json 把 externalBin 置空）。
+  build-android:
+    permissions:
+      contents: write
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install host build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config perl python3 unzip zip
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+
+      # 版本与 docs/wsl-android.md 对齐：compileSdk 36、NDK 29、minSdk 24。
+      - name: Install Android SDK packages
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager --install \
+            "platforms;android-36" \
+            "build-tools;36.1.0" \
+            "ndk;29.0.13846066"
+          NDK_HOME="${ANDROID_HOME}/ndk/29.0.13846066"
+          NDK_BIN="${NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          test -x "${NDK_BIN}/aarch64-linux-android24-clang"
+          test -x "${NDK_BIN}/llvm-ar"
+          test -x "${NDK_BIN}/llvm-ranlib"
+          {
+            echo "NDK_HOME=${NDK_HOME}"
+            echo "ANDROID_NDK_HOME=${NDK_HOME}"
+            echo "ANDROID_NDK_ROOT=${NDK_HOME}"
+            # NDK 23+ 没有 aarch64-linux-android-ranlib，openssl-src 必须指向 llvm-*
+            echo "AR_aarch64_linux_android=${NDK_BIN}/llvm-ar"
+            echo "RANLIB_aarch64_linux_android=${NDK_BIN}/llvm-ranlib"
+            echo "CC_aarch64_linux_android=${NDK_BIN}/aarch64-linux-android24-clang"
+          } >> "${GITHUB_ENV}"
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+
+      - name: Cache Rust
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+          shared-key: aarch64-linux-android
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('src-tauri/gen/android/**/*.gradle*', 'src-tauri/gen/android/**/*.kts', 'src-tauri/gen/android/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # 本机文档把 Gradle 指到腾讯云镜像。GitHub 托管 runner 走官方分发更稳。
+      - name: Use Gradle upstream distribution
+        run: |
+          sed -i 's#https\\://mirrors.cloud.tencent.com/gradle/#https\\://services.gradle.org/distributions/#' \
+            src-tauri/gen/android/gradle/wrapper/gradle-wrapper.properties
+
+      # tauri android build 在 CI 上会读这个占位文件；文件不存在时直接失败。
+      - name: Create tauri server addr placeholder
+        run: |
+          touch "/tmp/com.viclilei.precession-server-addr"
+          touch "/tmp/precession-server-addr"
+
+      - name: Build Android APK
+        run: pnpm exec tauri android build --target aarch64 --apk
+
+      # 未配置密钥时用本次任务临时生成的 keystore，APK 可以安装，但每次签名不同，不能覆盖升级。
+      # 正式签名配置仓库 Secrets：
+      #   ANDROID_KEYSTORE_BASE64、ANDROID_KEYSTORE_PASSWORD、ANDROID_KEY_ALIAS、ANDROID_KEY_PASSWORD
+      - name: Sign APK
+        id: sign
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          UNSIGNED="$(find src-tauri/gen/android/app/build/outputs/apk -name '*release*unsigned*.apk' -type f -print -quit)"
+          if [ -z "${UNSIGNED}" ]; then
+            UNSIGNED="$(find src-tauri/gen/android/app/build/outputs/apk -name '*release*.apk' -type f -print -quit)"
+          fi
+          if [ -z "${UNSIGNED}" ]; then
+            echo "未找到 release APK"
+            find src-tauri/gen/android/app/build/outputs -name '*.apk' -type f || true
+            exit 1
+          fi
+          KS="${RUNNER_TEMP}/precession-release.keystore"
+          if [ -n "${ANDROID_KEYSTORE_BASE64}" ]; then
+            if [ -z "${ANDROID_KEYSTORE_PASSWORD}" ] || [ -z "${ANDROID_KEY_ALIAS}" ] || [ -z "${ANDROID_KEY_PASSWORD}" ]; then
+              echo "已提供 ANDROID_KEYSTORE_BASE64，但密码或别名为空"
+              exit 1
+            fi
+            printf '%s' "${ANDROID_KEYSTORE_BASE64}" | base64 -d > "${KS}"
+            KS_PASS="${ANDROID_KEYSTORE_PASSWORD}"
+            ALIAS="${ANDROID_KEY_ALIAS}"
+            KEY_PASS="${ANDROID_KEY_PASSWORD}"
+            echo "使用仓库密钥签名"
+          else
+            KS_PASS="android"
+            ALIAS="precession"
+            KEY_PASS="android"
+            keytool -genkeypair -v \
+              -keystore "${KS}" \
+              -alias "${ALIAS}" \
+              -keyalg RSA -keysize 4096 -validity 10000 \
+              -storepass "${KS_PASS}" -keypass "${KEY_PASS}" \
+              -dname "CN=Precession CI, OU=CI, O=Precession, L=NA, ST=NA, C=US"
+            echo "未配置 Android 签名密钥，本次使用临时 keystore。同一设备上的后续版本无法覆盖安装。"
+          fi
+          APKSIGNER="$(find "${ANDROID_HOME}/build-tools" -name apksigner | sort | tail -1)"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            VERSION="${GITHUB_REF_NAME}"
+          else
+            VERSION="0.1.0-${GITHUB_SHA::7}"
+          fi
+          OUT="precession-${VERSION}-aarch64.apk"
+          "${APKSIGNER}" sign \
+            --ks "${KS}" \
+            --ks-pass "pass:${KS_PASS}" \
+            --ks-key-alias "${ALIAS}" \
+            --key-pass "pass:${KEY_PASS}" \
+            --out "${OUT}" \
+            "${UNSIGNED}"
+          "${APKSIGNER}" verify "${OUT}"
+          echo "apk=${OUT}" >> "${GITHUB_OUTPUT}"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: precession-aarch64-linux-android
+          path: ${{ steps.sign.outputs.apk }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Attach APK to release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APK: ${{ steps.sign.outputs.apk }}
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          for _ in 1 2 3 4 5 6 7 8 9 10; do
+            if gh release view "${TAG}" >/dev/null 2>&1; then
+              gh release upload "${TAG}" "${APK}" --clobber
+              exit 0
+            fi
+            sleep 30
+          done
+          gh release create "${TAG}" "${APK}" \
+            --draft \
+            --title "Precession ${TAG}" \
+            --notes "Precession ${TAG} 安装包（Windows、macOS、Android）。"
