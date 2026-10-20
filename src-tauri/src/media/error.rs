@@ -2,6 +2,16 @@ use serde::Serialize;
 
 use crate::db::error::DbError;
 
+/// 媒体操作失败
+///
+/// 序列化时只写出错误文本。数据库锁定变成 `Locked`，其余数据库错误变成 `Internal`。
+///
+/// # 变体
+/// - `KindInvalid`: 类型不正确
+/// - `NotFound`: 媒体不存在
+/// - `ReferencedMissing`: 所属记录不存在
+/// - `Locked`: 数据库未解锁
+/// - `Internal`: 操作失败
 #[derive(Debug, thiserror::Error)]
 pub enum MediaError {
   /// 类型不正确

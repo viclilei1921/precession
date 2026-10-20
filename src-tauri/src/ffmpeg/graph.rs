@@ -8,9 +8,42 @@ use super::models::{
 };
 use crate::utils::font::{default_fonts_dir, get_default_font_path};
 
+/// 拼一条视频滤镜用的请求
+///
+/// 帧率优先用请求里的值，没有再用 `encode.fps`。
+///
+/// # 字段
+/// - `encode`: 编码配置
+/// - `path`: 这一段的源路径。内嵌字幕用它
+/// - `width`: 源宽度。目标宽度为空或 0 时，标题按它缩放
+/// - `fps`: 合并、追加传入对齐后的帧率。转码和裁剪留空，改用 `encode.fps`
+/// - `size`: 空则跟源。有值时按适配方式缩放
+/// - `offset`: 这一段在成片时间轴上的起点
+/// - `duration`: 这一段的时长，和 `offset` 一起换算标题时间窗
+/// - `source_start`: 裁剪片段在源视频上的起点，用来对齐字幕
+///
+/// # 示例
+/// ```
+/// let encode = VideoEncode { fps: Some(24), ..VideoEncode::default() };
+/// let req = GraphRequest {
+///   encode: &encode,
+///   path: "clip.mp4",
+///   width: 1920,
+///   fps: Some(30.0),
+///   size: None,
+///   offset: 0.0,
+///   duration: 8.0,
+///   source_start: None,
+/// };
+/// assert_eq!(req.fps, Some(30.0));
+/// assert_eq!(req.encode.fps, Some(24));
+/// ```
 pub struct GraphRequest<'a> {
+  /// 编码配置
   pub encode: &'a VideoEncode,
+  /// 这一段的源路径。内嵌字幕用它
   pub path: &'a str,
+  /// 源宽度。目标宽度为空或 0 时，标题按它缩放
   pub width: u32,
   /// 合并、追加传入对齐后的帧率。转码和裁剪留空，改用 `encode.fps`。
   pub fps: Option<f64>,
@@ -18,6 +51,7 @@ pub struct GraphRequest<'a> {
   pub size: Option<VideoSize>,
   /// 这一段在成片时间轴上的起点。
   pub offset: f64,
+  /// 这一段的时长，和 `offset` 一起换算标题时间窗
   pub duration: f64,
   /// 裁剪片段在源视频上的起点，用来对齐字幕。
   pub source_start: Option<f64>,

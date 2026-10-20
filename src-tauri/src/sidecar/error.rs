@@ -1,18 +1,26 @@
 /// 侧车子进程的错误
+///
+/// # 变体
+/// - `Canceled`: 调用方取消了这次侧车
+/// - `Invalid`: 无效的参数，载荷是说明
+/// - `Io`: 输入输出错误，载荷是说明
+/// - `Spawn`: 侧车子进程启动失败，载荷是侧车名和原因
+/// - `Exit`: 侧车子进程退出，载荷是侧车名和说明
 #[derive(Debug, thiserror::Error)]
 pub enum SidecarError {
+  /// 调用方取消了这次侧车
   #[error("已取消")]
   Canceled,
-  /// 无效的参数
+  /// 无效的参数，载荷是说明
   #[error("{0}")]
   Invalid(String),
-  /// 输入输出错误
+  /// 输入输出错误，载荷是说明
   #[error("{0}")]
   Io(String),
-  /// 侧车子进程启动失败
+  /// 侧车子进程启动失败，载荷是侧车名和原因
   #[error("{name} 启动失败: {detail}")]
   Spawn { name: String, detail: String },
-  /// 侧车子进程退出
+  /// 侧车子进程退出，载荷是侧车名和说明
   #[error("{name} {detail}")]
   Exit { name: String, detail: String },
 }
@@ -142,4 +150,6 @@ impl From<std::io::Error> for SidecarError {
 }
 
 /// 侧车子进程的结果
+///
+/// 指向 `Result<T, SidecarError>`，让侧车函数的签名不用重复错误类型。
 pub type SidecarResult<T> = Result<T, SidecarError>;

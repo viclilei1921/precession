@@ -15,15 +15,38 @@ pub const AVIF_NATIVE_EXTENSIONS: &[&str] = &["jpg", "jpeg", "png"];
 /// cjxl 原生可读
 pub const JXL_NATIVE_EXTENSIONS: &[&str] = &["jpg", "jpeg", "png", "gif"];
 
+/// 编码目标
+///
+/// AVIF 原生可读 jpg、jpeg、png。JXL 再加 gif。
+///
+/// # 变体
+/// - `Avif`: 交给 avifenc。原生可读 jpg、jpeg、png
+/// - `Jxl`: 交给 cjxl。原生可读 jpg、jpeg、png、gif
+///
+/// # 示例
+/// 见 [`is_native_for`]。
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum EncodeTarget {
+  /// 交给 avifenc。原生可读 jpg、jpeg、png
   Avif,
+  /// 交给 cjxl。原生可读 jpg、jpeg、png、gif
   Jxl,
 }
 
 /// 桥接产物：像素走 PNG；可选 EXIF 原始载荷文件。
+///
+/// 丢弃时删掉这两个临时文件。删除失败时忽略。
+///
+/// # 字段
+/// - `png_path`: 临时 PNG
+/// - `exif_path`: EXIF 原始载荷。没有提出载荷时为空
+///
+/// # 示例
+/// 见 [`prepare_bridge_input`]。
 pub struct BridgeInput {
+  /// 临时 PNG
   pub png_path: PathBuf,
+  /// EXIF 原始载荷。没有提出载荷时为空
   pub exif_path: Option<PathBuf>,
 }
 
@@ -403,11 +426,30 @@ const TAG_SUB_IFD: u16 = 0x014A;
 const TAG_JPEG_IF_OFFSET: u16 = 0x0201;
 const TAG_JPEG_IF_LENGTH: u16 = 0x0202;
 
+/// TIFF IFD 里的一条元数据
+///
+/// 不超过 4 字节的值留在条目里，更长的值按偏移拷出。计数为 1 的 SHORT、LONG 或 IFD 才能读成 `u32`。
+///
+/// # 字段
+/// - `tag`: TIFF 标签
+/// - `type_`: 字段类型号
+/// - `count`: 值的个数
+/// - `value`: 值的字节。不超过 4 字节时是条目内的值，否则是按偏移拷出的字节
+///
+/// # 示例
+/// ```ignore
+/// let entry = TiffEntry { tag: 0x8769, type_: 4, count: 1, value: 8u32.to_le_bytes().to_vec() };
+/// assert_eq!(entry_u32(&entry, true), Some(8));
+/// ```
 #[derive(Clone)]
 struct TiffEntry {
+  /// TIFF 标签
   tag: u16,
+  /// 字段类型号
   type_: u16,
+  /// 值的个数
   count: u32,
+  /// 值的字节
   value: Vec<u8>,
 }
 

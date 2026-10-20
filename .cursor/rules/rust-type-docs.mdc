@@ -1,0 +1,73 @@
+---
+description: Rust 类型文档注释。写或改 struct、enum、trait、type 别名时按此补全。
+globs: src-tauri/**/*.rs
+alwaysApply: false
+---
+
+# Rust 类型注释
+
+每个 `struct`、`enum`、`trait`、`type` 别名（含私有）用 `///`，中文。`#[cfg(test)]` 里的类型不写这套文档。`const`、`static`、模块 `//!`、函数注释不在这里改。注释只描述代码里已经写明的行为。
+
+章节顺序固定。没有内容的章节不留空标题。第一段是一行摘要，空行之后才是详述。rustdoc 的模块索引只用第一个空行之前的文字。列表用 `-`。正文点名本 crate 的类型时用 intra-doc `` [`Type`] ``。
+
+字段、变体、关联项仍各写一行 `///`。类型上的 `# 字段` / `# 变体` 与这行摘要一致，并补上约束。两处不得矛盾。
+
+- 摘要：一行
+- 空行后写用途、设计意图、约束、不变量、生命周期。没有额外信息就不要第二段凑字
+- `# 字段`：具名字段结构体和元组结构体必写。元组字段用 `` `0` ``、`` `1` ``。单元结构体省略整节
+- `# 变体`：枚举必写。每个变体一行。载荷写明含义。错误变体写触发条件，不单独复读 `#[error]` 文案
+- `# 示例`：结构体必写。能脱离应用独立编译的公开类型用普通代码块；私有类型，以及依赖数据库、Tauri、文件、ffmpeg、系统 API 的用 `ignore`。可能失败的示例用 `?`，不用 `unwrap`；样板行用 `#` 隐藏。已经有函数示例覆盖构造时，写「见 [`函数名`]」，不复制第二份代码。枚举、trait、类型别名仅在用法不显然时写
+- `# Safety`：仅 `unsafe` 结构体、枚举、trait。写调用者或实现者必须维持的不变量
+- `# Panics`、`# 错误` 不写在类型上。panic 和调用点归函数注释
+
+`#[non_exhaustive]`、`#[must_use]`、作为契约的 `#[repr(C)]` / `#[repr(transparent)]` 写进详述，不单开章节。不在类型注释里展开调用方用不到的内部实现。
+
+```rust
+/// 带上下界的区间
+///
+/// `end` 不含在区间内。
+///
+/// # 字段
+/// - `start`: 起始，含
+/// - `end`: 结束，不含，必须大于 `start`
+///
+/// # 示例
+/// ```
+/// let span = Span { start: 0, end: 10 };
+/// assert!(span.start < span.end);
+/// ```
+struct Span {
+    /// 起始，含
+    start: u32,
+    /// 结束，不含，必须大于 `start`
+    end: u32,
+}
+
+/// 任务流转状态
+///
+/// # 变体
+/// - `Pending`: 等待执行
+/// - `Success`: 执行成功
+/// - `Failed`: 执行失败，载荷是错误原因
+enum TaskState {
+    /// 等待执行
+    Pending,
+    /// 执行成功
+    Success,
+    /// 执行失败，载荷是错误原因
+    Failed(String),
+}
+
+/// 可序列化为字节
+///
+/// 实现者必须保证同一值每次得到的字节相同。
+trait Serialize {
+    /// 把值写成字节
+    fn to_bytes(&self) -> Vec<u8>;
+}
+
+/// 业务模块的 schema 迁移函数
+///
+/// 指向 `fn(&Connection) -> Result<(), DbError>`。建库或解锁且连接已就绪后调用，避免 `db` 依赖具体功能表。
+type SchemaMigrator = fn(&Connection) -> Result<(), DbError>;
+```

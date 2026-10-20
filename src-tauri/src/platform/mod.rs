@@ -17,7 +17,9 @@ use tauri::{App, Webview, Window};
 
 use crate::db::state::DbState;
 
-/// 当前平台的启动挂钩。方法都不拿 `self`，编译期选定一个实现。
+/// 当前平台的启动挂钩
+///
+/// 方法都不拿 `self`，编译期选定一个实现。默认方法是空操作。
 pub(crate) trait Platform {
   /// 原样返回传入的构建器
   ///

@@ -3,6 +3,25 @@ use serde::Serialize;
 use crate::crypto::device::DeviceError;
 use crate::crypto::error::CryptoError;
 
+/// 数据库操作失败
+///
+/// 序列化时只写出错误文本。设备槽的 `Unavailable`、`Cancelled`、`Invalid`、`Internal` 分别变成 `DeviceUnavailable`、`DeviceCancelled`、`DeviceInvalid`、`Internal`。加密层的 `WrongPassword`、`Corrupt`、`Internal` 变成同名变体。
+///
+/// # 变体
+/// - `WrongPassword`: 密码不正确
+/// - `PasswordMismatch`: 两次输入的密码不一致
+/// - `PasswordEmpty`: 密码不能为空
+/// - `PasswordTooShort`: 密码太短
+/// - `AlreadyExists`: 数据库已存在
+/// - `NotFound`: 数据库不存在
+/// - `Corrupt`: 数据库损坏
+/// - `Locked`: 数据库未解锁
+/// - `Io`: 无法访问数据目录
+/// - `Internal`: 操作失败
+/// - `AlreadyUnlocked`: 数据库已解锁
+/// - `DeviceUnavailable`: 本机没有 TPM、钥匙串或 Android Keystore
+/// - `DeviceCancelled`: 用户取消了系统验证
+/// - `DeviceInvalid`: 设备槽密文或系统密钥已经对不上
 #[derive(Debug, thiserror::Error)]
 pub enum DbError {
   /// 密码不正确

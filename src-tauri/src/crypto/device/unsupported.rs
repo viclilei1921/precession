@@ -2,6 +2,15 @@ use zeroize::Zeroizing;
 
 use super::error::DeviceError;
 
+/// 没有系统密钥库的设备槽
+///
+/// 登记和打开一律返回 `Unavailable`。忘记设备密钥直接成功。
+///
+/// # 示例
+/// ```ignore
+/// assert!(matches!(UnsupportedDevice.enroll(&[7u8; 32]), Err(DeviceError::Unavailable)));
+/// UnsupportedDevice.forget()?;
+/// ```
 pub(crate) struct UnsupportedDevice;
 
 impl super::DeviceSlot for UnsupportedDevice {

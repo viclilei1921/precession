@@ -1,7 +1,17 @@
 //! MOBI 解析错误
 
+/// MOBI 解析错误
+///
+/// # 字段
+/// - `0`: 错误文本，`Display` 原样写出
+///
+/// # 示例
+/// 见 [`fmt`]
 #[derive(Debug)]
-pub struct MobiError(pub String);
+pub struct MobiError(
+  /// 错误文本，`Display` 原样写出
+  pub String,
+);
 
 impl std::fmt::Display for MobiError {
   /// 写入内部错误文本

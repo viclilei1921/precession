@@ -1,3 +1,9 @@
+/// Android 平台的启动挂钩
+///
+/// 编译到 Android 时被选为 `Platform` 的实现，并挂上设备槽插件。
+///
+/// # 示例
+/// 见 [`Platform`](super::Platform)
 pub(crate) struct Android;
 
 #[cfg(target_os = "android")]

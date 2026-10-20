@@ -15,9 +15,30 @@ use crate::sidecar::cache::clear_cache_temp_dir;
 use crate::sidecar::{SidecarError, SidecarResult, clear_current_child, secure_spawn_step};
 use crate::task::JobCtx;
 
+/// 合并时的一段输入
+///
+/// 读失败的输入不会放进来。采样率按 48000 规划。
+///
+/// # 字段
+/// - `path`: 源视频路径
+/// - `info`: 探测到的视频信息
+/// - `audio`: 这一段的音轨计划
+///
+/// # 示例
+/// ```ignore
+/// let piece = Piece {
+///   path: "a.mp4".into(),
+///   info: VideoInfo::default(),
+///   audio: plan_audio(&AudioSelection::default(), &[], RatePolicy::Force(48000)),
+/// };
+/// assert!(piece.audio.stream_index.is_none());
+/// ```
 struct Piece {
+  /// 源视频路径
   path: String,
+  /// 探测到的视频信息
   info: VideoInfo,
+  /// 这一段的音轨计划
   audio: AudioPlan,
 }
 

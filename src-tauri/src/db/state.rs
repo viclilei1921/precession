@@ -14,12 +14,21 @@ use super::storage::{create_db, open_db, read_header, remove_create_artifacts, w
 use crate::crypto::dek::{open_dek, platform_kdf_params, random_dek, seal_dek};
 use crate::crypto::device::{self, DeviceSlot};
 
-/// 业务模块 schema 迁移。建库/解锁且连接已就绪后调用，不让 `db` 依赖具体功能表。
+/// 业务模块 schema 迁移
+///
+/// 指向 `fn(&Connection) -> Result<(), DbError>`。建库/解锁且连接已就绪后调用，不让 `db` 依赖具体功能表。
 pub type SchemaMigrator = fn(&Connection) -> Result<(), DbError>;
 
+/// 已解锁的数据库会话
+///
+/// # 字段
+/// - `dek`: SQLCipher 页加密密钥。连接里已经有一份；这里再留一份，给以后改密或再开连接，避免用户重复输密码。
+/// - `conn`: 已 `PRAGMA key` 的连接。业务侧通过 `with_conn` 使用。
+///
+/// # 示例
+/// 见 [`DbState::create`]
 struct Session {
-  /// SQLCipher 页加密密钥。连接里已经有一份；
-  /// 这里再留一份，给以后改密或再开连接，避免用户重复输密码。
+  /// SQLCipher 页加密密钥。连接里已经有一份；这里再留一份，给以后改密或再开连接，避免用户重复输密码。
   #[allow(dead_code)]
   dek: Zeroizing<[u8; 32]>,
   /// 已 `PRAGMA key` 的连接。业务侧通过 `with_conn` 使用。
@@ -31,6 +40,18 @@ struct Session {
 /// Tauri 每个 command 都是一次独立调用，解锁后的连接必须放在 State 里才能跨 IPC 复用。
 /// `Arc`：command、退出钩子、`spawn_blocking` 共享同一份。
 /// `Mutex`：`rusqlite::Connection` 不能并行用；create / unlock / lock 也必须互斥。
+///
+/// # 字段
+/// - `dir`: 数据库目录
+/// - `sqlite`: 数据库文件
+/// - `header`: 数据库头文件
+/// - `device_wrap`: 设备槽密文
+/// - `session`: 数据库会话
+/// - `device`: 系统密钥库。测试可以换成内存假槽。
+/// - `migrators`: 各业务模块的建表 / 迁移。`Clone` 只复制函数指针。
+///
+/// # 示例
+/// 见 [`DbState::new`]
 #[derive(Clone)]
 pub struct DbState {
   /// 数据库目录

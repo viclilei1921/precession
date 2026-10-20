@@ -6,43 +6,114 @@ use super::error::EpubError;
 use super::path::{resolve_url, split_toc_href};
 
 /// 导航项（对应 epub.js parseNav / parseNCX 的基础结构）
+///
+/// # 字段
+/// - `label`: 标签。nav 优先用非空文本，否则用 `title`；NCX 取 `navLabel/text`
+/// - `href`: 解析后的链接，没有则为空
+/// - `subitems`: 子项。nav 来自嵌套 `ol`，NCX 只在 `navPoint` 下递归
+/// - `type_props`: epub type。NCX 和未读取 type 时为空
+///
+/// # 示例
+/// 见 [`parse_nav_li`]
 #[derive(Debug, Clone)]
 pub struct NavItem {
+  /// 标签。nav 优先用非空文本，否则用 `title`；NCX 取 `navLabel/text`
   pub label: String,
+  /// 解析后的链接，没有则为空
   pub href: Option<String>,
+  /// 子项。nav 来自嵌套 `ol`，NCX 只在 `navPoint` 下递归
   pub subitems: Vec<NavItem>,
+  /// epub type。NCX 和未读取 type 时为空
   pub type_props: Vec<String>,
 }
 
 /// 导航文档结构
+///
+/// 每种已知类型只保留第一份。
+///
+/// # 字段
+/// - `toc`: `epub:type` 含 `toc` 的列表
+/// - `page_list`: 含 `page-list` 的列表
+/// - `landmarks`: 含 `landmarks` 的列表
+/// - `others`: 其余 `nav`，标签取第一个子元素的文本
+///
+/// # 示例
+/// 见 [`parse_nav_document`]
 #[derive(Debug, Clone, Default)]
 pub struct NavDoc {
+  /// `epub:type` 含 `toc` 的列表
   pub toc: Vec<NavItem>,
+  /// 含 `page-list` 的列表
   pub page_list: Vec<NavItem>,
+  /// 含 `landmarks` 的列表
   pub landmarks: Vec<NavItem>,
+  /// 其余 `nav`，标签取第一个子元素的文本
   pub others: Vec<NavSection>,
 }
 
+/// 不属于目录、页码或 landmarks 的导航节
+///
+/// # 字段
+/// - `label`: 节标签
+/// - `section_type`: epub type。NCX 的 `navList` 为空
+/// - `list`: 该节的导航项
+///
+/// # 示例
+/// ```
+/// let section = NavSection {
+///   label: "导读".to_string(),
+///   section_type: vec!["loi".to_string()],
+///   list: Vec::new(),
+/// };
+/// assert_eq!(section.section_type, ["loi"]);
+/// ```
 #[derive(Debug, Clone)]
 pub struct NavSection {
+  /// 节标签
   pub label: String,
+  /// epub type。NCX 的 `navList` 为空
   pub section_type: Vec<String>,
+  /// 该节的导航项
   pub list: Vec<NavItem>,
 }
 
 /// NCX 文档结构
+///
+/// # 字段
+/// - `toc`: `navMap` 下的 `navPoint`
+/// - `page_list`: `pageList` 下的 `pageTarget`
+/// - `others`: 每个 `navList` 一节
+///
+/// # 示例
+/// 见 [`parse_ncx_document`]
 #[derive(Debug, Clone, Default)]
 pub struct NcxDoc {
+  /// `navMap` 下的 `navPoint`
   pub toc: Vec<NavItem>,
+  /// `pageList` 下的 `pageTarget`
   pub page_list: Vec<NavItem>,
+  /// 每个 `navList` 一节
   pub others: Vec<NavSection>,
 }
 
 /// 与前端定位一致的 href 解析结果
+///
+/// 路径相同且片段也相同则命中。目标没有片段时，返回第一个路径相同的项。
+///
+/// # 字段
+/// - `index`: 导航树先序摊平后的下标
+/// - `path`: 去掉片段后的路径
+/// - `fragment`: `#` 后的片段，没有则为空
+///
+/// # 示例
+/// 见 [`resolve_href_in_nav`]
 #[derive(Debug, Clone)]
 pub struct ResolvedHref {
+  /// 导航树先序摊平后的下标
   pub index: usize,
+  /// 去掉片段后的路径
   pub path: String,
+  /// `#` 后的片段，没有则为空
   pub fragment: Option<String>,
 }
 

@@ -10,8 +10,17 @@ use super::queue::TaskQueue;
 
 /// 任务执行期句柄
 ///
-/// 用于在任务执行期间报告进度和消息。
+/// 用于在任务执行期间报告进度和消息。取消标志为真时 [`JobCtx::is_canceled`] 返回真。
+///
+/// # 字段
+/// - `app`: Tauri 应用句柄
+/// - `id`: 任务 ID
+/// - `cancel`: 取消标志
+///
+/// # 示例
+/// 见 [`JobCtx::new`]
 pub struct JobCtx {
+  /// Tauri 应用句柄
   app: AppHandle,
   /// 任务 ID
   id: String,

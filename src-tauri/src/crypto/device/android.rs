@@ -8,7 +8,17 @@ use super::wrap;
 const KIND_ANDROID: &str = "android-keystore";
 use precession_device_slot::{DeviceApi, SlotError};
 
+/// Android 设备槽
+///
+/// DEK 只在进程内交给 Keystore，不进 WebView。
+///
+/// # 字段
+/// - `api`: 设备槽插件接口
+///
+/// # 示例
+/// 见 [`AndroidDevice::new`]
 pub(crate) struct AndroidDevice {
+  /// 设备槽插件接口
   api: DeviceApi<tauri::Wry>,
 }
 

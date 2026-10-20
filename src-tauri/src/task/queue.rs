@@ -15,17 +15,35 @@ use super::service::{Prepared, Spec};
 #[cfg(test)]
 use crate::db::state::DbState;
 
-/// 任务执行期句柄
+/// 队列里的一条任务
 ///
-/// 用于在任务执行期间报告进度和消息。
+/// 载荷里有文件密码，随 `Drop` 清零，不能入库。
+///
+/// # 字段
+/// - `id`: 任务 ID
+/// - `kind`: 任务类型，`encryptFile`、`decryptFile`、`importMedia`、`encryptMedia`、`decryptMedia`、`convertVideo`、`cutVideo`、`mergeVideo`、`appendVideo`、`convertAvif`、`convertJxl`
+/// - `spec`: 任务规格。工人取走后为空
+/// - `password`: 任务密码，丢弃时清零
+/// - `status`: 任务状态
+/// - `progress`: 任务进度，0.0 到 1.0
+/// - `message`: 任务消息。任务处理中时才有
+/// - `cancel`: 取消标志
+/// - `media_id`: 媒体 ID。媒体任务时才有
+/// - `target`: 目标路径，用来拒绝同一目标同时跑两条
+/// - `title`: 任务标题
+/// - `output`: 输出文件
+/// - `draft`: 任务草稿。任务取消时才有
+///
+/// # 示例
+/// 见 [`TaskQueue::push`]
 struct Job {
   /// 任务 ID
   id: String,
   /// 任务类型: encryptFile, decryptFile, importMedia, encryptMedia, decryptMedia, convertVideo, cutVideo, mergeVideo, appendVideo, convertAvif, convertJxl
   kind: String,
-  /// 任务规格
+  /// 任务规格。工人取走后为空
   spec: Option<Spec>,
-  /// 任务密码
+  /// 任务密码，丢弃时清零
   password: String,
   /// 任务状态: pending, processing, completed, failed, canceled
   status: Status,
@@ -37,7 +55,7 @@ struct Job {
   cancel: Arc<AtomicBool>,
   /// 媒体 ID。媒体任务时才有。
   media_id: Option<String>,
-  /// 目标路径
+  /// 目标路径，用来拒绝同一目标同时跑两条
   target: String,
   /// 任务标题
   title: String,
@@ -65,6 +83,14 @@ impl Drop for Job {
   }
 }
 
+/// 队列内部的任务状态
+///
+/// # 变体
+/// - `Pending`: 待处理
+/// - `Processing`: 处理中
+/// - `Completed`: 完成
+/// - `Failed`: 失败
+/// - `Canceled`: 取消
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Status {
   /// 待处理
@@ -79,7 +105,18 @@ enum Status {
   Canceled,
 }
 
-/// 任务票
+/// 工人从队列取出的一张票
+///
+/// 密码随 `Drop` 清零。
+///
+/// # 字段
+/// - `id`: 任务 ID
+/// - `spec`: 任务规格
+/// - `password`: 任务密码
+/// - `cancel`: 取消标志
+///
+/// # 示例
+/// 见 [`TaskQueue::wait_ticket`]
 pub(super) struct Ticket {
   /// 任务 ID
   pub id: String,
@@ -110,10 +147,19 @@ impl Drop for Ticket {
 }
 
 /// 任务队列
+///
+/// 内存队列。载荷里有文件密码，不能入库。锁中毒时操作返回 `TaskError::Internal`。
+///
+/// # 字段
+/// - `jobs`: 任务列表
+/// - `wake`: 有新任务或状态变化时唤醒工人
+///
+/// # 示例
+/// 见 [`TaskQueue::default`]
 pub struct TaskQueue {
   /// 任务列表
   jobs: Mutex<Vec<Job>>,
-  /// 唤醒条件变量
+  /// 有新任务或状态变化时唤醒工人
   wake: Condvar,
 }
 
@@ -136,8 +182,16 @@ impl Default for TaskQueue {
   }
 }
 
+/// 取消一条任务的结果
+///
+/// # 字段
+/// - `task`: 取消后的任务视图
+/// - `kill_child`: 是否杀死子进程
+///
+/// # 示例
+/// 见 [`TaskQueue::cancel`]
 pub(super) struct CancelOutcome {
-  /// 任务
+  /// 取消后的任务视图
   pub task: Task,
   /// 是否杀死子进程
   pub kill_child: bool,

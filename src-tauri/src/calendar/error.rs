@@ -2,6 +2,23 @@ use serde::Serialize;
 
 use crate::db::error::DbError;
 
+/// 日历操作失败
+///
+/// 序列化时只写出错误文本。数据库锁定变成 `Locked`，其余数据库错误变成 `Internal`。
+///
+/// # 变体
+/// - `DateInvalid`: 日期不是 `YYYY-MM-DD`
+/// - `RangeOrder`: 结束早于开始
+/// - `RangeTooLong`: 闭区间超过 366 天
+/// - `LunarYear`: 黄历只算 1900–2100
+/// - `YearRange`: 官方导入年份
+/// - `DaysEmpty`: 官方导入没有日期
+/// - `NameEmpty`: 节日名为空
+/// - `DateYear`: 日期不在导入年份里
+/// - `DuplicateDate`: 同一年里日期重复
+/// - `OverrideMissing`: 这一天没有个人覆盖
+/// - `Locked`: 数据库未解锁
+/// - `Internal`: 操作失败
 #[derive(Debug, thiserror::Error)]
 pub enum CalendarError {
   /// 日期不是 `YYYY-MM-DD`

@@ -7,8 +7,17 @@ use crate::task::JobCtx;
 use super::error::SidecarResult;
 use super::platform;
 
-/// 当前正在跑的侧车子进程。取消任务时把它杀掉，避免输出通道一直堵着。
+/// 当前正在跑的侧车子进程
+///
+/// 取消任务时把它杀掉，避免输出通道一直堵着。
+///
+/// # 字段
+/// - `child`: 正在跑的子进程，没有时为空
+///
+/// # 示例
+/// 见 [`ProcessSlot::default`]
 pub struct ProcessSlot {
+  /// 正在跑的子进程，没有时为空
   pub(super) child: Mutex<Option<CommandChild>>,
 }
 

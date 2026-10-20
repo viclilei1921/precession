@@ -22,7 +22,9 @@ pub(crate) use error::DeviceError;
 #[cfg(test)]
 pub(crate) use memory::MemorySlot;
 
-/// 用系统密钥库包住 DEK。返回值是 `device.wrap` 的全部字节。
+/// 用系统密钥库包住 DEK。
+///
+/// 返回值是 `device.wrap` 的全部字节。实现者必须是 `Send` + `Sync`，才能放进跨线程共享的槽。`confirm` 的默认实现直接成功。
 pub(crate) trait DeviceSlot: Send + Sync {
   /// 把 DEK 交给系统密钥库并返回 `device.wrap` 的全部字节
   ///

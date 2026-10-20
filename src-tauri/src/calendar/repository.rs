@@ -29,15 +29,48 @@ fn db_fail(context: &str, err: rusqlite::Error) -> CalendarError {
   CalendarError::Internal
 }
 
+/// 查询到的官方节假日
+///
+/// # 字段
+/// - `cal_date`: 日期
+/// - `name`: 节日名
+/// - `is_off_day`: 是否放假，false 表示调休上班
+///
+/// # 示例
+/// 见 [`list_official`]
 pub(super) struct OfficialRow {
+  /// 日期
   pub cal_date: String,
+  /// 节日名
   pub name: String,
+  /// 是否放假，false 表示调休上班
   pub is_off_day: bool,
 }
 
+/// 待写入的官方日期
+///
+/// 节日名已经去掉空白。`is_off_day` 为 false 表示调休上班。
+///
+/// # 字段
+/// - `cal_date`: 日期
+/// - `name`: 节日名
+/// - `is_off_day`: 是否放假，false 表示调休上班
+///
+/// # 示例
+/// ```ignore
+/// let makeup = OfficialInsert {
+///   cal_date: "2026-09-26".into(),
+///   name: "国庆节".into(),
+///   is_off_day: false,
+/// };
+/// assert!(!makeup.is_off_day);
+/// ```
 pub(super) struct OfficialInsert {
+  /// 日期
   pub cal_date: String,
+  /// 节日名
   pub name: String,
+  /// 是否放假，false 表示调休上班
   pub is_off_day: bool,
 }
 

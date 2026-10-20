@@ -1,3 +1,9 @@
+/// macOS 平台的启动挂钩
+///
+/// 编译到 macOS 时被选为 `Platform` 的实现，并挂上 shell 和对话框插件。
+///
+/// # 示例
+/// 见 [`Platform`](super::Platform)
 pub(crate) struct Macos;
 
 #[cfg(target_os = "macos")]
@@ -394,6 +400,14 @@ mod imp {
     static TRAFFIC_ALIGNING: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
   }
 
+  /// 红绿灯对齐的重入标记
+  ///
+  /// 离开作用域时把 `TRAFFIC_ALIGNING` 清回 false。
+  ///
+  /// # 示例
+  /// ```ignore
+  /// let _guard = ClearTrafficAligning;
+  /// ```
   struct ClearTrafficAligning;
 
   impl Drop for ClearTrafficAligning {

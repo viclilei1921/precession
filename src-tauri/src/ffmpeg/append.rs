@@ -24,10 +24,29 @@ use crate::sidecar::cache::{clear_cache_temp_dir, get_cache_temp_dir};
 use crate::sidecar::{SidecarError, SidecarResult, clear_current_child, secure_spawn_step};
 use crate::task::JobCtx;
 
+/// 基准可以直接复制时的音轨安排
+///
+/// 丢掉音频时不保留音频，采样率记 0，声道记 2，没有流序号。
+///
+/// # 字段
+/// - `keep_audio`: 是否保留音频。丢掉音频时为假
+/// - `sample_rate`: 保留音频时用那条音轨的采样率。丢掉音频时为 0
+/// - `channels`: 保留音频时用那条音轨的声道数。丢掉音频时为 2
+/// - `stream_index`: 绝对流序号。丢掉音频时为空
+///
+/// # 示例
+/// ```ignore
+/// let plan = CopyPlan { keep_audio: false, sample_rate: 0, channels: 2, stream_index: None };
+/// assert!(plan.stream_index.is_none());
+/// ```
 struct CopyPlan {
+  /// 是否保留音频。丢掉音频时为假
   keep_audio: bool,
+  /// 保留音频时用那条音轨的采样率。丢掉音频时为 0
   sample_rate: u32,
+  /// 保留音频时用那条音轨的声道数。丢掉音频时为 2
   channels: u8,
+  /// 绝对流序号。丢掉音频时为空
   stream_index: Option<u32>,
 }
 

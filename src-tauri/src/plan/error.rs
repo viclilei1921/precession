@@ -2,6 +2,24 @@ use serde::Serialize;
 
 use crate::db::error::DbError;
 
+/// 计划操作失败
+///
+/// 序列化时只写出错误文本。数据库锁定变成 `Locked`，其余数据库错误变成 `Internal`。
+///
+/// # 变体
+/// - `TitleEmpty`: 标题不能为空
+/// - `StepTitleEmpty`: 步骤标题不能为空
+/// - `StatusInvalid`: 状态不正确
+/// - `NameEmpty`: 名称不能为空
+/// - `NameTaken`: 名称已被使用
+/// - `GroupProtected`: 系统清单不能删除
+/// - `ParentInvalid`: 父计划不正确
+/// - `RepeatInvalid`: 重复设置不正确
+/// - `CommentEmpty`: 评论不能为空
+/// - `NotFound`: 计划不存在
+/// - `ReferencedMissing`: 引用不存在
+/// - `Locked`: 数据库未解锁
+/// - `Internal`: 操作失败
 #[derive(Debug, thiserror::Error)]
 pub enum PlanError {
   /// 标题不能为空

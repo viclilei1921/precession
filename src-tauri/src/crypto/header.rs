@@ -5,6 +5,16 @@ use crate::{
 use serde::{Deserialize, Serialize};
 
 /// 与 `data.sqlite` 成对出现的密钥头。
+///
+/// `validate` 要求版本、KDF 算法、Argon2 版本和包装算法都与当前实现一致。
+///
+/// # 字段
+/// - `v`: 版本号
+/// - `kdf`: 密钥派生函数头
+/// - `wrap`: 包装头
+///
+/// # 示例
+/// 见 [`KeyHeader::validate`]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct KeyHeader {
   /// 版本号
@@ -16,6 +26,17 @@ pub struct KeyHeader {
 }
 
 /// 密钥派生函数头
+///
+/// # 字段
+/// - `algo`: 算法
+/// - `version`: 版本号
+/// - `m`: 内存 KiB
+/// - `t`: 迭代次数
+/// - `p`: 并行度
+/// - `salt`: 盐
+///
+/// # 示例
+/// 见 [`KeyHeader::validate`]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct KdfHeader {
   /// 算法
@@ -33,6 +54,14 @@ pub struct KdfHeader {
 }
 
 /// 包装头
+///
+/// # 字段
+/// - `algo`: 算法
+/// - `nonce`: nonce
+/// - `ct`: 密文
+///
+/// # 示例
+/// 见 [`KeyHeader::validate`]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct WrapHeader {
   /// 算法

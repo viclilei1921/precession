@@ -99,9 +99,25 @@ pub const JIAN_CHU_NAMES: [&str; 12] =
 pub fn daily_suit_avoid_dict() -> &'static std::collections::HashMap<String, DailySuitAvoid> {
   use std::collections::HashMap;
   use std::sync::OnceLock;
+  /// 宜忌 JSON 的一行
+  ///
+  /// `y` 写入宜，`j` 写入忌。
+  ///
+  /// # 字段
+  /// - `j`: 忌
+  /// - `y`: 宜
+  ///
+  /// # 示例
+  /// ```ignore
+  /// let raw = Raw { j: "开市".into(), y: "祭祀".into() };
+  /// let item = DailySuitAvoid { yi: raw.y, ji: raw.j };
+  /// assert_eq!((item.yi.as_str(), item.ji.as_str()), ("祭祀", "开市"));
+  /// ```
   #[derive(serde::Deserialize)]
   struct Raw {
+    /// 忌
     j: String,
+    /// 宜
     y: String,
   }
   static CACHE: OnceLock<HashMap<String, DailySuitAvoid>> = OnceLock::new();
@@ -112,9 +128,19 @@ pub fn daily_suit_avoid_dict() -> &'static std::collections::HashMap<String, Dai
   })
 }
 
+/// 当日宜忌
+///
+/// # 字段
+/// - `yi`: 宜
+/// - `ji`: 忌
+///
+/// # 示例
+/// 见 [`daily_suit_avoid_dict`]
 #[derive(Clone)]
 pub struct DailySuitAvoid {
+  /// 宜
   pub yi: String,
+  /// 忌
   pub ji: String,
 }
 
@@ -138,32 +164,88 @@ pub fn almanac_core_dict() -> &'static [AlmanacCoreEntry] {
   })
 }
 
+/// 六十甲子里一日的时辰宜忌
+///
+/// `yiN` / `jiN` 是第 N 个时辰的宜和忌。
+///
+/// # 字段
+/// - `yi0`: 时辰 0 的宜
+/// - `ji0`: 时辰 0 的忌
+/// - `yi1`: 时辰 1 的宜
+/// - `ji1`: 时辰 1 的忌
+/// - `yi2`: 时辰 2 的宜
+/// - `ji2`: 时辰 2 的忌
+/// - `yi3`: 时辰 3 的宜
+/// - `ji3`: 时辰 3 的忌
+/// - `yi4`: 时辰 4 的宜
+/// - `ji4`: 时辰 4 的忌
+/// - `yi5`: 时辰 5 的宜
+/// - `ji5`: 时辰 5 的忌
+/// - `yi6`: 时辰 6 的宜
+/// - `ji6`: 时辰 6 的忌
+/// - `yi7`: 时辰 7 的宜
+/// - `ji7`: 时辰 7 的忌
+/// - `yi8`: 时辰 8 的宜
+/// - `ji8`: 时辰 8 的忌
+/// - `yi9`: 时辰 9 的宜
+/// - `ji9`: 时辰 9 的忌
+/// - `yi10`: 时辰 10 的宜
+/// - `ji10`: 时辰 10 的忌
+/// - `yi11`: 时辰 11 的宜
+/// - `ji11`: 时辰 11 的忌
+///
+/// # 示例
+/// 见 [`almanac_core_dict`]
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct AlmanacCoreEntry {
+  /// 时辰 0 的宜
   pub yi0: String,
+  /// 时辰 0 的忌
   pub ji0: String,
+  /// 时辰 1 的宜
   pub yi1: String,
+  /// 时辰 1 的忌
   pub ji1: String,
+  /// 时辰 2 的宜
   pub yi2: String,
+  /// 时辰 2 的忌
   pub ji2: String,
+  /// 时辰 3 的宜
   pub yi3: String,
+  /// 时辰 3 的忌
   pub ji3: String,
+  /// 时辰 4 的宜
   pub yi4: String,
+  /// 时辰 4 的忌
   pub ji4: String,
+  /// 时辰 5 的宜
   pub yi5: String,
+  /// 时辰 5 的忌
   pub ji5: String,
+  /// 时辰 6 的宜
   pub yi6: String,
+  /// 时辰 6 的忌
   pub ji6: String,
+  /// 时辰 7 的宜
   pub yi7: String,
+  /// 时辰 7 的忌
   pub ji7: String,
+  /// 时辰 8 的宜
   pub yi8: String,
+  /// 时辰 8 的忌
   pub ji8: String,
+  /// 时辰 9 的宜
   pub yi9: String,
+  /// 时辰 9 的忌
   pub ji9: String,
+  /// 时辰 10 的宜
   pub yi10: String,
+  /// 时辰 10 的忌
   pub ji10: String,
+  /// 时辰 11 的宜
   pub yi11: String,
+  /// 时辰 11 的忌
   pub ji11: String,
 }
 
@@ -186,10 +268,22 @@ pub fn auspicious_gods_dict() -> &'static std::collections::HashMap<String, Shen
   CACHE.get_or_init(|| serde_json::from_str(include_str!("./data/auspicious_gods_dict.json")).unwrap_or_default())
 }
 
+/// 吉神凶神
+///
+/// JSON 字段是 `JSYQ` 和 `XSYJ`。
+///
+/// # 字段
+/// - `jsyq`: 吉神
+/// - `xsyj`: 凶神
+///
+/// # 示例
+/// 见 [`auspicious_gods_dict`]
 #[derive(serde::Deserialize)]
 pub struct ShenShaEntry {
+  /// 吉神
   #[serde(rename = "JSYQ")]
   pub jsyq: String,
+  /// 凶神
   #[serde(rename = "XSYJ")]
   pub xsyj: String,
 }

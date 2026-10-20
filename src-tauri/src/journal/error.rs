@@ -2,6 +2,19 @@ use serde::Serialize;
 
 use crate::db::error::DbError;
 
+/// 手记操作失败
+///
+/// 序列化时只写出错误文本。数据库锁定变成 `Locked`，其余数据库错误变成 `Internal`。
+///
+/// # 变体
+/// - `TitleEmpty`: 标题不能为空
+/// - `KindInvalid`: 类型不正确
+/// - `NotFound`: 手记不存在
+/// - `ReferencedMissing`: 引用不存在
+/// - `Locked`: 数据库未解锁
+/// - `PasswordEmpty`: 密码不能为空
+/// - `BodyUnreadable`: 正文无法读取
+/// - `Internal`: 操作失败
 #[derive(Debug, thiserror::Error)]
 pub enum JournalError {
   /// 标题不能为空

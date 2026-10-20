@@ -8,83 +8,225 @@ use serde::Serialize;
 use super::data::*;
 
 /// 农历日期
+///
+/// 年份超出 1900 到 2100 时记成该年正月初一；早于基准日时记成 1899 年腊月初一。
+///
+/// # 字段
+/// - `l_year`: 农历年
+/// - `l_month`: 农历月
+/// - `l_day`: 农历日
+/// - `is_leap`: 是否闰月
+///
+/// # 示例
+/// 见 [`LunarCalendar::get_lunar_date`]
 #[derive(Debug, Clone, Serialize)]
 pub struct LunarDate {
+  /// 农历年
   pub l_year: i32,
+  /// 农历月
   pub l_month: u32,
+  /// 农历日
   pub l_day: u32,
+  /// 是否闰月
   pub is_leap: bool,
 }
 
 /// 列表格子用的轻量农历（不含宜忌）。
+///
+/// 年份不支持，或农历月不在 1 到 12 时不会产生。
+///
+/// # 字段
+/// - `year`: 农历年
+/// - `month`: 农历月
+/// - `day`: 农历日
+/// - `is_leap`: 是否闰月
+/// - `text`: 中文月日
+/// - `gan_zhi`: 日干支
+/// - `animal`: 生肖
+/// - `solar_term`: 当天节气，不是节气当天则为空
+///
+/// # 示例
+/// 见 [`LunarCalendar::lunar_cell`]
 #[derive(Debug, Clone, Serialize)]
 pub struct LunarCell {
+  /// 农历年
   pub year: i32,
+  /// 农历月
   pub month: u32,
+  /// 农历日
   pub day: u32,
+  /// 是否闰月
   pub is_leap: bool,
+  /// 中文月日
   pub text: String,
+  /// 日干支
   pub gan_zhi: String,
+  /// 生肖
   pub animal: String,
+  /// 当天节气，不是节气当天则为空
   pub solar_term: Option<String>,
 }
 
 /// 时辰宜忌项
+///
+/// # 字段
+/// - `hour_index`: 时辰序号
+/// - `zhi`: 地支
+/// - `yi`: 宜
+/// - `ji`: 忌
+/// - `time_range`: 时间范围
+/// - `chong_sha`: 冲煞
+/// - `cai_shen`: 财神方位
+/// - `xi_shen`: 喜神方位
+/// - `fu_shen`: 福神方位
+///
+/// # 示例
+/// 见 [`LunarCalendar::get_comprehensive_almanac`]
 #[derive(Debug, Clone, Serialize)]
 pub struct HourYiJi {
+  /// 时辰序号
   pub hour_index: u8,
+  /// 地支
   pub zhi: String,
+  /// 宜
   pub yi: String,
+  /// 忌
   pub ji: String,
+  /// 时间范围
   pub time_range: String,
+  /// 冲煞
   pub chong_sha: String,
+  /// 财神方位
   pub cai_shen: String,
+  /// 喜神方位
   pub xi_shen: String,
+  /// 福神方位
   pub fu_shen: String,
 }
 
 /// 综合黄历信息
+///
+/// # 字段
+/// - `solar_date`: 公历日期
+/// - `lunar`: 农历段
+/// - `gan_zhi`: 日干支
+/// - `animal`: 生肖
+/// - `nc_week`: 星期
+/// - `solar_term`: 节气，没有时为空
+/// - `peng_zu`: 彭祖百忌
+/// - `ji_shen`: 吉神
+/// - `xiong_shen`: 凶神
+/// - `jian_chu`: 建除
+/// - `dao_day`: 黄道或黑道
+/// - `tai_shen`: 胎神方位
+/// - `yi`: 宜，没有时为「暂无」
+/// - `ji`: 忌，没有时为「暂无」
+/// - `cai_shen`: 财神方位
+/// - `xi_shen`: 喜神方位
+/// - `fu_shen`: 福神方位
+/// - `wu_xing`: 五行
+/// - `chong_sha`: 冲煞
+/// - `zhi_shen`: 值神
+/// - `hour_yi_ji`: 十二时辰宜忌
+///
+/// # 示例
+/// 见 [`LunarCalendar::get_comprehensive_almanac`]
 #[derive(Debug, Clone, Serialize)]
 pub struct ComprehensiveAlmanac {
+  /// 公历日期
   pub solar_date: String,
+  /// 农历段
   pub lunar: LunarAlmanacLunar,
+  /// 日干支
   pub gan_zhi: String,
+  /// 生肖
   pub animal: String,
+  /// 星期
   pub nc_week: String,
+  /// 节气，没有时为空
   pub solar_term: String,
+  /// 彭祖百忌
   pub peng_zu: String,
+  /// 吉神
   pub ji_shen: String,
+  /// 凶神
   pub xiong_shen: String,
+  /// 建除
   pub jian_chu: String,
+  /// 黄道或黑道
   pub dao_day: String,
+  /// 胎神方位
   pub tai_shen: String,
+  /// 宜，没有时为「暂无」
   pub yi: String,
+  /// 忌，没有时为「暂无」
   pub ji: String,
+  /// 财神方位
   pub cai_shen: String,
+  /// 喜神方位
   pub xi_shen: String,
+  /// 福神方位
   pub fu_shen: String,
+  /// 五行
   pub wu_xing: WuXing,
+  /// 冲煞
   pub chong_sha: String,
+  /// 值神
   pub zhi_shen: String,
+  /// 十二时辰宜忌
   pub hour_yi_ji: Vec<HourYiJi>,
 }
 
+/// 综合黄历里的农历段
+///
+/// # 字段
+/// - `l_year`: 农历年
+/// - `l_month`: 农历月
+/// - `l_day`: 农历日
+/// - `is_leap`: 是否闰月
+/// - `text`: 中文月日
+///
+/// # 示例
+/// 见 [`LunarCalendar::get_comprehensive_almanac`]
 #[derive(Debug, Clone, Serialize)]
 pub struct LunarAlmanacLunar {
+  /// 农历年
   pub l_year: i32,
+  /// 农历月
   pub l_month: u32,
+  /// 农历日
   pub l_day: u32,
+  /// 是否闰月
   pub is_leap: bool,
+  /// 中文月日
   pub text: String,
 }
 
+/// 纳音和五行
+///
+/// # 字段
+/// - `nayin`: 纳音
+/// - `gan_wx`: 天干五行
+/// - `zhi_wx`: 地支五行
+///
+/// # 示例
+/// 见 [`LunarCalendar::get_wu_xing`]
 #[derive(Debug, Clone, Serialize)]
 pub struct WuXing {
+  /// 纳音
   pub nayin: String,
+  /// 天干五行
   pub gan_wx: String,
+  /// 地支五行
   pub zhi_wx: String,
 }
 
+/// 农历和黄历计算
+///
+/// 只处理公历 1900 到 2100。
+///
+/// # 示例
+/// 见 [`LunarCalendar::supports_date`]
 pub struct LunarCalendar;
 
 impl LunarCalendar {

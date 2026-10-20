@@ -25,24 +25,70 @@ use render::{clean_mobi_html, contains_renderable_media, extract_body, unescape_
 const OFFSET_UNAVAILABLE: u32 = u32::MAX;
 
 /// MOBI 轻量元数据
+///
+/// # 字段
+/// - `title`: 书名。EXTH 503 和头内标题都失败时为「未知标题」
+/// - `author`: 作者。没有 EXTH 100 时为空字符串
+///
+/// # 示例
+/// 见 [`parse_metadata`]
 pub struct MobiMeta {
+  /// 书名。EXTH 503 和头内标题都失败时为「未知标题」
   pub title: String,
+  /// 作者。没有 EXTH 100 时为空字符串
   pub author: String,
 }
 
 /// MOBI 单章
+///
+/// # 字段
+/// - `title`: 章标题。拆不出章节时为「正文」
+/// - `content`: 清洗后的 HTML 正文
+///
+/// # 示例
+/// 见 [`parse_content`]
 pub struct MobiChapter {
+  /// 章标题。拆不出章节时为「正文」
   pub title: String,
+  /// 清洗后的 HTML 正文
   pub content: String,
 }
 
+/// MOBI 文本流种类
+///
+/// # 变体
+/// - `Mobi6`: 头版本小于 8
+/// - `Kf8`: 头版本大于等于 8，或从 EXTH 121 切到 KF8
+///
+/// # 示例
+/// ```ignore
+/// let version = 8u32;
+/// let variant = if version >= 8 { MobiVariant::Kf8 } else { MobiVariant::Mobi6 };
+/// assert_eq!(variant, MobiVariant::Kf8);
+/// ```
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum MobiVariant {
+  /// 头版本小于 8
   Mobi6,
+  /// 头版本大于等于 8，或从 EXTH 121 切到 KF8
   Kf8,
 }
 
 /// PDB/MOBI 解析器：持有整文件字节与 record 偏移，支持 MOBI6 与 KF8/combo
+///
+/// # 字段
+/// - `data`: 完整文件内容
+/// - `record_offsets`: 各 PDB record 起始偏移（末尾追加文件长度哨兵）
+/// - `start`: 当前文本流起始 record 索引（combo 切换到 KF8 boundary 后非 0）
+/// - `resource_start`: 资源区起始 record。切换到 KF8 前记下，为 `u32::MAX` 时不可用
+/// - `palmdoc`: PalmDOC 头
+/// - `mobi`: MOBI 头
+/// - `exth`: EXTH 记录表，没有则为空
+/// - `kf8`: KF8 头偏移，版本小于 8 时为空
+/// - `variant`: 当前文本流是 MOBI6 还是 KF8
+///
+/// # 示例
+/// 见 [`from_bytes`]
 struct MobiParser {
   /// 完整文件内容
   data: Vec<u8>,
@@ -52,97 +98,316 @@ struct MobiParser {
   start: u32,
   /// 资源区起始 record
   resource_start: u32,
+  /// PalmDOC 头
   palmdoc: PalmDocHeader,
+  /// MOBI 头
   mobi: MobiHeader,
+  /// EXTH 记录表，没有则为空
   exth: Option<ExthHeader>,
+  /// KF8 头偏移，版本小于 8 时为空
   kf8: Option<Kf8Header>,
+  /// 当前文本流是 MOBI6 还是 KF8
   variant: MobiVariant,
 }
 
+/// PalmDOC 头
+///
+/// # 字段
+/// - `compression`: 压缩类型。`1` 不压缩，`2` 为 PalmDOC，`17480` 为不支持的 HUFF/CDIC
+/// - `num_text_records`: 文本记录数
+/// - `_record_size`: 记录大小，读出后未使用
+/// - `_encryption`: 加密标志，读出后未使用
+///
+/// # 示例
+/// ```ignore
+/// let header = PalmDocHeader { compression: 2, num_text_records: 3, _record_size: 0, _encryption: 0 };
+/// assert!(matches!(header.compression, 1 | 2 | 17480));
+/// ```
 #[derive(Clone)]
 struct PalmDocHeader {
+  /// 压缩类型。`1` 不压缩，`2` 为 PalmDOC，`17480` 为不支持的 HUFF/CDIC
   compression: u16,
+  /// 文本记录数
   num_text_records: u16,
+  /// 记录大小，读出后未使用
   _record_size: u16,
+  /// 加密标志，读出后未使用
   _encryption: u16,
 }
 
+/// MOBI 头
+///
+/// 记录偏移 16 处必须是 `MOBI`。资源起点和 INDX 缺字段时回填为 `u32::MAX`，EXTH 标志和尾随标志回填为 0。
+///
+/// # 字段
+/// - `length`: 头长度，EXTH 从 `16 + length` 开始
+/// - `encoding`: 编码号，用来解码标题和 EXTH 字符串
+/// - `version`: 版本。大于等于 8 时按 KF8 处理
+/// - `title_offset`: 标题在文本起点记录中的偏移
+/// - `title_length`: 标题字节长度
+/// - `resource_start`: 资源区起始 record，缺省为 `u32::MAX`
+/// - `exth_flag`: EXTH 标志。`0x40` 置位且后面还有数据时解析 EXTH
+/// - `trailing_flags`: 文本记录尾随字节标志
+/// - `indx`: NCX 索引 record，缺省为 `u32::MAX`
+///
+/// # 示例
+/// 见 [`parse_headers`]
 #[derive(Clone)]
 struct MobiHeader {
+  /// 头长度，EXTH 从 `16 + length` 开始
   length: u32,
+  /// 编码号，用来解码标题和 EXTH 字符串
   encoding: u32,
+  /// 版本。大于等于 8 时按 KF8 处理
   version: u32,
+  /// 标题在文本起点记录中的偏移
   title_offset: u32,
+  /// 标题字节长度
   title_length: u32,
+  /// 资源区起始 record，缺省为 `u32::MAX`
   resource_start: u32,
+  /// EXTH 标志。`0x40` 置位且后面还有数据时解析 EXTH
   exth_flag: u32,
+  /// 文本记录尾随字节标志
   trailing_flags: u32,
+  /// NCX 索引 record，缺省为 `u32::MAX`
   indx: u32,
 }
 
+/// KF8 头偏移
+///
+/// 只在 MOBI 版本大于等于 8 时读出。三个偏移缺省都是 `0xFFFFFFFF`。
+///
+/// # 字段
+/// - `fdst`: FDST 记录的相对下标
+/// - `frag`: fragment 索引的相对下标
+/// - `skel`: skeleton 索引的相对下标
+///
+/// # 示例
+/// 见 [`parse_headers`]
 #[derive(Clone)]
 struct Kf8Header {
+  /// FDST 记录的相对下标
   fdst: u32,
+  /// fragment 索引的相对下标
   frag: u32,
+  /// skeleton 索引的相对下标
   skel: u32,
 }
 
+/// EXTH 记录表
+///
+/// 魔数必须是 `EXTH`，且至少 12 字节。
+///
+/// # 字段
+/// - `records`: 类型和载荷。载荷不含 8 字节记录头；长度小于 8 或超出数据时停止
+///
+/// # 示例
+/// 见 [`parse_exth`]
 #[derive(Clone)]
 struct ExthHeader {
+  /// 类型和载荷。载荷不含 8 字节记录头；长度小于 8 或超出数据时停止
   records: Vec<(u32, Vec<u8>)>,
 }
 
+/// INDX 头
+///
+/// 记录必须以 `INDX` 开头且至少 56 字节。
+///
+/// # 字段
+/// - `length`: 头长度，TAGX 从这里开始
+/// - `num_records`: 后续 INDX 记录数
+/// - `encoding`: 解码 CNCX 的编码号
+/// - `num_cncx`: CNCX 记录数
+///
+/// # 示例
+/// ```ignore
+/// let header = IndxHeader { length: 56, num_records: 1, encoding: 0, num_cncx: 0 };
+/// let tagx_offset = header.length as usize;
+/// assert_eq!(tagx_offset, 56);
+/// ```
 struct IndxHeader {
+  /// 头长度，TAGX 从这里开始
   length: u32,
+  /// 后续 INDX 记录数
   num_records: u32,
+  /// 解码 CNCX 的编码号
   encoding: u32,
+  /// CNCX 记录数
   num_cncx: u32,
 }
 
+/// TAGX 头
+///
+/// 区段必须以 `TAGX` 开头且至少 12 字节。
+///
+/// # 字段
+/// - `length`: 区段长度。标签个数为 `(length - 12) / 4`，不足 12 时为 0
+/// - `num_control_bytes`: 控制字节数，名字之后先跳过这些字节
+///
+/// # 示例
+/// ```ignore
+/// let tagx = TagxHeader { length: 8, num_control_bytes: 0 };
+/// assert_eq!(tagx.length.saturating_sub(12) / 4, 0);
+/// ```
 struct TagxHeader {
+  /// 区段长度。标签个数为 `(length - 12) / 4`，不足 12 时为 0
   length: u32,
+  /// 控制字节数，名字之后先跳过这些字节
   num_control_bytes: u32,
 }
 
+/// 一条 INDX 的条目表和 CNCX 文本
+///
+/// # 字段
+/// - `table`: 解析出的条目
+/// - `cncx`: 记录内偏移到文本。下一条 CNCX 记录的偏移加上 `0x10000`
+///
+/// # 示例
+/// ```ignore
+/// let mut cncx = std::collections::HashMap::new();
+/// cncx.insert(0u32, "甲".to_string());
+/// cncx.insert(0x10000, "乙".to_string());
+/// let data = IndexData { table: Vec::new(), cncx };
+/// assert!(data.cncx.contains_key(&0x10000));
+/// ```
 struct IndexData {
+  /// 解析出的条目
   table: Vec<IndexEntry>,
+  /// 记录内偏移到文本。下一条 CNCX 记录的偏移加上 `0x10000`
   cncx: HashMap<u32, String>,
 }
 
+/// NCX 章节锚点
+///
+/// # 字段
+/// - `offset`: tag 1 的字节偏移
+/// - `label`: tag 3 指向的 CNCX 文本。空白则用条目名，并还原 HTML 实体
+///
+/// # 示例
+/// ```ignore
+/// let mut chapters = [
+///   NcxChapter { offset: 8, label: "乙".to_string() },
+///   NcxChapter { offset: 0, label: "甲".to_string() },
+/// ];
+/// chapters.sort_by_key(|c| c.offset);
+/// assert_eq!(chapters[0].label, "甲");
+/// ```
 struct NcxChapter {
+  /// tag 1 的字节偏移
   offset: u32,
+  /// tag 3 指向的 CNCX 文本。空白则用条目名，并还原 HTML 实体
   label: String,
 }
 
+/// INDX 里的一条
+///
+/// # 字段
+/// - `name`: 条目名
+/// - `tag_map`: 标签号到变长整数列表
+///
+/// # 示例
+/// ```ignore
+/// let mut tag_map = std::collections::HashMap::new();
+/// tag_map.insert(1u8, vec![0]);
+/// let entry = IndexEntry { name: "章".to_string(), tag_map };
+/// assert_eq!(entry.tag_map.get(&1).and_then(|v| v.first()).copied(), Some(0));
+/// ```
 struct IndexEntry {
+  /// 条目名
   name: String,
+  /// 标签号到变长整数列表
   tag_map: HashMap<u8, Vec<u32>>,
 }
 
+/// KF8 skeleton 索引项
+///
+/// # 字段
+/// - `num_frag`: tag 1，缺省为 0
+/// - `offset`: tag 6 的第一个值，缺省为 0
+/// - `length`: tag 6 的第二个值，缺省为 0
+///
+/// # 示例
+/// ```ignore
+/// let tag6 = [10u32];
+/// let skel = Kf8Skeleton {
+///   num_frag: 1,
+///   offset: tag6.first().copied().unwrap_or(0) as usize,
+///   length: tag6.get(1).copied().unwrap_or(0) as usize,
+/// };
+/// assert_eq!((skel.offset, skel.length), (10, 0));
+/// ```
 #[derive(Clone)]
 struct Kf8Skeleton {
+  /// tag 1，缺省为 0
   num_frag: usize,
+  /// tag 6 的第一个值，缺省为 0
   offset: usize,
+  /// tag 6 的第二个值，缺省为 0
   length: usize,
 }
 
+/// KF8 fragment 索引项
+///
+/// # 字段
+/// - `insert_offset`: 条目名解析出的插入位置，解析失败为 0
+/// - `offset`: tag 6 的第一个值，缺省为 0
+/// - `length`: tag 6 的第二个值，缺省为 0
+///
+/// # 示例
+/// ```ignore
+/// let frag = Kf8Fragment { insert_offset: "12".parse().unwrap_or(0), offset: 0, length: 3 };
+/// assert_eq!(frag.insert_offset, 12);
+/// ```
 #[derive(Clone)]
 struct Kf8Fragment {
+  /// 条目名解析出的插入位置，解析失败为 0
   insert_offset: usize,
+  /// tag 6 的第一个值，缺省为 0
   offset: usize,
+  /// tag 6 的第二个值，缺省为 0
   length: usize,
 }
 
+/// 一节 KF8 骨架及其片段
+///
+/// # 字段
+/// - `skel`: 骨架
+/// - `frags`: 这一骨架名下的片段
+/// - `length`: 骨架长度加上各片段长度
+///
+/// # 示例
+/// ```ignore
+/// let skel = Kf8Skeleton { num_frag: 1, offset: 0, length: 10 };
+/// let frag = Kf8Fragment { insert_offset: 0, offset: 0, length: 2 };
+/// let section = Kf8Section { length: skel.length + frag.length, skel, frags: vec![frag] };
+/// assert_eq!(section.length, 12);
+/// ```
 #[derive(Clone)]
 struct Kf8Section {
+  /// 骨架
   skel: Kf8Skeleton,
+  /// 这一骨架名下的片段
   frags: Vec<Kf8Fragment>,
+  /// 骨架长度加上各片段长度
   length: usize,
 }
 
+/// KF8 渲染上下文
+///
+/// # 字段
+/// - `full_raw`: 拼接并解压后的全部文本
+/// - `fdst_table`: flow 的起点和终点。FDST 无效时只有 `(0, 全文长度)`
+/// - `sections`: 按骨架切出的节。索引为空时补一节覆盖全文
+///
+/// # 示例
+/// 见 [`build_kf8_context`]
 struct Kf8Context {
+  /// 拼接并解压后的全部文本
   full_raw: Vec<u8>,
+  /// flow 的起点和终点。FDST 无效时只有 `(0, 全文长度)`
   fdst_table: Vec<(usize, usize)>,
+  /// 按骨架切出的节。索引为空时补一节覆盖全文
   sections: Vec<Kf8Section>,
 }
 
@@ -1743,8 +2008,17 @@ impl MobiParser {
 }
 
 /// 已打开的 MOBI：打开时整本解析并缓存各章正文（无按章流式能力）
+///
+/// # 字段
+/// - `meta`: 书名和作者，格式为 [`Format::Mobi`]
+/// - `chapters`: 打开时整本解析好的章节，下标从 0 编号
+///
+/// # 示例
+/// 见 [`open`]
 pub struct MobiBook {
+  /// 书名和作者，格式为 [`Format::Mobi`]
   meta: BookMeta,
+  /// 打开时整本解析好的章节，下标从 0 编号
   chapters: Vec<Chapter>,
 }
 

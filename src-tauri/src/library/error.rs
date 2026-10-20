@@ -2,6 +2,19 @@ use serde::Serialize;
 
 use crate::db::error::DbError;
 
+/// 书库操作失败
+///
+/// 序列化时只写出错误文本。数据库锁定变成 `Locked`，其余数据库错误变成 `Internal`。
+///
+/// # 变体
+/// - `TitleEmpty`: 标题不能为空
+/// - `StatusInvalid`: 状态不正确
+/// - `ProgressInvalid`: 进度不正确
+/// - `KindInvalid`: 类型不正确
+/// - `NotFound`: 书或笔记不存在
+/// - `ReferencedMissing`: 引用不存在
+/// - `Locked`: 数据库未解锁
+/// - `Internal`: 操作失败
 #[derive(Debug, thiserror::Error)]
 pub enum LibraryError {
   /// 标题不能为空

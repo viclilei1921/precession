@@ -12,11 +12,24 @@ use super::constants::{ARGON2_VERSION, HEADER_VERSION, KDF_ALGO, WRAP_ALGO};
 use super::error::CryptoError;
 use super::header::{KdfHeader, KeyHeader, WrapHeader};
 
-/// Argon2id 成本。m 是内存 KiB，t 是迭代次数，p 是并行度（不要超过物理核数）。
+/// Argon2id 成本。
+///
+/// m 是内存 KiB，t 是迭代次数，p 是并行度（不要超过物理核数）。`derive_kek` 会拒绝内存超出 `MIN_M_KIB` 到 `MAX_M_KIB`，或迭代、并行度为 0。
+///
+/// # 字段
+/// - `m_kib`: 内存 KiB
+/// - `t`: 迭代次数
+/// - `p`: 并行度，不要超过物理核数
+///
+/// # 示例
+/// 见 [`platform_kdf_params`]
 #[derive(Clone, Copy, Debug)]
 pub struct KdfParams {
+  /// 内存 KiB
   pub m_kib: u32,
+  /// 迭代次数
   pub t: u32,
+  /// 并行度，不要超过物理核数
   pub p: u32,
 }
 

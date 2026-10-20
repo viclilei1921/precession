@@ -26,6 +26,18 @@ const KDF_M_KIB: u32 = 15_000;
 const KDF_T: u32 = 3;
 const KDF_P: u32 = 1;
 
+/// 单件文件加解密失败
+///
+/// 这是 ChaCha20 密钥流，没有校验和。密码错了不会落在这些变体里，只会解出另一串字节。
+///
+/// # 变体
+/// - `PasswordEmpty`: 密码不能为空
+/// - `SamePath`: 输入和输出不能是同一个文件
+/// - `BadMagic`: 无效的加密格式
+/// - `BadVersion`: 不支持的加密版本
+/// - `Truncated`: 密文太短
+/// - `Canceled`: 调用方取消
+/// - `Internal`: 操作失败
 #[derive(Debug, thiserror::Error)]
 pub enum FileError {
   /// 密码不能为空

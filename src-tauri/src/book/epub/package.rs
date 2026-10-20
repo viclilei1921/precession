@@ -14,25 +14,66 @@ use super::nav::{NavItem, parse_nav_document, parse_ncx_document};
 use super::path::{normalize_path, parse_clock, resolve_url, split_toc_href};
 
 /// Manifest 单项
+///
+/// # 字段
+/// - `href`: 相对 OPF 解析后的路径
+/// - `media_type`: `media-type`，没有则为空字符串
+/// - `properties`: `properties` 按空白拆开，空段丢掉
+///
+/// # 示例
+/// ```ignore
+/// let item = ManifestItem {
+///   href: "nav.xhtml".to_string(),
+///   media_type: "application/xhtml+xml".to_string(),
+///   properties: vec!["nav".to_string()],
+/// };
+/// assert!(item.properties.iter().any(|p| p == "nav"));
+/// ```
 #[derive(Debug, Clone)]
 pub(crate) struct ManifestItem {
+  /// 相对 OPF 解析后的路径
   pub href: String,
+  /// `media-type`，没有则为空字符串
   pub media_type: String,
+  /// `properties` 按空白拆开，空段丢掉
   pub properties: Vec<String>,
 }
 
 /// Spine 条目（已解析章标题）
+///
+/// # 字段
+/// - `href`: 章节在压缩包里的路径
+/// - `title`: 导航标题。没有标题时写成 `第 {n} 章`，序号从 1 开始
+///
+/// # 示例
+/// ```ignore
+/// let entry = SpineEntry { href: "c.xhtml".to_string(), title: format!("第 {} 章", 1) };
+/// assert_eq!(entry.title, "第 1 章");
+/// ```
 #[derive(Debug, Clone)]
 pub(crate) struct SpineEntry {
+  /// 章节在压缩包里的路径
   pub href: String,
+  /// 导航标题。没有标题时写成 `第 {n} 章`，序号从 1 开始
   pub title: String,
 }
 
 /// 已解析的 OPF 包：元数据 + spine
+///
+/// # 字段
+/// - `meta`: 书名和作者。空字符串分别换成「未知标题」「未知作者」
+/// - `meta_full`: OPF 里的完整元数据
+/// - `spine`: `itemref` 按 manifest 生成的章节条目
+///
+/// # 示例
+/// 见 [`parse_package`]
 #[derive(Debug, Clone)]
 pub(crate) struct ParsedPackage {
+  /// 书名和作者。空字符串分别换成「未知标题」「未知作者」
   pub meta: EpubMeta,
+  /// OPF 里的完整元数据
   pub meta_full: EpubMetaFull,
+  /// `itemref` 按 manifest 生成的章节条目
   pub spine: Vec<SpineEntry>,
 }
 

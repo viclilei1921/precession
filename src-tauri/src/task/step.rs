@@ -10,13 +10,18 @@ use crate::crypto::file::{self, FileError};
 
 const CHUNK: usize = 64 * 1024;
 
-/// 任务步骤
+/// 一条任务里按顺序执行的步骤
+///
+/// # 变体
+/// - `Copy`: 复制文件，载荷是源路径和目标路径
+/// - `Encrypt`: 加密文件，载荷是源路径和目标路径
+/// - `Decrypt`: 解密文件，载荷是源路径和目标路径
 pub(super) enum Step {
-  /// 复制文件
+  /// 复制文件，载荷是源路径和目标路径
   Copy { from: PathBuf, to: PathBuf },
-  /// 加密文件
+  /// 加密文件，载荷是源路径和目标路径
   Encrypt { from: PathBuf, to: PathBuf },
-  /// 解密文件
+  /// 解密文件，载荷是源路径和目标路径
   Decrypt { from: PathBuf, to: PathBuf },
 }
 

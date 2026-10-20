@@ -1,3 +1,9 @@
+/// Windows 平台的启动挂钩
+///
+/// 编译到 Windows 时被选为 `Platform` 的实现，并挂上 shell 和对话框插件。
+///
+/// # 示例
+/// 见 [`Platform`](super::Platform)
 pub(crate) struct Windows;
 
 #[cfg(target_os = "windows")]

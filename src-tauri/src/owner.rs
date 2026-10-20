@@ -2,7 +2,16 @@
 
 use rusqlite::Connection;
 
-/// 记录属于哪个业务表。只有这里和 `lib.rs` 知道全部业务模块。
+/// 记录属于哪个业务表
+///
+/// 只有这里和 `lib.rs` 知道全部业务模块。
+///
+/// # 变体
+/// - `Plan`: 计划，字符串为 `plan`
+/// - `JournalEntry`: 日记，字符串为 `journal_entry`
+/// - `GrowthEntry`: 成长，字符串为 `growth_entry`
+/// - `Book`: 书籍，字符串为 `book`
+/// - `BookNote`: 书籍笔记，字符串为 `book_note`
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Owner {
   /// 计划

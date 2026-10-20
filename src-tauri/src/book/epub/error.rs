@@ -1,8 +1,17 @@
 //! EPUB 解析错误类型
 
 /// EPUB 解析错误
+///
+/// # 字段
+/// - `0`: 错误文本，`Display` 原样写出
+///
+/// # 示例
+/// 见 [`fmt`]
 #[derive(Debug)]
-pub struct EpubError(pub String);
+pub struct EpubError(
+  /// 错误文本，`Display` 原样写出
+  pub String,
+);
 
 impl std::fmt::Display for EpubError {
   /// 写入内部错误文本

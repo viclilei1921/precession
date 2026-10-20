@@ -5,14 +5,33 @@
 use super::error::EpubError;
 
 /// CFI step
+///
+/// # 字段
+/// - `index`: 步号
+/// - `id`: 紧跟步号的非空方括号文本，没有则为空
+/// - `offset`: 字符偏移。步号为奇数时才写进路径
+/// - `temporal`: 时间偏移，没有则为空
+/// - `spatial`: 空间坐标
+/// - `text`: 其余方括号文本
+/// - `side`: 方括号参数 `s`，没有则为空
+///
+/// # 示例
+/// 见 [`part_to_string`]
 #[derive(Debug, Clone, PartialEq)]
 pub struct CfiPart {
+  /// 步号
   pub index: u32,
+  /// 紧跟步号的非空方括号文本，没有则为空
   pub id: Option<String>,
+  /// 字符偏移。步号为奇数时才写进路径
   pub offset: Option<u32>,
+  /// 时间偏移，没有则为空
   pub temporal: Option<f64>,
+  /// 空间坐标
   pub spatial: Vec<f64>,
+  /// 其余方括号文本
   pub text: Vec<String>,
+  /// 方括号参数 `s`，没有则为空
   pub side: Option<String>,
 }
 
@@ -41,28 +60,79 @@ impl CfiPart {
 }
 
 /// 解析后的 CFI，可为普通 CFI 或 range CFI
+///
+/// # 变体
+/// - `Path`: 没有逗号的路径，按 `!` 分成多层 [`CfiPart`]
+/// - `Range`: 逗号必须正好分成三段：父路径、起点和终点
+///
+/// # 示例
+/// 见 [`parse_cfi`]
 #[derive(Debug, Clone, PartialEq)]
 pub enum ParsedCfi {
+  /// 没有逗号的路径，按 `!` 分成多层 [`CfiPart`]
   Path(Vec<Vec<CfiPart>>),
-  Range { parent: Vec<Vec<CfiPart>>, start: Vec<Vec<CfiPart>>, end: Vec<Vec<CfiPart>> },
+  /// 逗号必须正好分成三段：父路径、起点和终点
+  Range {
+    /// 父路径
+    parent: Vec<Vec<CfiPart>>,
+    /// 起点
+    start: Vec<Vec<CfiPart>>,
+    /// 终点
+    end: Vec<Vec<CfiPart>>,
+  },
 }
 
 /// Calibre 高亮结构（对应 fromCalibreHighlight 输入）
+///
+/// 起点和终点若以 `/4` 开头会去掉这段，再接到 spine 前缀后面。
+///
+/// # 字段
+/// - `spine_index`: spine 下标，用来生成 CFI 前缀
+/// - `start_cfi`: 起点 CFI
+/// - `end_cfi`: 终点 CFI
+///
+/// # 示例
+/// 见 [`from_calibre_highlight`]
 pub struct CalibreHighlight {
+  /// spine 下标，用来生成 CFI 前缀
   pub spine_index: usize,
+  /// 起点 CFI
   pub start_cfi: String,
+  /// 终点 CFI
   pub end_cfi: String,
 }
 
+/// CFI 分词结果
+///
+/// # 变体
+/// - `Step`: `/` 后的步号
+/// - `Offset`: `:` 后的字符偏移
+/// - `Temporal`: `~` 后的时间
+/// - `Spatial`: `@` 后的一个空间坐标，后续 `:` 再产生一个
+/// - `BracketText`: 方括号里按逗号拆出的文本
+/// - `Side`: 方括号参数 `s`
+/// - `Indirection`: `!`
+/// - `RangeSep`: `,`
+///
+/// # 示例
+/// 见 [`tokenize`]
 #[derive(Debug, Clone, PartialEq)]
 enum CfiToken {
+  /// `/` 后的步号
   Step(u32),
+  /// `:` 后的字符偏移
   Offset(u32),
+  /// `~` 后的时间
   Temporal(f64),
+  /// `@` 后的一个空间坐标，后续 `:` 再产生一个
   Spatial(f64),
+  /// 方括号里按逗号拆出的文本
   BracketText(String),
+  /// 方括号参数 `s`
   Side(String),
+  /// `!`
   Indirection,
+  /// `,`
   RangeSep,
 }
 

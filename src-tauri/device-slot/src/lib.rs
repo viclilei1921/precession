@@ -7,19 +7,40 @@ use tauri::{
 
 const PLUGIN_IDENTIFIER: &str = "com.viclilei.precession.device";
 
+/// 移动端设备槽插件返回的错误
+///
+/// `map_code` 把 `cancelled`、`unavailable`、`invalid` 映到同名变体，其余变成 `Internal`。
+///
+/// # 变体
+/// - `Unavailable`: 插件返回 `unavailable`
+/// - `Cancelled`: 插件返回 `cancelled`
+/// - `Invalid`: 插件返回 `invalid`，或解开的 DEK 不是 32 字节
+/// - `Internal`: 插件调用失败，或代码无法识别
 #[derive(Debug, thiserror::Error)]
 pub enum SlotError {
+  /// 插件返回 `unavailable`
   #[error("unavailable")]
   Unavailable,
+  /// 插件返回 `cancelled`
   #[error("cancelled")]
   Cancelled,
+  /// 插件返回 `invalid`，或解开的 DEK 不是 32 字节
   #[error("invalid")]
   Invalid,
+  /// 插件调用失败，或代码无法识别
   #[error("internal")]
   Internal,
 }
 
+/// 已注册的 Android 设备槽插件
+///
+/// # 字段
+/// - `handle`: Tauri 插件句柄，用来调用 `enroll`、`open`、`confirm`、`forget`
+///
+/// # 示例
+/// 见 [`DeviceApi::enroll`]
 pub struct DeviceApi<R: Runtime> {
+  /// Tauri 插件句柄，用来调用 `enroll`、`open`、`confirm`、`forget`
   handle: PluginHandle<R>,
 }
 
@@ -41,24 +62,58 @@ impl<R: Runtime> Clone for DeviceApi<R> {
   }
 }
 
+/// 交给移动端 `enroll` 的请求
+///
+/// 线上字段名是 camelCase。
+///
+/// # 字段
+/// - `dek_b64`: DEK 的 Base64
+///
+/// # 示例
+/// 见 [`DeviceApi::enroll`]
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct EnrollRequest {
+  /// DEK 的 Base64
   dek_b64: String,
 }
 
+/// 交给移动端 `open` 的请求
+///
+/// # 字段
+/// - `ct_b64`: 平台密文的 Base64
+///
+/// # 示例
+/// 见 [`DeviceApi::open`]
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct OpenRequest {
+  /// 平台密文的 Base64
   ct_b64: String,
 }
 
+/// 移动端插件返回的一包结果
+///
+/// `ok` 为假时用 `code` 选择 [`SlotError`]。
+///
+/// # 字段
+/// - `ok`: 插件是否成功
+/// - `code`: 失败代码，可以没有
+/// - `ct_b64`: `enroll` 返回的密文 Base64，可以没有
+/// - `dek_b64`: `open` 返回的 DEK Base64，可以没有
+///
+/// # 示例
+/// 见 [`DeviceApi::enroll`]
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct SlotResponse {
+  /// 插件是否成功
   ok: bool,
+  /// 失败代码，可以没有
   code: Option<String>,
+  /// `enroll` 返回的密文 Base64，可以没有
   ct_b64: Option<String>,
+  /// `open` 返回的 DEK Base64，可以没有
   dek_b64: Option<String>,
 }
 

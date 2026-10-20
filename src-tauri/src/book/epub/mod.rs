@@ -17,9 +17,20 @@ use content::assemble_epub_spine_entry;
 use package::parse_package;
 
 /// 已打开的 EPUB：缓存 OPF/spine，按章懒加载正文
+///
+/// # 字段
+/// - `path`: EPUB 文件路径，读章节时再打开
+/// - `meta`: 书名和作者，格式为 [`Format::Epub`]
+/// - `package`: 缓存的 OPF 包，目录来自其中的 spine
+///
+/// # 示例
+/// 见 [`open`]
 pub struct EpubBook {
+  /// EPUB 文件路径，读章节时再打开
   path: PathBuf,
+  /// 书名和作者，格式为 [`Format::Epub`]
   meta: BookMeta,
+  /// 缓存的 OPF 包，目录来自其中的 spine
   package: package::ParsedPackage,
 }
 

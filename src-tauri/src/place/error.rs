@@ -2,6 +2,16 @@ use serde::Serialize;
 
 use crate::db::error::DbError;
 
+/// 地点操作失败
+///
+/// 序列化时只写出错误文本。数据库锁定变成 `Locked`，其余数据库错误变成 `Internal`。
+///
+/// # 变体
+/// - `NameEmpty`: 名称不能为空
+/// - `NotFound`: 地点不存在
+/// - `ReferencedMissing`: 引用的地点不存在
+/// - `Locked`: 数据库未解锁
+/// - `Internal`: 操作失败
 #[derive(Debug, thiserror::Error)]
 pub enum PlaceError {
   /// 名称不能为空

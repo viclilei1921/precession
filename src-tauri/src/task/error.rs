@@ -3,6 +3,30 @@ use serde::Serialize;
 use crate::db::error::DbError;
 use crate::media::error::MediaError;
 
+/// 任务操作失败
+///
+/// 序列化时只写出错误文本。数据库锁定变成 `Locked`，其余数据库错误按同名变体转过来。侧车取消变成 `Canceled`，其余侧车错误包进 `Failed`。
+///
+/// # 变体
+/// - `KindInvalid`: 类型不正确
+/// - `PathEmpty`: 路径不能为空
+/// - `Missing`: 文件不存在
+/// - `PasswordEmpty`: 密码不能为空
+/// - `SamePath`: 输入和输出不能是同一个文件
+/// - `NotFound`: 媒体不存在
+/// - `ReferencedMissing`: 引用不存在
+/// - `Locked`: 数据库未解锁
+/// - `AlreadyEncrypted`: 文件已经加密
+/// - `NotEncrypted`: 文件还没有加密
+/// - `Busy`: 这个文件正在处理
+/// - `Running`: 正在处理，不能删除
+/// - `BadFormat`: 无效的加密格式
+/// - `BadVersion`: 不支持的加密版本
+/// - `Truncated`: 密文太短
+/// - `Canceled`: 已取消
+/// - `DesktopOnly`: 仅桌面端支持。非桌面端才有这个变体
+/// - `Failed`: 转码或侧车失败，载荷是具体原因
+/// - `Internal`: 操作失败
 #[derive(Debug, thiserror::Error)]
 pub enum TaskError {
   /// 类型不正确

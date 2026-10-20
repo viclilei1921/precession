@@ -28,6 +28,15 @@ const KIND_WINDOWS: &str = "windows-cng";
 const KEY_NAME: &str = "precession.device.v1";
 const PROVIDER_NAME: &str = "Microsoft Platform Crypto Provider";
 
+/// Windows 设备槽
+///
+/// TPM 上不可导出的 RSA 密钥包装 DEK。日常打开直接解密。用户锁定之后再解锁时，先弹出 Windows Hello。
+///
+/// # 示例
+/// ```ignore
+/// let blob = super::wrap::encode("other", b"not-empty")?;
+/// assert!(matches!(WindowsDevice.open(&blob), Err(DeviceError::Invalid)));
+/// ```
 pub(crate) struct WindowsDevice;
 
 impl super::DeviceSlot for WindowsDevice {
@@ -247,7 +256,19 @@ fn open_with_tpm(ct: &[u8]) -> Result<Zeroizing<[u8; 32]>, DeviceError> {
   decrypt(&key, ct)
 }
 
-struct Provider(NCRYPT_PROV_HANDLE);
+/// CNG 提供程序句柄
+///
+/// 丢弃时，句柄仍然有效就交给 `NCryptFreeObject`。
+///
+/// # 字段
+/// - `0`: `NCRYPT_PROV_HANDLE`
+///
+/// # 示例
+/// 见 [`open_provider`]
+struct Provider(
+  /// `NCRYPT_PROV_HANDLE`
+  NCRYPT_PROV_HANDLE,
+);
 
 impl Drop for Provider {
   /// 释放仍然有效的 CNG 提供程序句柄
@@ -271,7 +292,19 @@ impl Drop for Provider {
   }
 }
 
-struct Key(Option<NCRYPT_KEY_HANDLE>);
+/// CNG 密钥句柄
+///
+/// 丢弃时取出仍持有的句柄并交给 `NCryptFreeObject`。
+///
+/// # 字段
+/// - `0`: 可能已经取走的 `NCRYPT_KEY_HANDLE`
+///
+/// # 示例
+/// 见 [`open_key`]
+struct Key(
+  /// 可能已经取走的 `NCRYPT_KEY_HANDLE`
+  Option<NCRYPT_KEY_HANDLE>,
+);
 
 impl Drop for Key {
   /// 释放仍然持有的 CNG 密钥句柄

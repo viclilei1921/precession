@@ -3,10 +3,18 @@
 use std::fmt;
 
 /// 已支持的本地电子书格式
+///
+/// # 变体
+/// - `Epub`: EPUB，字符串为 `epub`
+/// - `Mobi`: MOBI，字符串为 `mobi`
+/// - `Txt`: 纯文本，字符串为 `txt`
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Format {
+  /// EPUB，字符串为 `epub`
   Epub,
+  /// MOBI，字符串为 `mobi`
   Mobi,
+  /// 纯文本，字符串为 `txt`
   Txt,
 }
 
@@ -84,6 +92,21 @@ impl fmt::Display for Format {
 }
 
 /// 解析后的书籍元数据
+///
+/// # 字段
+/// - `title`: 书名
+/// - `author`: 作者
+/// - `format`: 格式，只有 epub、mobi、txt
+///
+/// # 示例
+/// ```
+/// let meta = BookMeta {
+///   title: "书".to_string(),
+///   author: "人".to_string(),
+///   format: Format::Txt,
+/// };
+/// assert_eq!(meta.format.as_str(), "txt");
+/// ```
 #[derive(Debug, Clone)]
 pub struct BookMeta {
   /// 书名
@@ -95,6 +118,19 @@ pub struct BookMeta {
 }
 
 /// 目录项（无正文）
+///
+/// # 字段
+/// - `index`: 章节索引
+/// - `title`: 章节标题
+///
+/// # 示例
+/// ```
+/// let outline = [
+///   ChapterRef { index: 0, title: "序".to_string() },
+///   ChapterRef { index: 1, title: "正文".to_string() },
+/// ];
+/// assert_eq!(outline[1].index, 1);
+/// ```
 #[derive(Debug, Clone)]
 pub struct ChapterRef {
   /// 章节索引
@@ -104,6 +140,17 @@ pub struct ChapterRef {
 }
 
 /// 单章正文
+///
+/// # 字段
+/// - `index`: 章节索引
+/// - `title`: 章节标题
+/// - `content`: 章节内容
+///
+/// # 示例
+/// ```
+/// let chapter = Chapter { index: 0, title: "正文".to_string(), content: "段落".to_string() };
+/// assert!(chapter.content.contains("段落"));
+/// ```
 #[derive(Debug, Clone)]
 pub struct Chapter {
   /// 章节索引
@@ -114,7 +161,15 @@ pub struct Chapter {
   pub content: String,
 }
 
-/// 电子书解析错误。给调用方的只有固定文案，解析细节写进日志。
+/// 电子书解析错误
+///
+/// 给调用方的只有固定文案，解析细节写进日志。
+///
+/// # 变体
+/// - `Unsupported`: 扩展名和文件头都认不出
+/// - `NotFound`: 路径上没有这个文件
+/// - `ChapterOutOfRange`: 章节下标超出目录
+/// - `Invalid`: 文件能打开，但内容解不开
 #[derive(Debug, thiserror::Error)]
 pub enum BookError {
   /// 扩展名和文件头都认不出

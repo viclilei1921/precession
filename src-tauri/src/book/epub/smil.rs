@@ -6,11 +6,26 @@ use super::error::EpubError;
 use super::path::{parse_clock, resolve_url};
 
 /// media overlay 的一段
+///
+/// 同一个 `par` 里要同时有 `text` 和 `audio`，两边 `src` 解析后都非空才保留。
+///
+/// # 字段
+/// - `text`: `text` 的 `src`，按 SMIL 路径解析
+/// - `src`: `audio` 的 `src`，按 SMIL 路径解析
+/// - `begin`: `clipBegin` 解析出的秒数，没有则为空
+/// - `end`: `clipEnd` 解析出的秒数，没有则为空
+///
+/// # 示例
+/// 见 [`parse_smil_par_entries`]
 #[derive(Debug, Clone)]
 pub struct SmilParEntry {
+  /// `text` 的 `src`，按 SMIL 路径解析
   pub text: String,
+  /// `audio` 的 `src`，按 SMIL 路径解析
   pub src: String,
+  /// `clipBegin` 解析出的秒数，没有则为空
   pub begin: Option<f64>,
+  /// `clipEnd` 解析出的秒数，没有则为空
   pub end: Option<f64>,
 }
 

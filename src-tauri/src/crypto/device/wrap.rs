@@ -6,15 +6,39 @@ use super::error::DeviceError;
 
 pub(crate) const WRAP_VERSION: u32 = 1;
 
+/// `device.wrap` 的 JSON
+///
+/// 版本必须是 1，种类和密文都不能为空。
+///
+/// # 字段
+/// - `v`: 版本
+/// - `kind`: 平台种类
+/// - `ct`: Base64 密文
+///
+/// # 示例
+/// 见 [`encode`]
 #[derive(Serialize, Deserialize)]
 struct DeviceWrapJson {
+  /// 版本
   v: u32,
+  /// 平台种类
   kind: String,
+  /// Base64 密文
   ct: String,
 }
 
+/// 解开后的设备包裹
+///
+/// # 字段
+/// - `kind`: 平台种类
+/// - `ct`: 解码后的密文
+///
+/// # 示例
+/// 见 [`decode`]
 pub(crate) struct ParsedWrap {
+  /// 平台种类
   pub kind: String,
+  /// 解码后的密文
   pub ct: Vec<u8>,
 }
 

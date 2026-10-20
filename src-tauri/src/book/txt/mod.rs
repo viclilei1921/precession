@@ -16,8 +16,17 @@ use meta::{extract_author, extract_title};
 use split::split_txt_book;
 
 /// 已打开的 TXT：打开时解码并分章，正文缓存在内存
+///
+/// # 字段
+/// - `meta`: 书名、作者和格式。书名仍为空时用文件名主干
+/// - `chapters`: 打开时切好并缓存在内存的章节
+///
+/// # 示例
+/// 见 [`open`]
 pub struct TxtBook {
+  /// 书名、作者和格式。书名仍为空时用文件名主干
   meta: BookMeta,
+  /// 打开时切好并缓存在内存的章节
   chapters: Vec<Chapter>,
 }
 

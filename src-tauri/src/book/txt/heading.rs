@@ -7,11 +7,31 @@ use regex::Regex;
 use super::number::parse_chinese_or_arabic;
 
 /// 定义解析后的结果类型
+///
+/// [`format_line`] 把章节写成 `第{num}章: {title}`，卷写成 `卷{num}: {title}`。特殊章节在没有数字也没有标题时只留下类型名。
+///
+/// # 变体
+/// - `Chapter`: 章节号和标题
+/// - `Volume`: 卷号和标题
+/// - `Special`: 特殊章节。`kind` 为番外、附录、后记、序言、序章、序、楔子、前言、终章、引子之一
+///
+/// # 示例
+/// 见 [`format_line`]
 #[derive(Debug, PartialEq)]
 pub enum NovelLine {
+  /// 章节号和标题
   Chapter(u32, String),
+  /// 卷号和标题
   Volume(u32, String),
-  Special { kind: String, num: Option<u32>, title: String },
+  /// 特殊章节。`kind` 为番外、附录、后记、序言、序章、序、楔子、前言、终章、引子之一
+  Special {
+    /// 类型名
+    kind: String,
+    /// 可选编号
+    num: Option<u32>,
+    /// 类型名前后拼出的标题
+    title: String,
+  },
 }
 
 /// 把解析后的行格式化成标题文本

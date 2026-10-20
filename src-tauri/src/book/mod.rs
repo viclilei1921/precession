@@ -20,9 +20,17 @@ use mobi::MobiBook;
 use txt::TxtBook;
 
 /// 已打开的电子书（枚举门面，对齐各格式的 outline / chapter API）
+///
+/// # 变体
+/// - `Epub`: 已打开的 [`EpubBook`]
+/// - `Mobi`: 已打开的 [`MobiBook`]
+/// - `Txt`: 已打开的 [`TxtBook`]
 pub enum OpenedBook {
+  /// 已打开的 [`EpubBook`]
   Epub(EpubBook),
+  /// 已打开的 [`MobiBook`]
   Mobi(MobiBook),
+  /// 已打开的 [`TxtBook`]
   Txt(TxtBook),
 }
 

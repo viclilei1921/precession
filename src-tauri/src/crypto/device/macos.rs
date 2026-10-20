@@ -25,6 +25,15 @@ use crate::crypto::dek::{random_dek, unwrap_dek, wrap_dek};
 const SERVICE: &str = "precession";
 const ACCOUNT: &str = "device-kek-v2";
 
+/// macOS 设备槽
+///
+/// 钥匙串保存随机设备 KEK。用户已登录时直接读取。用户锁定之后再解锁时，先要求 Touch ID。只属于这台设备。
+///
+/// # 示例
+/// ```ignore
+/// let blob = super::wrap::encode("other", b"not-empty")?;
+/// assert!(matches!(MacosDevice.open(&blob), Err(DeviceError::Invalid)));
+/// ```
 pub(crate) struct MacosDevice;
 
 impl super::DeviceSlot for MacosDevice {

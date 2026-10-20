@@ -46,8 +46,19 @@ pub fn parse_duration_str(duration_str: &str) -> Option<f64> {
 }
 
 /// 留下 ffmpeg 的报错，丢掉进度和片头信息。
+///
+/// # 字段
+/// - `text`: 挑出来的非进度行。空行和进度、片头行丢掉
+///
+/// # 示例
+/// ```
+/// let mut notes = FfmpegNotes::default();
+/// notes.push(b"frame=  12 fps=3.0\nError opening output files: Invalid argument\n");
+/// assert_eq!(notes.failure(1), "退出代码 1：Error opening output files: Invalid argument");
+/// ```
 #[derive(Default)]
 pub struct FfmpegNotes {
+  /// 挑出来的非进度行
   text: String,
 }
 

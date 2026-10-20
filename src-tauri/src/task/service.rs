@@ -25,29 +25,55 @@ use crate::image::params::{AvifEncodeParams, JxlEncodeParams};
 use crate::media::{KIND_IMAGE, KIND_VIDEO};
 use crate::utils::id::new_uuid_v4;
 
-/// 任务规格
+/// 校验后的任务规格
+///
+/// 密码不在这里，跟 [`Prepared`] 分开放。
+///
+/// # 变体
+/// - `File`: 加密或解密一个文件，载荷是输入、输出和是否加密
+/// - `Import`: 导入媒体
+/// - `Media`: 加密或解密已有媒体
+/// - `ConvertVideo`: 转换视频
+/// - `CutVideo`: 按片段裁剪视频
+/// - `MergeVideo`: 合并多段视频
+/// - `AppendVideo`: 把多段视频追加到基准片
+/// - `ConvertAvif`: 转成 AVIF
+/// - `ConvertJxl`: 转成 JPEG XL
 pub(super) enum Spec {
-  /// 文件
+  /// 加密或解密一个文件，载荷是输入、输出和是否加密
   File { input: PathBuf, output: PathBuf, encrypt: bool },
-  /// 导入
+  /// 导入媒体
   Import { source: PathBuf, owner: String, owner_id: String, media_kind: String, encrypt: bool },
-  /// 媒体
+  /// 加密或解密已有媒体
   Media { media_id: String, encrypt: bool },
   /// 转换视频
   ConvertVideo { input: String, output: String, encode: VideoEncode },
-  /// 剪辑视频
+  /// 按片段裁剪视频
   CutVideo { input: String, output: String, segments: Vec<TimeSegment>, encode: VideoEncode },
-  /// 合并视频
+  /// 合并多段视频
   MergeVideo { inputs: Vec<String>, output: String, encode: VideoEncode },
-  /// 添加视频
+  /// 把多段视频追加到基准片
   AppendVideo { base: String, inputs: Vec<String>, output: String, encode: VideoEncode },
-  /// 转换 AVIF
+  /// 转成 AVIF
   ConvertAvif { input: String, output: String, params: AvifEncodeParams },
-  /// 转换 JXL
+  /// 转成 JPEG XL
   ConvertJxl { input: String, output: String, params: JxlEncodeParams },
 }
 
-/// 准备任务
+/// 校验通过、尚未入队的任务
+///
+/// # 字段
+/// - `kind`: 任务类型，`encryptFile`、`decryptFile`、`importMedia`、`encryptMedia`、`decryptMedia`、`convertVideo`、`cutVideo`、`mergeVideo`、`appendVideo`、`convertAvif`、`convertJxl`
+/// - `spec`: 任务规格
+/// - `password`: 任务密码
+/// - `media_id`: 媒体 ID。媒体任务时才有
+/// - `target`: 目标路径
+/// - `title`: 任务标题
+/// - `output`: 输出文件
+/// - `draft`: 任务草稿。任务取消时才有
+///
+/// # 示例
+/// 见 [`enqueue`]
 pub(super) struct Prepared {
   /// 任务类型: encryptFile, decryptFile, importMedia, encryptMedia, decryptMedia, convertVideo, cutVideo, mergeVideo, appendVideo, convertAvif, convertJxl
   pub kind: String,
@@ -303,16 +329,39 @@ fn is_sidecar(spec: &Spec) -> bool {
   )
 }
 
+/// 展开后的步骤和提交动作
+///
+/// # 字段
+/// - `steps`: 按顺序执行的步骤
+/// - `temps`: 临时文件
+/// - `dest`: 最终目标路径，可以没有
+/// - `after`: 步骤跑完后的提交动作
+///
+/// # 示例
+/// 见 [`build`]
 struct Built {
+  /// 按顺序执行的步骤
   steps: Vec<Step>,
+  /// 临时文件
   temps: Vec<PathBuf>,
+  /// 最终目标路径，可以没有
   dest: Option<PathBuf>,
+  /// 步骤跑完后的提交动作
   after: After,
 }
 
+/// 步骤跑完后怎么提交
+///
+/// # 变体
+/// - `None`: 不额外提交
+/// - `Import`: 把结果登记成媒体
+/// - `Replace`: 用旁路文件换上原媒体
 enum After {
+  /// 不额外提交
   None,
+  /// 把结果登记成媒体
   Import { id: String, owner: String, owner_id: String, kind: String, rel_path: String, mime: String, encrypted: bool },
+  /// 用旁路文件换上原媒体
   Replace { media_id: String, source: PathBuf, temp: PathBuf, encrypted: bool },
 }
 
@@ -1146,26 +1195,32 @@ fn prepare_file(
   password: String,
   encrypt: bool,
 ) -> Result<Prepared, TaskError> {
+  // 失败时清零密码
   let reject = |mut password: String, err: TaskError| {
     password.zeroize();
     err
   };
+
   if password.is_empty() {
     return Err(reject(password, TaskError::PasswordEmpty));
   }
+
   let input = input.trim().to_string();
   let output = output.trim().to_string();
   if input.is_empty() || output.is_empty() {
     return Err(reject(password, TaskError::PathEmpty));
   }
+
   let input = PathBuf::from(&input);
   let output = PathBuf::from(&output);
   if input == output {
     return Err(reject(password, TaskError::SamePath));
   }
+
   if !input.is_file() {
     return Err(reject(password, TaskError::Missing));
   }
+
   let target = output.display().to_string();
   Ok(finish(kind, target, Spec::File { input, output, encrypt }, password, None))
 }
