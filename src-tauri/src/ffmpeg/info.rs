@@ -10,14 +10,23 @@ use crate::ffmpeg::models::{AudioTrack, VideoInfo};
 use crate::ffmpeg::utils::parse_duration_str;
 use crate::sidecar::{SidecarError, SidecarResult};
 
+/// 画面宽高
 static RE_RES: OnceLock<Regex> = OnceLock::new();
+/// 帧率
 static RE_FPS: OnceLock<Regex> = OnceLock::new();
+/// 时长
 static RE_DURATION: OnceLock<Regex> = OnceLock::new();
+/// 比特率
 static RE_BITRATE_KB: OnceLock<Regex> = OnceLock::new();
+/// 视频编码
 static RE_VCODEC: OnceLock<Regex> = OnceLock::new();
+/// 像素格式
 static RE_PIX: OnceLock<Regex> = OnceLock::new();
+/// 音频
 static RE_AUDIO: OnceLock<Regex> = OnceLock::new();
+/// 音频比特率
 static RE_AUDIO_BITRATE: OnceLock<Regex> = OnceLock::new();
+/// 音轨标题
 static RE_TITLE: OnceLock<Regex> = OnceLock::new();
 
 /// 取出或编译这条正则
@@ -102,10 +111,12 @@ fn channels_of(layout: &str) -> u32 {
 /// assert_eq!(info.duration, 60.0);
 /// ```
 fn parse_line(info: &mut VideoInfo, audio_open: &mut bool, line: &str) {
+  // 遇到新的流就结束音轨标题收集
   if line.contains("Stream #") {
     *audio_open = false;
   }
 
+  // 视频流解析
   if line.contains("Video:") && info.video_codec.is_empty() {
     if let Some(caps) = regex(&RE_RES, r"(\d{2,5})x(\d{2,5})").captures(line) {
       info.width = caps[1].parse().unwrap_or(0);

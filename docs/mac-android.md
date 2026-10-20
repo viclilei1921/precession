@@ -231,6 +231,62 @@ UNSIGNED=src-tauri/gen/android/app/build/outputs/apk/universal/release/app-unive
 adb install -r ~/app-universal-release.apk
 ```
 
+上面的 `debug.keystore` 只用于本机安装。备案和对外发布用下面这把正式密钥，两套证书的 MD5 不同。
+
+### 7.4 发布密钥与备案指纹
+
+备案要填包名、签名证书的 MD5 指纹和公钥。包名是 `com.viclilei.precession`。指纹和公钥都从正式密钥库导出。
+
+密钥库存到仓库外面。密钥库文件、密钥库口令、密钥口令、别名 `precession` 四样一起备份。`precession.cer` 只是导出的公钥证书，可以随时再导。不要把 `.jks` 提交进 git。
+
+生成密钥（RSA 2048，有效期约 27 年）：
+
+```bash
+keytool -genkeypair -v \
+  -keystore "$HOME/precession-release.jks" \
+  -alias precession \
+  -keyalg RSA \
+  -keysize 2048 \
+  -validity 10000
+```
+
+密钥库口令自己设定，输入时不回显，随后再确认一次。姓名和组织填自己的名字即可。城市和省份用拼音（例如 `Yueyang`、`Hunan`），国家代码填 `CN`。问到 `<precession>` 的密钥口令时直接回车，即与密钥库口令相同。
+
+确认行应类似：
+
+```text
+CN=lilei, OU=lilei, O=lilei, L=Yueyang, ST=Hunan, C=CN是否正确?
+```
+
+此时输入 `y`。城市或省份若显示成 `????`，直接回车（默认否），改用拼音重新执行上面的命令。
+
+JDK 21 的 `keytool -list -v` 只打印 SHA1 和 SHA256。MD5 从导出的证书计算。导出时不要加 `-rfc`，否则哈希对不上证书指纹。
+
+```bash
+keytool -exportcert -alias precession \
+  -keystore "$HOME/precession-release.jks" \
+  -file "$HOME/precession.cer"
+
+openssl x509 -inform DER -in "$HOME/precession.cer" -fingerprint -md5 -noout
+openssl x509 -inform DER -in "$HOME/precession.cer" -pubkey -noout
+```
+
+`MD5 Fingerprint=` 后面去掉冒号，得到 32 位十六进制，填备案的证书 MD5。公钥先整段粘贴（含 `BEGIN PUBLIC KEY` / `END PUBLIC KEY`）。页面若提示格式不对，再去掉首尾两行和换行，只留中间的 Base64。
+
+用这把密钥签名正式包：
+
+```bash
+UNSIGNED=src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
+
+"$ANDROID_HOME/build-tools/36.1.0/apksigner" sign \
+  --ks "$HOME/precession-release.jks" \
+  --ks-pass pass:你的密钥库口令 \
+  --key-pass pass:你的密钥口令 \
+  --ks-key-alias precession \
+  --out ~/app-universal-release.apk \
+  "$UNSIGNED"
+```
+
 ## 8. 常见问题
 
 | 现象 | 原因 / 处理 |
@@ -239,6 +295,7 @@ adb install -r ~/app-universal-release.apk
 | `Unsupported class file major version 69` | `JAVA_HOME` 仍指向 Java 25（常见为 Android Studio JBR）；改用 `openjdk@21` |
 | `java.lang.System::load` 的 WARNING | 用错新 JDK 时的附带警告；先换成 JDK 21 即可 |
 | `sdkmanager` / Gradle 找不到 `android-36` | SDK Manager 未装 `platforms;android-36` |
+| `keytool -list -v` 没有 MD5 | JDK 21 不再打印 MD5；按 7.4 用 `openssl` 从证书计算 |
 | Configure / Perl 相关失败 | 确认 `which perl` 可用；必要时 `brew install perl` |
 | `:app:rustBuild*Debug`：`A problem occurred starting process 'command 'pnpm''` | Gradle 守护进程仍用**启动时**的 `PATH` 找 `pnpm`。fnm/corepack 的 `pnpm` 是当前 shell 的符号链接，旧守护进程会直接 ENOENT。`gen/android` 里的 `BuildTask.kt` 已改为经 `/bin/sh` 启动。若刚跑过 `tauri android init`（会覆盖该文件），先 `src-tauri/gen/android/gradlew --stop` 再重试 |
 
