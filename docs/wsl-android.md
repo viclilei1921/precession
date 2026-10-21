@@ -361,7 +361,7 @@ keytool -genkeypair -v \
 确认行应类似：
 
 ```text
-CN=lilei, OU=lilei, O=lilei, L=Yueyang, ST=Hunan, C=CN是否正确?
+CN=viclilei, OU=viclilei, O=viclilei, L=Shenzhen, ST=Guangdong, C=CN是否正确?
 ```
 
 此时输入 `y`。城市或省份若显示成 `????`，直接回车（默认否），改用拼音重新执行上面的命令。
@@ -393,7 +393,68 @@ UNSIGNED=src-tauri/gen/android/app/build/outputs/apk/universal/release/app-unive
   "$UNSIGNED"
 ```
 
-### 9.5 卡住时
+### 9.5 GitHub Actions 正式签名
+
+CI 的 Android 包由 `.github/workflows/build.yml` 里的 `build-android` 签名。密钥写在 GitHub 仓库的 Actions secrets 里，不进 git。
+
+配置页：<https://github.com/viclilei1921/precession/settings/secrets/actions>
+
+点 **New repository secret**，一次加一条。用上一节已经生成的 `$HOME/precession-release.jks`，别名 `precession`。换一把新密钥后，证书指纹会变，已安装的包无法覆盖升级，备案指纹也对不上。
+
+| Name | Secret |
+| --- | --- |
+| `ANDROID_KEY_ALIAS` | `precession` |
+| `ANDROID_KEYSTORE_PASSWORD` | 生成密钥库时设的口令 |
+| `ANDROID_KEY_PASSWORD` | 密钥口令。生成时直接回车的话，与密钥库口令相同 |
+| `ANDROID_KEYSTORE_BASE64` | 密钥库文件的 Base64，一整段，不要换行，不要带 `BEGIN` / `END` |
+
+取出 Base64：
+
+```bash
+base64 -w 0 "$HOME/precession-release.jks"
+```
+
+记不清口令时，能列出证书即说明口令正确。把刚输入的那串分别填进两个口令 Secret：
+
+```bash
+keytool -list -keystore "$HOME/precession-release.jks" -alias precession
+```
+
+四条要一起配。只配了 `ANDROID_KEYSTORE_BASE64`、口令或别名缺了，签名步骤会失败，日志是「已提供 ANDROID_KEYSTORE_BASE64，但密码或别名为空」。四条都空时，CI 会临时生成密钥，APK 能装，后续版本无法覆盖安装。`GITHUB_TOKEN` 由 Actions 自动注入，不用建。工作流里的 macOS、Windows 签名目前是注释，不用配。
+
+手动确认：Actions → **Cross-Platform Build** → **Run workflow**。打开 `build-android` 的 **Sign APK**。成功时这一步是绿的，日志里有：
+
+```text
+使用仓库密钥签名
+```
+
+产物在该次运行 Summary 底部，名字是 `precession-aarch64-linux-android`。口令错误、别名不存在，或 Base64 不是这把 `.jks` 时，`apksigner` 会报密钥库密码错误或格式不对。
+
+### 9.6 从 APK 核对包结构
+
+下载的 Artifact 是 zip，先解压得到里面的 `.apk`。手动触发时文件名类似 `precession-0.1.0-<7位提交号>-aarch64.apk`。推送 `v*` tag 时，版本段是 tag 名，例如 `precession-v0.1.0-aarch64.apk`。
+
+这次 CI 执行的是 `tauri android build --target aarch64 --apk`。正确的包同时满足：
+
+- 包名 `com.viclilei.precession`，`minSdk` 24，`targetSdk` 36
+- 原生代码只有 `arm64-v8a`
+- 存在 `lib/arm64-v8a/libprecession_lib.so`。`tauri.android.conf.json` 把 `externalBin` 置空，包里没有 `ffmpeg`、`cjxl`、`avifenc`
+- 签名证书的 SHA-256 与 `$HOME/precession-release.jks` 里别名 `precession` 的证书一致
+
+```bash
+APK=~/precession-0.1.0-xxxxxxx-aarch64.apk
+
+"$ANDROID_HOME/build-tools/36.1.0/aapt" dump badging "$APK" | grep -E "package:|sdkVersion:|targetSdkVersion:|native-code:"
+unzip -l "$APK" | grep -E "lib/|AndroidManifest.xml|classes.*dex"
+"$ANDROID_HOME/build-tools/36.1.0/apksigner" verify --print-certs "$APK"
+keytool -list -v -keystore "$HOME/precession-release.jks" -alias precession
+```
+
+`aapt` 里应看到包名和 `native-code: 'arm64-v8a'`。`apksigner` 打印 `Verifies`，并且证书 SHA-256 与 `keytool` 那一行相同，说明包结构和正式签名都对。能否在手机上打开，仍要安装后看。
+
+本机 `pnpm run build:android` 打的是 universal 包（见 9.3），可以带多个 ABI。上面的「只有 arm64-v8a」针对这次 CI 产物。
+
+### 9.7 卡住时
 
 Gradle 下载超时：把 `src-tauri/gen/android/gradle/wrapper/gradle-wrapper.properties` 里的 `distributionUrl` 换成：
 
