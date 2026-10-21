@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use super::error::TaskError;
-use crate::crypto::file::{self, FileError};
+use crate::chacha::chacha::{self, FileError};
 
 const CHUNK: usize = 64 * 1024;
 
@@ -120,9 +120,9 @@ fn cipher(
     })
   };
   let result = if encrypt {
-    file::encrypt_path(from, to, password, &mut bridge)
+    chacha::encrypt_path(from, to, password, &mut bridge)
   } else {
-    file::decrypt_path(from, to, password, &mut bridge)
+    chacha::decrypt_path(from, to, password, &mut bridge)
   };
   result.map_err(map_file)
 }

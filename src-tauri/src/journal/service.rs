@@ -303,7 +303,7 @@ pub fn seal_body(body: &str, password: &str) -> Result<String, JournalError> {
   if password.is_empty() {
     return Err(JournalError::PasswordEmpty);
   }
-  let bytes = crate::crypto::file::encrypt_bytes(body.as_bytes(), password).map_err(cipher_err)?;
+  let bytes = crate::chacha::chacha::encrypt_bytes(body.as_bytes(), password).map_err(cipher_err)?;
   Ok(BASE64.encode(bytes))
 }
 
@@ -331,7 +331,7 @@ pub fn open_body(body: &str, password: &str) -> Result<String, JournalError> {
     return Err(JournalError::PasswordEmpty);
   }
   let raw = BASE64.decode(body.trim()).map_err(|_| JournalError::BodyUnreadable)?;
-  let plain = crate::crypto::file::decrypt_bytes(&raw, password).map_err(cipher_err)?;
+  let plain = crate::chacha::chacha::decrypt_bytes(&raw, password).map_err(cipher_err)?;
   String::from_utf8(plain).map_err(|_| JournalError::BodyUnreadable)
 }
 
@@ -350,14 +350,14 @@ pub fn open_body(body: &str, password: &str) -> Result<String, JournalError> {
 /// ```
 /// let err = cipher_err(source);
 /// ```
-fn cipher_err(err: crate::crypto::file::FileError) -> JournalError {
+fn cipher_err(err: crate::chacha::chacha::FileError) -> JournalError {
   match err {
-    crate::crypto::file::FileError::PasswordEmpty => JournalError::PasswordEmpty,
-    crate::crypto::file::FileError::BadMagic
-    | crate::crypto::file::FileError::BadVersion
-    | crate::crypto::file::FileError::Truncated
-    | crate::crypto::file::FileError::Canceled => JournalError::BodyUnreadable,
-    crate::crypto::file::FileError::SamePath | crate::crypto::file::FileError::Internal => JournalError::Internal,
+    crate::chacha::chacha::FileError::PasswordEmpty => JournalError::PasswordEmpty,
+    crate::chacha::chacha::FileError::BadMagic
+    | crate::chacha::chacha::FileError::BadVersion
+    | crate::chacha::chacha::FileError::Truncated
+    | crate::chacha::chacha::FileError::Canceled => JournalError::BodyUnreadable,
+    crate::chacha::chacha::FileError::SamePath | crate::chacha::chacha::FileError::Internal => JournalError::Internal,
   }
 }
 

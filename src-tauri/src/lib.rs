@@ -1,5 +1,6 @@
 mod book;
 mod calendar;
+mod chacha;
 mod commands;
 mod crypto;
 mod db;
