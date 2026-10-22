@@ -1233,13 +1233,12 @@ impl LunarCalendar {
         let (yi, ji) = Self::get_hour_yi_ji(date, i as u8);
         let chong = Self::get_chong_sha(date, i as i32);
         let (c, x, f) = Self::get_god_directions_by_hour(date, i as i32);
-        let time_range = get_fetal_gods(h);
         HourYiJi {
           hour_index: i as u8,
           zhi: ZHI[i].to_string(),
           yi,
           ji,
-          time_range: time_range.unwrap_or_default(),
+          time_range: hour_time_range(h),
           chong_sha: chong,
           cai_shen: c,
           xi_shen: x,
@@ -1334,39 +1333,35 @@ impl LunarCalendar {
   }
 }
 
-/// 把小时映射成时辰时间段
+/// 把小时映射成所在时辰的时间段
+///
+/// 23 点和 0 点都算子时。其余整点两小时一段，从奇数点起算，结束写到该段最后一分钟。
 ///
 /// # 参数
-/// - `hour`: 小时
+/// - `hour`: 0 到 23 的小时，超出后按 24 取余
 ///
 /// # 返回值
-/// 小时先封顶到 23，按下标取到时间段；没有对应项时返回 `None`
+/// 返回 `HH:00 - HH:59` 形式的时间段
 ///
 /// # Panics
 /// 不会主动 panic
 ///
 /// # 示例
 /// ```
-/// let range = get_fetal_gods(23);
+/// let range = hour_time_range(23);
+/// assert_eq!(range, "23:00 - 00:59");
 /// ```
-fn get_fetal_gods(hour: u32) -> Option<String> {
-  let h = hour.min(23);
-  let map: [(u32, &str); 12] = [
-    (23, "23:00 - 00:59"),
-    (0, "23:00 - 00:59"),
-    (1, "01:00 - 02:59"),
-    (3, "03:00 - 04:59"),
-    (5, "05:00 - 06:59"),
-    (7, "07:00 - 08:59"),
-    (9, "09:00 - 10:59"),
-    (11, "11:00 - 12:59"),
-    (13, "13:00 - 14:59"),
-    (15, "15:00 - 16:59"),
-    (17, "17:00 - 18:59"),
-    (19, "19:00 - 20:59"),
-  ];
-  let idx = h / 2;
-  map.get(idx as usize).map(|(_, s)| s.to_string())
+fn hour_time_range(hour: u32) -> String {
+  let h = hour % 24;
+  let start = if h == 0 {
+    23
+  } else if h % 2 == 0 {
+    h - 1
+  } else {
+    h
+  };
+  let end = (start + 1) % 24;
+  format!("{start:02}:00 - {end:02}:59")
 }
 
 #[cfg(test)]
@@ -1386,5 +1381,29 @@ mod unit_tests {
     assert_eq!(solar_term(2026, 12, 31), None);
     assert_eq!(solar_term(2026, 1, 5).as_deref(), Some("小寒"));
     assert_eq!(solar_term(2026, 1, 6), None);
+  }
+
+  #[test]
+  fn hour_ranges_follow_zhi() {
+    let ranges = [
+      (23, "23:00 - 00:59"),
+      (0, "23:00 - 00:59"),
+      (1, "01:00 - 02:59"),
+      (2, "01:00 - 02:59"),
+      (3, "03:00 - 04:59"),
+      (5, "05:00 - 06:59"),
+      (7, "07:00 - 08:59"),
+      (9, "09:00 - 10:59"),
+      (11, "11:00 - 12:59"),
+      (13, "13:00 - 14:59"),
+      (15, "15:00 - 16:59"),
+      (17, "17:00 - 18:59"),
+      (19, "19:00 - 20:59"),
+      (21, "21:00 - 22:59"),
+      (22, "21:00 - 22:59"),
+    ];
+    for (hour, range) in ranges {
+      assert_eq!(hour_time_range(hour), range);
+    }
   }
 }

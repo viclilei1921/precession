@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import type { ReactNode, PointerEvent as ReactPointerEvent } from 'react';
+import type { ReactNode, PointerEvent as ReactPointerEvent, Ref } from 'react';
 import { useLayoutEffect, useRef, useState } from 'react';
 import styles from './index.module.css';
 
@@ -11,8 +11,27 @@ type ScrollProps = {
   className?: string;
   /** 哪个方向可以滚动 */
   axis?: ScrollAxis;
+  /**
+   * 滑块贴在右侧留白的外缘，不盖住内容。
+   * 父级右侧要有 `--space-5` 的内边距，且这条路径上不能再裁切溢出。
+   */
+  edge?: boolean;
+  /** 滚到头之后，把剩余滚轮交给外层 */
+  chain?: boolean;
+  /** 滚动层节点，供外部对齐位置 */
+  viewportRef?: Ref<HTMLDivElement>;
   children: ReactNode;
 };
+
+function setRef<T>(ref: Ref<T> | undefined, value: T | null) {
+  if (typeof ref === 'function') {
+    ref(value);
+    return;
+  }
+  if (ref) {
+    ref.current = value;
+  }
+}
 
 type AxisName = 'x' | 'y';
 
@@ -100,10 +119,18 @@ function placeThumb(thumb: HTMLDivElement | null, spec: AxisState, axis: AxisNam
 /**
  * 悬浮滚动条。
  *
- * 原生滚动条隐藏，自绘滑块盖在内容上，不占布局宽度。
+ * 原生滚动条隐藏。默认滑块盖在内容上，不占布局宽度。
+ * `edge` 时滑块改到右侧留白的外缘。
  * 悬停、滚动或拖动时出现，停下后淡出。内容没有溢出则不渲染滑块。
  */
-export function Scroll({ className, axis = 'both', children }: ScrollProps) {
+export function Scroll({
+  className,
+  axis = 'both',
+  edge = false,
+  chain = false,
+  viewportRef: viewportRefProp,
+  children
+}: ScrollProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const thumbXRef = useRef<HTMLDivElement>(null);
@@ -319,10 +346,20 @@ export function Scroll({ className, axis = 'both', children }: ScrollProps) {
       data-show-y={showY ? 'true' : undefined}
       data-dragging-x={draggingX ? 'true' : undefined}
       data-dragging-y={draggingY ? 'true' : undefined}
+      data-edge={edge ? 'true' : undefined}
+      data-chain={chain ? 'true' : undefined}
       onPointerEnter={() => setHover(true)}
       onPointerLeave={() => setHover(false)}
     >
-      <div ref={viewportRef} className={styles.viewport} data-axis={axis} onScroll={onScroll}>
+      <div
+        ref={(node) => {
+          viewportRef.current = node;
+          setRef(viewportRefProp, node);
+        }}
+        className={styles.viewport}
+        data-axis={axis}
+        onScroll={onScroll}
+      >
         {children}
       </div>
       <div

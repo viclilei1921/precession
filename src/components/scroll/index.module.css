@@ -21,6 +21,15 @@
   scrollbar-width: none;
 }
 
+/* 比内容区的 overscroll-behavior: auto 更具体。滚到头后停在这一层，不把回弹交给窗口。 */
+.root .viewport {
+  overscroll-behavior: none;
+}
+
+.root[data-chain="true"] .viewport {
+  overscroll-behavior: auto;
+}
+
 .viewport[data-axis="vertical"] {
   overflow: hidden auto;
 }
@@ -119,6 +128,22 @@
 .root[data-dragging-y="true"] .thumb-y,
 .root[data-dragging-x="true"] .thumb-x {
   cursor: grabbing;
+}
+
+/* 伸进内容区右侧留白，滑块贴外缘，留白仍把内容让开。 */
+.root[data-edge="true"] {
+  --scroll-gap: 0px;
+  margin-right: calc(var(--space-5) * -1);
+}
+
+.root[data-edge="true"] .viewport {
+  padding-right: var(--space-5);
+}
+
+.root[data-edge="true"] .thumb-y {
+  right: 0;
+  left: auto;
+  margin-inline: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {

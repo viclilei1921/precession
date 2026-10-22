@@ -27,3 +27,8 @@
   padding: var(--space-4) var(--space-5);
   overflow: hidden;
 }
+
+/* 内层滚不动，或已经滚到头时，把剩余滚轮交给内容区。页面自己的滚动层仍单独拦住。 */
+.content * {
+  overscroll-behavior: auto;
+}

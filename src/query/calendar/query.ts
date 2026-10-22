@@ -1,12 +1,20 @@
 import { queryOptions } from '@tanstack/react-query';
 import type { CalendarDay } from '@/bridge/calendar';
-import { calendarList } from '@/bridge/calendar';
+import { calendarAlmanac, calendarList } from '@/bridge/calendar';
 
 /** 今天和计划月历共用这一段日期 */
 export function calendarRangeQuery(from: string, to: string) {
   return queryOptions({
     queryKey: ['calendar', 'range', from, to],
     queryFn: () => calendarList(from, to)
+  });
+}
+
+/** 选中日的宜忌和十二时辰 */
+export function calendarAlmanacQuery(date: string) {
+  return queryOptions({
+    queryKey: ['calendar', 'almanac', date],
+    queryFn: () => calendarAlmanac(date)
   });
 }
 

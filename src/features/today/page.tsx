@@ -1,278 +1,140 @@
-import {
-  BookOpenIcon,
-  CalendarBlankIcon,
-  CameraIcon,
-  ClockCounterClockwiseIcon,
-  FireIcon,
-  FlagIcon,
-  HourglassIcon,
-  LightningIcon,
-  ListChecksIcon,
-  LockIcon,
-  NotebookIcon,
-  PencilLineIcon,
-  PencilSimpleIcon,
-  QuotesIcon
-} from '@phosphor-icons/react';
+import { CaretLeftIcon, CaretRightIcon } from '@phosphor-icons/react';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
-import type { Plan } from '@/bridge/plan';
-import type { TimelineItem, TimelineKind } from '@/bridge/timeline';
-import { ChipButton } from '@/components/button/chip';
-import { RowButton } from '@/components/button/row';
-import { CompleteDialog } from '@/components/complete-dialog';
-import { PlanCheck } from '@/components/plan-check';
-import { Progress } from '@/components/progress';
+import { IconButton } from '@/components/button/icon';
 import { Scroll } from '@/components/scroll';
-import { usePageSearch } from '@/hooks/search';
-import { calendarCaption, calendarRangeQuery } from '@/query/calendar/query';
-import { useCompletePlan } from '@/query/plan/complete';
-import { planMeta, todayCompletion, todayPlanPanel } from '@/query/plan/group';
-import { planListQuery } from '@/query/plan/query';
-import { taskListQuery } from '@/query/task/query';
-import { timelineListQuery } from '@/query/timeline/query';
-import { PATH } from '@/router/path';
-import { addLocalDays, formatDayHeading, formatFeedClock, startOfLocalDay, toDateInputValue } from '@/utils/day';
-import { errorMessage } from '@/utils/error';
-import { matchesQuery } from '@/utils/search';
+import { calendarRangeQuery } from '@/query/calendar/query';
+import {
+  addLocalMonths,
+  addLocalYears,
+  formatMonthDay,
+  startOfLocalDay,
+  startOfLocalMonth,
+  startOfLocalYear,
+  toDateInputValue
+} from '@/utils/day';
+import { Board } from './board/board';
+import { CAL_MIN, YEAR_MIN } from './board/pack';
+import type { CalendarMode } from './calendar/group';
+import { CalendarGroup } from './calendar/group';
+import { CaptureCard } from './cards/capture-card';
+import { GrowthCard } from './cards/growth-card';
+import { JournalCard } from './cards/journal-card';
+import { LatestCard } from './cards/latest-card';
+import { LibraryCard } from './cards/library-card';
+import { PlanCard } from './cards/plan-card';
+import { ReviewCard } from './cards/review-card';
+import { TermCard } from './cards/term-card';
+import { ToolboxCard } from './cards/toolbox-card';
 import styles from './page.module.css';
 
-const kindMeta: Record<TimelineKind, { label: string; tone: string; Icon: typeof ListChecksIcon }> = {
-  plan: { label: '计划', tone: 'plan', Icon: ListChecksIcon },
-  diary: { label: '日记', tone: 'journal', Icon: NotebookIcon },
-  spark: { label: '灵感', tone: 'journal', Icon: LightningIcon },
-  writing: { label: '写作', tone: 'journal', Icon: PencilLineIcon },
-  milestone: { label: '里程碑', tone: 'growth', Icon: FlagIcon },
-  moment: { label: '瞬间', tone: 'growth', Icon: CameraIcon },
-  excerpt: { label: '书摘', tone: 'library', Icon: QuotesIcon },
-  note: { label: '笔记', tone: 'library', Icon: BookOpenIcon }
-};
-
-const kindOrder: TimelineKind[] = ['diary', 'spark', 'writing', 'milestone', 'moment', 'excerpt', 'note', 'plan'];
+const WEEK = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
 
 export function TodayPage() {
-  const navigate = useNavigate();
-  const todayStart = startOfLocalDay();
-  const tomorrow = addLocalDays(todayStart, 1);
-  const streakFrom = addLocalDays(todayStart, -59);
-  const plansQuery = useQuery(planListQuery);
-  const feedQuery = useQuery(timelineListQuery(todayStart, tomorrow));
-  const streakQuery = useQuery(timelineListQuery(streakFrom, tomorrow));
-  const tasksQuery = useQuery(taskListQuery);
-  const todayKey = toDateInputValue(todayStart);
-  const calendarQuery = useQuery(calendarRangeQuery(todayKey, todayKey));
-  const [completing, setCompleting] = useState<Plan | null>(null);
-  const query = usePageSearch('搜索今天');
-  const complete = useCompletePlan(() => setCompleting(null));
+  const [mode, setMode] = useState<CalendarMode>('month');
+  const [cursor, setCursor] = useState(() => startOfLocalMonth());
+  const [selected, setSelected] = useState(() => startOfLocalDay());
+  const selectedKey = toDateInputValue(selected);
+  const dayQuery = useQuery(calendarRangeQuery(selectedKey, selectedKey));
+  const day = dayQuery.data?.days[0];
+  const cursorDate = new Date(cursor);
+  const title =
+    mode === 'year' ? `${cursorDate.getFullYear()}年` : `${cursorDate.getFullYear()}年${cursorDate.getMonth() + 1}月`;
+  const holiday = day?.holidayName ?? '';
+  const term = day?.lunar?.solarTerm ?? '';
+  const extra = holiday && holiday !== term ? holiday : term;
 
-  const plans = plansQuery.data ?? [];
-  const feed = feedQuery.data ?? [];
-  const visibleFeed = feed.filter((item) => matchesQuery(query, item.title, item.body));
-  const completion = todayCompletion(plans, todayStart);
-  const completionRate = completion.total === 0 ? 0 : Math.round((completion.done / completion.total) * 100);
-  const panel = todayPlanPanel(plans, todayStart);
-  const visiblePanel = panel.filter((plan) => matchesQuery(query, plan.title, plan.result));
-  const overdue = panel.filter(
-    (plan) => plan.status !== 'done' && plan.scheduledAt != null && plan.scheduledAt < todayStart
-  ).length;
-  const running =
-    tasksQuery.data?.filter((task) => task.status === 'pending' || task.status === 'processing').length ?? 0;
-  const error = plansQuery.error ?? feedQuery.error ?? streakQuery.error ?? tasksQuery.error ?? calendarQuery.error;
-  const caption = calendarCaption(calendarQuery.data?.days[0]);
+  function selectDay(time: number) {
+    const dayStart = startOfLocalDay(time);
+    setSelected(dayStart);
+    setMode('month');
+    setCursor(startOfLocalMonth(dayStart));
+  }
+
+  function openMonth(monthStart: number) {
+    setMode('month');
+    setCursor(monthStart);
+    const current = new Date(selected);
+    const next = new Date(monthStart);
+    if (current.getFullYear() !== next.getFullYear() || current.getMonth() !== next.getMonth()) {
+      setSelected(monthStart);
+    }
+  }
+
+  function showMonth() {
+    setMode('month');
+    setCursor(startOfLocalMonth(selected));
+  }
+
+  function showYear() {
+    setMode('year');
+    setCursor(startOfLocalYear(selected));
+  }
+
+  function shift(delta: number) {
+    setCursor((current) => (mode === 'year' ? addLocalYears(current, delta) : addLocalMonths(current, delta)));
+  }
 
   return (
     <section className={styles.page}>
-      <header className={styles.head}>
-        <h1 className={styles.title}>今天</h1>
-        <p className={styles.hint}>
-          {formatDayHeading(todayStart)}
-          {caption ? ` · ${caption}` : ''}
-        </p>
-      </header>
-      <Scroll className={styles.scroll}>
+      <Scroll className={styles.scroll} edge>
         <div className={styles.body}>
-          <div className={styles.capture}>
-            <PencilSimpleIcon className={styles.statIcon} weight="regular" />
-            <span className={styles.prompt}>记点什么…文字、里程碑、书摘、计划，都从这里进</span>
-            <ChipButton
-              tone="journal"
-              onClick={() => void navigate({ to: PATH.journal, search: { create: true, kind: 'diary' } })}
-            >
-              <PencilSimpleIcon weight="regular" />
-              文字
-            </ChipButton>
-            <ChipButton
-              tone="growth"
-              onClick={() => void navigate({ to: PATH.growth, search: { create: true, kind: 'milestone' } })}
-            >
-              <FlagIcon weight="regular" />
-              里程碑
-            </ChipButton>
-            <ChipButton tone="library" onClick={() => void navigate({ to: PATH.library })}>
-              <QuotesIcon weight="regular" />
-              书摘
-            </ChipButton>
-            <ChipButton tone="plan" onClick={() => void navigate({ to: PATH.plan, search: { create: true } })}>
-              <ListChecksIcon weight="regular" />
-              计划
-            </ChipButton>
-          </div>
-
-          {error ? <p className={styles.error}>{errorMessage(error)}</p> : null}
-
-          <div className={styles.stats}>
-            <article className={styles.stat}>
-              <ListChecksIcon className={styles.statIcon} weight="regular" />
-              <span className={styles.statValue}>
-                {completion.done}
-                <small> / {completion.total}</small>
-              </span>
-              <span className={styles.statLabel}>今日计划完成</span>
-              <Progress value={completionRate} label="今日计划完成" />
-            </article>
-            <article className={styles.stat}>
-              <NotebookIcon className={styles.statIcon} weight="regular" />
-              <span className={styles.statValue}>
-                {feed.length} <small>条</small>
-              </span>
-              <span className={styles.statLabel}>今天记录{recordSummary(feed) ? ` · ${recordSummary(feed)}` : ''}</span>
-            </article>
-            <article className={styles.stat}>
-              <FireIcon className={styles.statIcon} weight="regular" />
-              <span className={styles.statValue}>
-                {streakCount(streakQuery.data ?? [], todayStart)} <small>天</small>
-              </span>
-              <span className={styles.statLabel}>连续记录</span>
-            </article>
-            <article className={styles.stat}>
-              <HourglassIcon className={styles.statIcon} weight="regular" />
-              <span className={styles.statValue}>
-                {running} <small>运行中</small>
-              </span>
-              <span className={styles.statLabel}>后台处理</span>
-            </article>
-          </div>
-
-          <div className={styles.split}>
-            <article className={styles.card}>
-              <h2 className={styles.cardTitle}>
-                <ClockCounterClockwiseIcon className={styles.icon} weight="regular" />
-                今日动态
-                <span className={styles.extra}>按时间混排</span>
-              </h2>
-              {feedQuery.isPending ? <p className={styles.note}>正在读取…</p> : null}
-              {!feedQuery.isPending && visibleFeed.length === 0 ? (
-                <p className={styles.empty}>{query.trim() ? '没有匹配的记录。' : '今天还没有新的记录。'}</p>
+          <header className={styles.head}>
+            <div className={styles.nav}>
+              <IconButton label={mode === 'year' ? '上一年' : '上一月'} onClick={() => shift(-1)}>
+                <CaretLeftIcon weight="regular" />
+              </IconButton>
+              <h1 className={styles.title}>{title}</h1>
+              <IconButton label={mode === 'year' ? '下一年' : '下一月'} onClick={() => shift(1)}>
+                <CaretRightIcon weight="regular" />
+              </IconButton>
+              <div className={styles.mode}>
+                <button type="button" aria-pressed={mode === 'month'} onClick={showMonth}>
+                  月
+                </button>
+                <button type="button" aria-pressed={mode === 'year'} onClick={showYear}>
+                  年
+                </button>
+              </div>
+            </div>
+            <p className={styles.summary}>
+              <strong>{formatMonthDay(selected)}</strong>
+              <span>{WEEK[new Date(selected).getDay()]}</span>
+              {day?.lunar?.text ? <span className={styles.muted}>{day.lunar.text}</span> : null}
+              {extra ? <span className={styles.muted}>{extra}</span> : null}
+              {day ? (
+                <span className={styles.pill} data-rest={day.isWorkday ? 'false' : 'true'}>
+                  {day.isWorkday ? '上班' : '休息'}
+                </span>
               ) : null}
-              {visibleFeed.map((item) => (
-                <FeedRow key={`${item.kind}-${item.id}`} item={item} />
-              ))}
-            </article>
-            <article className={styles.card}>
-              <h2 className={styles.cardTitle}>
-                <CalendarBlankIcon className={styles.icon} weight="regular" />
-                今日计划
-                {overdue > 0 ? <span className={styles.extra}>{overdue} 项逾期</span> : null}
-              </h2>
-              {plansQuery.isPending ? <p className={styles.note}>正在读取…</p> : null}
-              {!plansQuery.isPending && visiblePanel.length === 0 ? (
-                <p className={styles.empty}>{query.trim() ? '没有匹配的计划。' : '今天还没有计划。'}</p>
-              ) : null}
-              {visiblePanel.map((plan) => (
-                <PlanCheck
-                  key={plan.id}
-                  plan={plan}
-                  meta={planMeta(plan, todayStart)}
-                  onComplete={setCompleting}
-                  onOpen={(item) => void navigate({ to: PATH.plan, search: { id: item.id } })}
-                />
-              ))}
-            </article>
-          </div>
+            </p>
+          </header>
+          <Board
+            calendarMin={mode === 'year' ? YEAR_MIN : CAL_MIN}
+            group={(columns) => (
+              <CalendarGroup
+                mode={mode}
+                cursor={cursor}
+                selected={selected}
+                columns={columns}
+                onSelect={selectDay}
+                onOpenMonth={openMonth}
+              />
+            )}
+            tiles={[
+              { id: 'plan', node: <PlanCard /> },
+              { id: 'journal', node: <JournalCard /> },
+              { id: 'growth', node: <GrowthCard /> },
+              { id: 'library', node: <LibraryCard /> },
+              { id: 'review', node: <ReviewCard /> },
+              { id: 'toolbox', node: <ToolboxCard />, static: true },
+              { id: 'term', node: <TermCard selected={selected} />, static: true },
+              { id: 'latest', node: <LatestCard /> },
+              { id: 'capture', node: <CaptureCard />, static: true }
+            ]}
+          />
         </div>
       </Scroll>
-      <CompleteDialog
-        plan={completing}
-        pending={complete.pending}
-        error={complete.error ? errorMessage(complete.error) : ''}
-        onSubmit={(result) => {
-          if (completing) {
-            complete.submit(completing.id, result);
-          }
-        }}
-        onClose={() => setCompleting(null)}
-      />
     </section>
   );
-}
-
-function FeedRow({ item }: { item: TimelineItem }) {
-  const navigate = useNavigate();
-  const meta = kindMeta[item.kind];
-  const Icon = meta.Icon;
-  const text = item.title.trim() || item.body.trim() || '未命名';
-  const body = (
-    <>
-      <span className={styles.kind} data-tone={meta.tone}>
-        <Icon className={styles.icon} weight="regular" />
-        {meta.label}
-      </span>
-      <span className={styles.feedText}>{text}</span>
-      {item.locked ? <LockIcon className={styles.lock} weight="regular" /> : null}
-      <time className={styles.clock}>{formatFeedClock(item.occurredAt)}</time>
-    </>
-  );
-
-  if (item.kind === 'plan') {
-    return (
-      <RowButton variant="feed" onClick={() => void navigate({ to: PATH.plan, search: { id: item.id } })}>
-        {body}
-      </RowButton>
-    );
-  }
-  if (item.kind === 'diary' || item.kind === 'spark' || item.kind === 'writing') {
-    return (
-      <RowButton variant="feed" onClick={() => void navigate({ to: PATH.journalEntry, params: { entryId: item.id } })}>
-        {body}
-      </RowButton>
-    );
-  }
-  if (item.kind === 'milestone' || item.kind === 'moment') {
-    return (
-      <RowButton variant="feed" onClick={() => void navigate({ to: PATH.growth })}>
-        {body}
-      </RowButton>
-    );
-  }
-  if (item.kind === 'excerpt' || item.kind === 'note') {
-    return (
-      <RowButton variant="feed" onClick={() => void navigate({ to: PATH.library })}>
-        {body}
-      </RowButton>
-    );
-  }
-  return <div className={styles.feedStatic}>{body}</div>;
-}
-
-function recordSummary(items: TimelineItem[]): string {
-  const counts = new Map<TimelineKind, number>();
-  for (const item of items) {
-    counts.set(item.kind, (counts.get(item.kind) ?? 0) + 1);
-  }
-  return kindOrder
-    .filter((kind) => counts.get(kind))
-    .map((kind) => `${kindMeta[kind].label}${counts.get(kind)}`)
-    .join(' ');
-}
-
-function streakCount(items: { occurredAt: number }[], todayStart: number): number {
-  const days = new Set(items.map((item) => startOfLocalDay(item.occurredAt)));
-  let cursor = days.has(todayStart) ? todayStart : addLocalDays(todayStart, -1);
-  let count = 0;
-  while (days.has(cursor)) {
-    count += 1;
-    cursor = addLocalDays(cursor, -1);
-  }
-  return count;
 }
