@@ -1,3 +1,4 @@
+export * from './about';
 export * from './calendar';
 export * from './db';
 export * from './files';

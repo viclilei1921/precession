@@ -15,6 +15,8 @@
 pub(crate) mod commands;
 pub(crate) mod models;
 
+mod platform;
+
 #[cfg(desktop)]
 mod append;
 #[cfg(desktop)]

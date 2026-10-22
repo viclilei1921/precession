@@ -1,7 +1,7 @@
 /// 返回前端可调用的命令分发函数
 ///
 /// # 返回值
-/// 汇总数据库、成员、标签、地点、媒体、任务、计划、日记、成长、书架、时间线和日历命令的处理函数
+/// 汇总版本、数据库、成员、标签、地点、媒体、任务、计划、日记、成长、书架、时间线和日历命令的处理函数
 ///
 /// # Panics
 /// 不会主动 panic
@@ -12,6 +12,7 @@
 /// ```
 pub fn handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Sync + 'static {
   tauri::generate_handler![
+    crate::about::commands::app_versions,
     crate::db::commands::db_status,
     crate::db::commands::db_create,
     crate::db::commands::db_unlock,

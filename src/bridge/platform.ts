@@ -1,4 +1,4 @@
 import type { Platform } from '@tauri-apps/plugin-os';
-import { platform } from '@tauri-apps/plugin-os';
+import { arch, platform, version } from '@tauri-apps/plugin-os';
 
-export { type Platform, platform };
+export { arch, type Platform, platform, version };

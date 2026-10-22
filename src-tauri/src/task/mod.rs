@@ -4,6 +4,7 @@ pub mod error;
 
 mod constants;
 mod job;
+mod platform;
 mod queue;
 mod service;
 mod step;

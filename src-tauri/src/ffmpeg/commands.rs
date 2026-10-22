@@ -26,13 +26,5 @@ use crate::task::error::TaskError;
 /// ```
 #[tauri::command]
 pub async fn ffmpeg_probe(app: AppHandle, path: String) -> Result<VideoInfo, TaskError> {
-  #[cfg(not(desktop))]
-  {
-    let _ = (app, path);
-    Err(TaskError::DesktopOnly)
-  }
-  #[cfg(desktop)]
-  {
-    super::video_info(&app, &path).await.map_err(TaskError::from)
-  }
+  super::platform::probe(&app, &path).await
 }

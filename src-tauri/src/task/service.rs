@@ -2,8 +2,6 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
-#[cfg(desktop)]
-use std::sync::Arc;
 use std::sync::atomic::Ordering;
 
 use tauri::AppHandle;
@@ -15,8 +13,7 @@ use super::constants::{
 };
 use super::dto::{Task, TaskDraft, TaskInput};
 use super::error::TaskError;
-#[cfg(desktop)]
-use super::job::JobCtx;
+use super::platform;
 use super::queue::{TaskQueue, Ticket};
 use super::step::{self, Step};
 use crate::db::state::DbState;
@@ -147,15 +144,7 @@ pub(super) fn run_job(
   report: &mut dyn FnMut(f64, &str),
 ) -> Result<Option<String>, TaskError> {
   if is_sidecar(&ticket.spec) {
-    #[cfg(desktop)]
-    {
-      return run_sidecar(app, ticket);
-    }
-    #[cfg(not(desktop))]
-    {
-      let _ = app;
-      return Err(TaskError::DesktopOnly);
-    }
+    return platform::run_sidecar(app, ticket);
   }
   run(db, ticket, report)
 }
@@ -228,76 +217,6 @@ pub(super) fn run(
         let _ = fs::remove_file(dest);
       }
       Err(err)
-    }
-  }
-}
-
-/// 在当前线程上阻塞跑完侧车任务
-///
-/// # 参数
-/// - `app`: Tauri 应用句柄
-/// - `ticket`: 任务票
-///
-/// # 返回值
-/// 成功时返回 `None`
-///
-/// # 错误
-/// 侧车取消变成 `TaskError::Canceled`，其他侧车错误变成 `TaskError::Failed`
-///
-/// # Panics
-/// 不会主动 panic
-///
-/// # 示例
-/// ```ignore
-/// let media_id = run_sidecar(app, ticket)?;
-/// ```
-#[cfg(desktop)]
-fn run_sidecar(app: &AppHandle, ticket: &Ticket) -> Result<Option<String>, TaskError> {
-  let job = JobCtx::new(app.clone(), ticket.id.clone(), Arc::clone(&ticket.cancel));
-  tauri::async_runtime::block_on(dispatch_sidecar(app, &job, &ticket.spec)).map(|()| None).map_err(TaskError::from)
-}
-
-/// 按规格调用对应的视频或图片侧车
-///
-/// # 参数
-/// - `app`: Tauri 应用句柄
-/// - `job`: 任务执行期句柄
-/// - `spec`: 任务规格
-///
-/// # 返回值
-/// 成功时无额外值
-///
-/// # 错误
-/// 文件、导入、媒体规格返回 `SidecarError::Invalid`，消息是「不是转码任务」。其余失败返回侧车错误
-///
-/// # Panics
-/// 不会主动 panic
-///
-/// # 示例
-/// ```ignore
-/// dispatch_sidecar(app, job, spec).await?;
-/// ```
-#[cfg(desktop)]
-async fn dispatch_sidecar(app: &AppHandle, job: &JobCtx, spec: &Spec) -> Result<(), crate::sidecar::SidecarError> {
-  match spec {
-    Spec::ConvertVideo { input, output, encode } => crate::ffmpeg::run_convert(app, job, input, output, encode).await,
-    Spec::CutVideo { input, output, segments, encode } => {
-      crate::ffmpeg::run_cut(app, job, input, output, segments.clone(), encode).await
-    }
-    Spec::MergeVideo { inputs, output, encode } => {
-      crate::ffmpeg::run_merge_smart(app, job, inputs.clone(), output, encode).await
-    }
-    Spec::AppendVideo { base, inputs, output, encode } => {
-      crate::ffmpeg::run_append_smart(app, job, base, inputs.clone(), output, encode).await
-    }
-    Spec::ConvertAvif { input, output, params } => {
-      crate::image::run_convert_avif(app, job, input, output, params.clone()).await
-    }
-    Spec::ConvertJxl { input, output, params } => {
-      crate::image::run_convert_jxl(app, job, input, output, params.clone()).await
-    }
-    Spec::File { .. } | Spec::Import { .. } | Spec::Media { .. } => {
-      Err(crate::sidecar::SidecarError::invalid("不是转码任务"))
     }
   }
 }
@@ -634,22 +553,15 @@ fn prepare(db: &DbState, input: TaskInput) -> Result<Prepared, TaskError> {
 /// let prepared = prepare_convert_video(input, output, encode)?;
 /// ```
 fn prepare_convert_video(input: String, output: String, mut encode: VideoEncode) -> Result<Prepared, TaskError> {
-  #[cfg(not(desktop))]
-  {
-    let _ = (input, output, encode);
-    return Err(TaskError::DesktopOnly);
-  }
-  #[cfg(desktop)]
-  {
-    crate::ffmpeg::models::normalize_encode(&mut encode).map_err(TaskError::Failed)?;
-    let input = require_file(input)?;
-    let output = require_output(&input, output)?;
-    Ok(sidecar_job(
-      KIND_CONVERT_VIDEO,
-      output.clone(),
-      Spec::ConvertVideo { input, output, encode },
-    ))
-  }
+  platform::ensure_desktop()?;
+  crate::ffmpeg::models::normalize_encode(&mut encode).map_err(TaskError::Failed)?;
+  let input = require_file(input)?;
+  let output = require_output(&input, output)?;
+  Ok(sidecar_job(
+    KIND_CONVERT_VIDEO,
+    output.clone(),
+    Spec::ConvertVideo { input, output, encode },
+  ))
 }
 
 /// 准备视频裁剪任务
@@ -681,25 +593,18 @@ fn prepare_cut_video(
   segments: Vec<TimeSegment>,
   mut encode: VideoEncode,
 ) -> Result<Prepared, TaskError> {
-  #[cfg(not(desktop))]
-  {
-    let _ = (input, output, segments, encode);
-    return Err(TaskError::DesktopOnly);
+  platform::ensure_desktop()?;
+  if segments.is_empty() {
+    return Err(TaskError::Failed("时间片段不能为空".into()));
   }
-  #[cfg(desktop)]
-  {
-    if segments.is_empty() {
-      return Err(TaskError::Failed("时间片段不能为空".into()));
-    }
-    crate::ffmpeg::models::normalize_encode(&mut encode).map_err(TaskError::Failed)?;
-    let input = require_file(input)?;
-    let output = require_output(&input, output)?;
-    Ok(sidecar_job(
-      KIND_CUT_VIDEO,
-      output.clone(),
-      Spec::CutVideo { input, output, segments, encode },
-    ))
-  }
+  crate::ffmpeg::models::normalize_encode(&mut encode).map_err(TaskError::Failed)?;
+  let input = require_file(input)?;
+  let output = require_output(&input, output)?;
+  Ok(sidecar_job(
+    KIND_CUT_VIDEO,
+    output.clone(),
+    Spec::CutVideo { input, output, segments, encode },
+  ))
 }
 
 /// 准备视频合并任务
@@ -725,22 +630,15 @@ fn prepare_cut_video(
 /// let prepared = prepare_merge_video(inputs, output, encode)?;
 /// ```
 fn prepare_merge_video(inputs: Vec<String>, output: String, mut encode: VideoEncode) -> Result<Prepared, TaskError> {
-  #[cfg(not(desktop))]
-  {
-    let _ = (inputs, output, encode);
-    return Err(TaskError::DesktopOnly);
-  }
-  #[cfg(desktop)]
-  {
-    crate::ffmpeg::models::normalize_encode(&mut encode).map_err(TaskError::Failed)?;
-    let inputs = require_files(inputs)?;
-    let output = require_output_many(&inputs, output)?;
-    Ok(sidecar_job(
-      KIND_MERGE_VIDEO,
-      output.clone(),
-      Spec::MergeVideo { inputs, output, encode },
-    ))
-  }
+  platform::ensure_desktop()?;
+  crate::ffmpeg::models::normalize_encode(&mut encode).map_err(TaskError::Failed)?;
+  let inputs = require_files(inputs)?;
+  let output = require_output_many(&inputs, output)?;
+  Ok(sidecar_job(
+    KIND_MERGE_VIDEO,
+    output.clone(),
+    Spec::MergeVideo { inputs, output, encode },
+  ))
 }
 
 /// 准备视频追加任务
@@ -772,26 +670,19 @@ fn prepare_append_video(
   output: String,
   mut encode: VideoEncode,
 ) -> Result<Prepared, TaskError> {
-  #[cfg(not(desktop))]
-  {
-    let _ = (base, inputs, output, encode);
-    return Err(TaskError::DesktopOnly);
-  }
-  #[cfg(desktop)]
-  {
-    crate::ffmpeg::models::normalize_encode(&mut encode).map_err(TaskError::Failed)?;
-    let base = require_file(base)?;
-    let inputs = require_files(inputs)?;
-    let mut all = Vec::with_capacity(inputs.len() + 1);
-    all.push(base.clone());
-    all.extend(inputs.iter().cloned());
-    let output = require_output_many(&all, output)?;
-    Ok(sidecar_job(
-      KIND_APPEND_VIDEO,
-      output.clone(),
-      Spec::AppendVideo { base, inputs, output, encode },
-    ))
-  }
+  platform::ensure_desktop()?;
+  crate::ffmpeg::models::normalize_encode(&mut encode).map_err(TaskError::Failed)?;
+  let base = require_file(base)?;
+  let inputs = require_files(inputs)?;
+  let mut all = Vec::with_capacity(inputs.len() + 1);
+  all.push(base.clone());
+  all.extend(inputs.iter().cloned());
+  let output = require_output_many(&all, output)?;
+  Ok(sidecar_job(
+    KIND_APPEND_VIDEO,
+    output.clone(),
+    Spec::AppendVideo { base, inputs, output, encode },
+  ))
 }
 
 /// 准备 AVIF 转码任务
@@ -817,21 +708,14 @@ fn prepare_append_video(
 /// let prepared = prepare_convert_avif(input, output, params)?;
 /// ```
 fn prepare_convert_avif(input: String, output: String, params: AvifEncodeParams) -> Result<Prepared, TaskError> {
-  #[cfg(not(desktop))]
-  {
-    let _ = (input, output, params);
-    return Err(TaskError::DesktopOnly);
-  }
-  #[cfg(desktop)]
-  {
-    let input = require_file(input)?;
-    let output = require_output(&input, output)?;
-    Ok(sidecar_job(
-      KIND_CONVERT_AVIF,
-      output.clone(),
-      Spec::ConvertAvif { input, output, params },
-    ))
-  }
+  platform::ensure_desktop()?;
+  let input = require_file(input)?;
+  let output = require_output(&input, output)?;
+  Ok(sidecar_job(
+    KIND_CONVERT_AVIF,
+    output.clone(),
+    Spec::ConvertAvif { input, output, params },
+  ))
 }
 
 /// 准备 JXL 转码任务
@@ -857,21 +741,14 @@ fn prepare_convert_avif(input: String, output: String, params: AvifEncodeParams)
 /// let prepared = prepare_convert_jxl(input, output, params)?;
 /// ```
 fn prepare_convert_jxl(input: String, output: String, params: JxlEncodeParams) -> Result<Prepared, TaskError> {
-  #[cfg(not(desktop))]
-  {
-    let _ = (input, output, params);
-    return Err(TaskError::DesktopOnly);
-  }
-  #[cfg(desktop)]
-  {
-    let input = require_file(input)?;
-    let output = require_output(&input, output)?;
-    Ok(sidecar_job(
-      KIND_CONVERT_JXL,
-      output.clone(),
-      Spec::ConvertJxl { input, output, params },
-    ))
-  }
+  platform::ensure_desktop()?;
+  let input = require_file(input)?;
+  let output = require_output(&input, output)?;
+  Ok(sidecar_job(
+    KIND_CONVERT_JXL,
+    output.clone(),
+    Spec::ConvertJxl { input, output, params },
+  ))
 }
 
 /// 组装一条没有密码、没有媒体 ID 的侧车任务
