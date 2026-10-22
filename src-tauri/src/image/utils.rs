@@ -1,145 +1,150 @@
-use std::path::{Path, PathBuf};
+//! 图片转码两侧共用的扩展名和侧车启动。
 
-use crate::sidecar::{SidecarError, SidecarResult};
+use std::path::Path;
+use std::time::{Duration, Instant};
+
+use tauri::AppHandle;
+use tauri_plugin_shell::ShellExt;
+use tauri_plugin_shell::process::CommandEvent;
+
+use crate::sidecar::{SidecarError, SidecarResult, clear_current_child, secure_spawn_step};
+use crate::task::JobCtx;
 
 /// 枚举与转码共用的宽扩展名（非侧车原生格式经 PNG 桥接）
 pub const IMAGE_EXTENSIONS: &[&str] = &["jpg", "jpeg", "png", "webp", "bmp", "gif", "tif", "tiff"];
 
-/// 判断扩展名是否在可转码图片列表里
+/// 创建输出路径的父目录
 ///
-/// 比较前把扩展名转成小写。没有扩展名时返回 `false`。
-///
-/// # 参数
-/// - `path`: 文件路径
-///
-/// # 返回值
-/// 扩展名是 jpg、jpeg、png、webp、bmp、gif、tif、tiff 之一时为 `true`
-///
-/// # Panics
-/// 不会主动 panic
-///
-/// # 示例
-/// ```
-/// assert!(is_convertible_image(Path::new("a.JPG")));
-/// assert!(!is_convertible_image(Path::new("a.avif")));
-/// ```
-pub fn is_convertible_image(path: &Path) -> bool {
-  path
-    .extension()
-    .and_then(|e| e.to_str())
-    .map(|e| IMAGE_EXTENSIONS.contains(&e.to_ascii_lowercase().as_str()))
-    .unwrap_or(false)
-}
-
-/// 把路径扩展名换成 `avif`
+/// 没有父目录，或父目录是空路径时什么都不做。
 ///
 /// # 参数
-/// - `input`: 原路径
-///
-/// # 返回值
-/// 扩展名为 `avif` 的路径
-///
-/// # Panics
-/// 不会主动 panic
-///
-/// # 示例
-/// ```
-/// assert_eq!(to_avif_path(Path::new("a.png")), PathBuf::from("a.avif"));
-/// ```
-pub fn to_avif_path(input: &Path) -> PathBuf {
-  let mut out = input.to_path_buf();
-  out.set_extension("avif");
-  out
-}
-
-/// 把路径扩展名换成 `jxl`
-///
-/// # 参数
-/// - `input`: 原路径
-///
-/// # 返回值
-/// 扩展名为 `jxl` 的路径
-///
-/// # Panics
-/// 不会主动 panic
-///
-/// # 示例
-/// ```
-/// assert_eq!(to_jxl_path(Path::new("a.png")), PathBuf::from("a.jxl"));
-/// ```
-pub fn to_jxl_path(input: &Path) -> PathBuf {
-  let mut out = input.to_path_buf();
-  out.set_extension("jxl");
-  out
-}
-
-/// 列出目录里的可转码图片，并按路径字典序排序
-///
-/// # 参数
-/// - `dir`: 目录
-/// - `recursive`: 为真时进入子目录
-///
-/// # 返回值
-/// 成功时返回路径字符串
-///
-/// # 错误
-/// 不是目录时返回 `SidecarError::Invalid`。读目录失败时返回 `SidecarError::Io`
-///
-/// # Panics
-/// 不会主动 panic
-///
-/// # 示例
-/// ```ignore
-/// let files = list_image_files(dir, true)?;
-/// ```
-pub fn list_image_files(dir: &str, recursive: bool) -> SidecarResult<Vec<String>> {
-  let root = PathBuf::from(dir);
-  if !root.is_dir() {
-    return Err(SidecarError::invalid(format!("不是有效目录: {dir}")));
-  }
-
-  let mut results = Vec::new();
-  collect_images(&root, recursive, &mut results)?;
-  results.sort();
-  Ok(results.into_iter().map(|p| p.to_string_lossy().into_owned()).collect())
-}
-
-/// 把目录里的可转码图片追加到列表
-///
-/// 相对路径会先尝试规范化。`recursive` 为真时进入子目录。
-///
-/// # 参数
-/// - `dir`: 目录
-/// - `recursive`: 是否进入子目录
-/// - `out`: 收集结果
+/// - `output_path`: 输出路径
 ///
 /// # 返回值
 /// 成功时无额外值
 ///
 /// # 错误
-/// 读目录、读目录项或取文件类型失败时返回 `SidecarError::Io`
+/// 创建目录失败时返回 `SidecarError::Io`
 ///
 /// # Panics
 /// 不会主动 panic
 ///
 /// # 示例
 /// ```ignore
-/// collect_images(dir, true, &mut out)?;
+/// ensure_output_parent(output_path).await?;
 /// ```
-fn collect_images(dir: &Path, recursive: bool, out: &mut Vec<PathBuf>) -> SidecarResult<()> {
-  let entries = std::fs::read_dir(dir).map_err(|e| SidecarError::io(format!("读取目录失败 {}: {e}", dir.display())))?;
-  for entry in entries {
-    let entry = entry.map_err(|e| SidecarError::io(format!("读取目录项失败: {e}")))?;
-    let path = entry.path();
-    let file_type = entry.file_type().map_err(|e| SidecarError::io(format!("获取文件类型失败: {e}")))?;
-    if file_type.is_dir() {
-      if recursive {
-        collect_images(&path, true, out)?;
-      }
-    } else if file_type.is_file() && is_convertible_image(&path) {
-      let abs = if path.is_absolute() { path } else { std::fs::canonicalize(&path).unwrap_or(path) };
-      out.push(abs);
+pub async fn ensure_output_parent(output_path: &str) -> SidecarResult<()> {
+  let out = Path::new(output_path);
+  if let Some(parent) = out.parent() {
+    if !parent.as_os_str().is_empty() {
+      std::fs::create_dir_all(parent).map_err(|e| SidecarError::io(format!("创建输出目录失败: {e}")))?;
     }
   }
   Ok(())
+}
+
+/// 启动侧车编码并上报进度
+///
+/// 开始时进度记 10。输出到达且距上次上报至少 500 毫秒时，进度记 40 并带上已用秒数。标准错误尾部最多留 4000 字节。退出码 0 时进度记 100。
+///
+/// # 参数
+/// - `app`: Tauri 应用句柄
+/// - `job`: 任务执行期句柄
+/// - `sidecar_name`: 侧车名
+/// - `args`: 参数
+/// - `progress_label`: 进度说明
+///
+/// # 返回值
+/// 成功时无额外值
+///
+/// # 错误
+/// 取消返回 `SidecarError::Canceled`。启动失败返回 `Spawn`。非 0 退出返回 `Exit`，并附上错误尾部最后最多 800 字节。没有退出码返回 `Exit`，消息是「异常退出（无退出码）」。循环结束仍未退出返回 `Exit`，消息是「进程意外结束」
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// run_sidecar_encode(app, job, "avifenc", &args, label).await?;
+/// ```
+pub async fn run_sidecar_encode(
+  app: &AppHandle,
+  job: &JobCtx,
+  sidecar_name: &str,
+  args: &[String],
+  progress_label: &str,
+) -> SidecarResult<()> {
+  let encode_started = Instant::now();
+  job.report(10.0, progress_label).await;
+
+  let shell = app.shell();
+  tauri_plugin_log::log::info!("{sidecar_name} {}", args.join(" "));
+  let (mut rx, child) = shell
+    .sidecar(sidecar_name)
+    .map_err(|e| SidecarError::sidecar_spawn(sidecar_name, e))?
+    .args(args)
+    .spawn()
+    .map_err(|e| SidecarError::sidecar_spawn(sidecar_name, e))?;
+
+  secure_spawn_step(app, job, child).await?;
+
+  let mut stderr_tail = String::new();
+  let mut last_tick = Instant::now();
+
+  while let Some(event) = rx.recv().await {
+    match event {
+      CommandEvent::Stderr(line) | CommandEvent::Stdout(line) => {
+        if job.is_canceled().await {
+          break;
+        }
+        let text = String::from_utf8_lossy(&line);
+        let trimmed = text.trim();
+        if !trimmed.is_empty() && stderr_tail.len() < 4000 {
+          if !stderr_tail.is_empty() {
+            stderr_tail.push('\n');
+          }
+          stderr_tail.push_str(trimmed);
+          if stderr_tail.len() > 4000 {
+            stderr_tail.truncate(4000);
+          }
+        }
+        if last_tick.elapsed() >= Duration::from_millis(500) {
+          last_tick = Instant::now();
+          let secs = encode_started.elapsed().as_secs();
+          job.report(40.0, &format!("{progress_label} · 已用 {secs}s")).await;
+        }
+      }
+      CommandEvent::Terminated(status) => {
+        clear_current_child(app).await;
+        if job.is_canceled().await {
+          return Err(SidecarError::canceled());
+        }
+        if let Some(code) = status.code {
+          if code == 0 {
+            job.report(100.0, "完成").await;
+            tauri_plugin_log::log::info!("{sidecar_name} encode done: elapsed={:?}", encode_started.elapsed());
+            return Ok(());
+          }
+          let detail = if stderr_tail.is_empty() {
+            String::new()
+          } else {
+            let snippet =
+              if stderr_tail.len() > 800 { &stderr_tail[stderr_tail.len() - 800..] } else { stderr_tail.as_str() };
+            format!("：{snippet}")
+          };
+          return Err(SidecarError::sidecar_exit(sidecar_name, format!("退出代码 {code}{detail}")));
+        }
+        return Err(SidecarError::sidecar_exit(sidecar_name, "异常退出（无退出码）"));
+      }
+      _ => {}
+    }
+  }
+
+  clear_current_child(app).await;
+
+  if job.is_canceled().await {
+    return Err(SidecarError::canceled());
+  }
+
+  Err(SidecarError::sidecar_exit(sidecar_name, "进程意外结束"))
 }

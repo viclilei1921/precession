@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::ffmpeg::models::{TimeSegment, VideoEncode};
-use crate::image::params::{AvifEncodeParams, JxlEncodeParams};
+use crate::image::models::{AvifEncodeParams, JxlEncodeParams};
 
 /// 失败或取消后用来还原界面
 ///

@@ -161,21 +161,27 @@ export type VideoInfo = {
 
 export type JxlColorEncoding = 'srgb' | 'linearSrgb' | 'srgbLuma' | 'linearSrgbLuma';
 
-/** 缺省字段由后端补上：质量 60、速度 6、自动分块。 */
+export type AvifDepth = 'eight' | 'ten' | 'twelve';
+
+export type AvifYuv = 'auto' | '444' | '422' | '420' | '400';
+
+export type AvifRange = 'auto' | 'full' | 'limited';
+
+/** 缺省字段由后端补上：质量 60、速度 6、8-bit、自动分块。 */
 export type AvifEncodeParams = {
   qcolor?: number;
   qalpha?: number;
   speed?: number;
   lossless?: boolean;
   jobs?: number | null;
-  depth?: string;
-  yuv?: string;
+  depth?: AvifDepth;
+  yuv?: AvifYuv;
   premultiply?: boolean;
   sharpyuv?: boolean;
   ignoreExif?: boolean;
   ignoreXmp?: boolean;
   ignoreIcc?: boolean;
-  range?: string;
+  range?: AvifRange;
   cicp?: string;
   autotiling?: boolean;
   tilerowslog2?: number | null;
@@ -191,19 +197,42 @@ export type AvifEncodeParams = {
   advanced?: string[];
 };
 
-/** quality 是距离（0 无损），缺省 1、effort 7。 */
+/** quality 是距离（0 无损），缺省 1、effort 7。页面没填的项不传，后端保持编码器默认。 */
 export type JxlEncodeParams = {
   lossless?: boolean;
   quality?: number;
   effort?: number;
   losslessJpeg?: boolean;
   useContainer?: boolean;
-  usesOriginalProfile?: boolean;
   decodingSpeed?: number;
   colorEncoding?: JxlColorEncoding | null;
   targetIntensity?: number | null;
   alphaDistance?: number | null;
   progressive?: boolean;
+  groupOrder?: number | null;
+  compressBoxes?: number | null;
+  brotliEffort?: number | null;
+  modular?: number | null;
+  numThreads?: number | null;
+  photonNoiseIso?: number | null;
+  allowJpegReconstruction?: number | null;
+  codestreamLevel?: number | null;
+  buffering?: number | null;
+  premultiply?: number | null;
+  keepInvisible?: number | null;
+  progressiveAc?: boolean;
+  qprogressiveAc?: boolean;
+  progressiveDc?: number | null;
+  resampling?: number | null;
+  ecResampling?: number | null;
+  alreadyDownsampled?: boolean;
+  upsamplingMode?: number | null;
+  epf?: number | null;
+  gaborish?: number | null;
+  overrideBitdepth?: number | null;
+  noise?: number | null;
+  dots?: number | null;
+  patches?: number | null;
   extraHints?: string[];
 };
 

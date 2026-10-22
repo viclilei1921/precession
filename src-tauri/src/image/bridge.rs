@@ -1051,6 +1051,50 @@ fn rebuild_exif_tiff(
   Some(out)
 }
 
+/// 决定编码用的输入路径，需要时先桥接成 PNG
+///
+/// 扩展名已是该目标的原生格式时直接用原路径。否则解码成临时 PNG，并在提取到 EXIF 时带上载荷路径。
+///
+/// # 参数
+/// - `app`: Tauri 应用句柄
+/// - `input_path`: 源图片
+/// - `target`: 编码目标
+/// - `inject_exif`: 是否提取 EXIF
+///
+/// # 返回值
+/// 成功时返回编码输入路径、可选的桥接句柄、可选的 EXIF 路径
+///
+/// # 错误
+/// 没有扩展名、扩展名不在支持列表，或临时 PNG 路径不是合法 Unicode 时返回 `SidecarError::Invalid`。桥接失败时返回对应的 `SidecarError`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let (path, bridge, exif) = resolve_encode_input(app, input_path, EncodeTarget::Avif, true)?;
+/// ```
+pub fn resolve_encode_input(
+  app: &AppHandle,
+  input_path: &str,
+  target: EncodeTarget,
+  inject_exif: bool,
+) -> SidecarResult<(String, Option<BridgeInput>, Option<String>)> {
+  let ext = path_ext_lower(input_path).ok_or_else(|| SidecarError::invalid("无法识别输入文件扩展名"))?;
+  if !is_supported_image_ext(&ext) {
+    return Err(SidecarError::invalid("仅支持 jpg/jpeg/png/webp/bmp/gif/tif/tiff 输入"));
+  }
+
+  if !needs_bridge(&ext, target) {
+    return Ok((input_path.to_string(), None, None));
+  }
+
+  let bridge = prepare_bridge_input(app, input_path, inject_exif)?;
+  let encode_path = bridge.png_path.to_str().ok_or_else(|| SidecarError::invalid("临时 PNG 路径无效"))?.to_string();
+  let exif = bridge.exif_path.as_ref().and_then(|p| p.to_str().map(|s| s.to_string()));
+  Ok((encode_path, Some(bridge), exif))
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;

@@ -18,7 +18,7 @@ use super::queue::{TaskQueue, Ticket};
 use super::step::{self, Step};
 use crate::db::state::DbState;
 use crate::ffmpeg::models::{TimeSegment, VideoEncode};
-use crate::image::params::{AvifEncodeParams, JxlEncodeParams};
+use crate::image::models::{AvifEncodeParams, JxlEncodeParams};
 use crate::media::{KIND_IMAGE, KIND_VIDEO};
 use crate::utils::id::new_uuid_v4;
 
@@ -687,7 +687,7 @@ fn prepare_append_video(
 
 /// 准备 AVIF 转码任务
 ///
-/// 非桌面直接返回 `DesktopOnly`。
+/// 非桌面直接返回 `DesktopOnly`。桌面先收紧编码参数，再检查输入文件和输出路径。
 ///
 /// # 参数
 /// - `input`: 源图片
@@ -695,10 +695,10 @@ fn prepare_append_video(
 /// - `params`: AVIF 参数
 ///
 /// # 返回值
-/// 成功时返回侧车任务，密码为空
+/// 成功时返回侧车任务，密码为空。草稿里的参数已经收紧
 ///
 /// # 错误
-/// 非桌面返回 `TaskError::DesktopOnly`。路径为空返回 `PathEmpty`，源不是文件返回 `Missing`，输入输出相同返回 `SamePath`
+/// 非桌面返回 `TaskError::DesktopOnly`。参数不合法返回 `Failed`。路径为空返回 `PathEmpty`，源不是文件返回 `Missing`，输入输出相同返回 `SamePath`
 ///
 /// # Panics
 /// 不会主动 panic
@@ -707,8 +707,9 @@ fn prepare_append_video(
 /// ```ignore
 /// let prepared = prepare_convert_avif(input, output, params)?;
 /// ```
-fn prepare_convert_avif(input: String, output: String, params: AvifEncodeParams) -> Result<Prepared, TaskError> {
+fn prepare_convert_avif(input: String, output: String, mut params: AvifEncodeParams) -> Result<Prepared, TaskError> {
   platform::ensure_desktop()?;
+  crate::image::models::normalize_avif(&mut params).map_err(TaskError::Failed)?;
   let input = require_file(input)?;
   let output = require_output(&input, output)?;
   Ok(sidecar_job(
@@ -720,7 +721,7 @@ fn prepare_convert_avif(input: String, output: String, params: AvifEncodeParams)
 
 /// 准备 JXL 转码任务
 ///
-/// 非桌面直接返回 `DesktopOnly`。
+/// 非桌面直接返回 `DesktopOnly`。桌面先收紧编码参数，再检查输入文件和输出路径。
 ///
 /// # 参数
 /// - `input`: 源图片
@@ -728,10 +729,10 @@ fn prepare_convert_avif(input: String, output: String, params: AvifEncodeParams)
 /// - `params`: JXL 参数
 ///
 /// # 返回值
-/// 成功时返回侧车任务，密码为空
+/// 成功时返回侧车任务，密码为空。草稿里的参数已经收紧
 ///
 /// # 错误
-/// 非桌面返回 `TaskError::DesktopOnly`。路径为空返回 `PathEmpty`，源不是文件返回 `Missing`，输入输出相同返回 `SamePath`
+/// 非桌面返回 `TaskError::DesktopOnly`。参数不合法返回 `Failed`。路径为空返回 `PathEmpty`，源不是文件返回 `Missing`，输入输出相同返回 `SamePath`
 ///
 /// # Panics
 /// 不会主动 panic
@@ -740,8 +741,9 @@ fn prepare_convert_avif(input: String, output: String, params: AvifEncodeParams)
 /// ```ignore
 /// let prepared = prepare_convert_jxl(input, output, params)?;
 /// ```
-fn prepare_convert_jxl(input: String, output: String, params: JxlEncodeParams) -> Result<Prepared, TaskError> {
+fn prepare_convert_jxl(input: String, output: String, mut params: JxlEncodeParams) -> Result<Prepared, TaskError> {
   platform::ensure_desktop()?;
+  crate::image::models::normalize_jxl(&mut params).map_err(TaskError::Failed)?;
   let input = require_file(input)?;
   let output = require_output(&input, output)?;
   Ok(sidecar_job(

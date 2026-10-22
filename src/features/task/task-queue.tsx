@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
-import type { Task, TaskKind, VideoEncode } from '@/bridge/task';
+import type { AvifEncodeParams, JxlEncodeParams, Task, TaskKind, VideoEncode } from '@/bridge/task';
 import { onTaskQueueUpdated, onTaskUpdate, taskCancel, taskRemove, taskReveal } from '@/bridge/task';
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
@@ -56,6 +56,26 @@ function videoLine(encode: VideoEncode | undefined) {
   return `${container} · AV1 · 速度 ${preset} · CRF ${crf} · ${bit}`;
 }
 
+function avifLine(params: AvifEncodeParams) {
+  const quality = params.qcolor ?? 60;
+  const speed = params.speed ?? 6;
+  const bits = params.depth === 'ten' ? '10-bit' : params.depth === 'twelve' ? '12-bit' : '';
+  const loss = params.lossless ? '无损' : '';
+  const alpha = params.qalpha != null && params.qalpha !== quality ? `透明 ${params.qalpha}` : '';
+  const extra = [bits, loss, alpha].filter(Boolean).join(' · ');
+  const base = `质量 ${quality} · 速度 ${speed}`;
+  return extra ? `${base} · ${extra}` : base;
+}
+
+function jxlLine(params: JxlEncodeParams) {
+  const distance = params.quality ?? 1;
+  const effort = params.effort ?? 7;
+  const loss = params.lossless ? ' · 无损' : '';
+  const decoding = params.decodingSpeed ? ` · 解码 ${params.decodingSpeed}` : '';
+  const bits = params.overrideBitdepth ? ` · ${params.overrideBitdepth}-bit` : '';
+  return `距离 ${distance} · 速度 ${effort}${loss}${decoding}${bits}`;
+}
+
 function taskLine(task: Task) {
   const kind = kindLabel[task.kind];
   const draft = task.draft;
@@ -69,10 +89,10 @@ function taskLine(task: Task) {
     return `${kind} · ${videoLine(draft.encode)}`;
   }
   if (draft.kind === 'convertAvif') {
-    return `${kind} · 质量 ${draft.params.qcolor ?? 60} · 速度 ${draft.params.speed ?? 6}`;
+    return `${kind} · ${avifLine(draft.params)}`;
   }
   if (draft.kind === 'convertJxl') {
-    return `${kind} · 距离 ${draft.params.quality ?? 1} · 速度 ${draft.params.effort ?? 7}`;
+    return `${kind} · ${jxlLine(draft.params)}`;
   }
   return kind;
 }
