@@ -2,6 +2,8 @@ import type { UnlistenFn } from '@tauri-apps/api/event';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { open } from '@tauri-apps/plugin-dialog';
 
+import { invokeCommand } from './invoke';
+
 /** 窗口拖放所处的阶段 */
 export type FileDropPhase = 'enter' | 'over' | 'drop' | 'leave';
 
@@ -43,4 +45,31 @@ export async function pickFiles(options: { multiple?: boolean; extensions?: stri
     return [];
   }
   return Array.isArray(selected) ? selected : [selected];
+}
+
+/** 用系统对话框选择文件夹。取消时返回空数组。 */
+export async function pickDirectories() {
+  const selected = await open({
+    multiple: true,
+    directory: true,
+    fileAccessMode: 'scoped'
+  });
+  if (selected == null) {
+    return [];
+  }
+  return Array.isArray(selected) ? selected : [selected];
+}
+
+/** 收集文件的结果。`scannedDirectory` 为真表示展开过文件夹。 */
+export type CollectedFiles = {
+  files: string[];
+  scannedDirectory: boolean;
+};
+
+/** 展开路径。文件按扩展名保留，文件夹会连同子文件夹里符合的文件一起加入。扩展名为空时保留全部文件。 */
+export function collectFiles(paths: string[], extensions: string[]) {
+  if (paths.length === 0) {
+    return Promise.resolve({ files: [], scannedDirectory: false });
+  }
+  return invokeCommand<CollectedFiles>('collect_files', { paths, extensions });
 }

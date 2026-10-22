@@ -1,24 +1,92 @@
 .root {
   display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: flex-start;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
   gap: var(--space-2);
   align-items: center;
 }
 
-.overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 20;
-  display: grid;
-  place-items: center;
-  pointer-events: none;
-  background: var(--overlay);
+.notice {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--destructive);
 }
 
-.overlayLabel {
-  padding: var(--space-3) var(--space-5);
-  margin: 0;
-  font-size: var(--text-lg);
+/* 从标题栏下缘铺开，盖住侧栏和队列。层级低于标题栏，避免挡住窗口按钮。 */
+.overlay {
+  position: fixed;
+  top: var(--titlebar-h);
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: calc(var(--z-header) - 1);
+  display: grid;
+  place-items: center;
+  padding: calc(var(--space-5) + var(--space-4));
+  pointer-events: none;
+  background-color: color-mix(in oklch, var(--background) 46%, transparent);
+  background-image: linear-gradient(
+    color-mix(in oklch, var(--primary) 24%, transparent),
+    color-mix(in oklch, var(--primary) 24%, transparent)
+  );
+  backdrop-filter: blur(8px);
+}
+
+.overlay::before {
+  position: absolute;
+  inset: var(--space-5);
+  pointer-events: none;
+  content: "";
+  border: 2px dashed color-mix(in oklch, var(--primary) 72%, var(--border));
+  border-radius: var(--radius-xl);
+}
+
+.callout {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: var(--space-2);
+  justify-items: center;
+  max-width: 22rem;
+  padding: var(--space-6) var(--space-8);
   color: var(--foreground);
+  text-align: center;
   background: var(--card);
-  border-radius: var(--radius-lg);
+  border: 1px solid color-mix(in oklch, var(--primary) 28%, var(--border));
+  border-radius: var(--radius-xl);
+  box-shadow:
+    0 1px 2px oklch(from var(--foreground) l c h / 8%),
+    0 16px 40px color-mix(in oklch, var(--primary) 18%, transparent);
+}
+
+.mark {
+  display: grid;
+  place-items: center;
+  width: 3.25rem;
+  height: 3.25rem;
+  margin-bottom: var(--space-1);
+  color: var(--primary);
+  background: color-mix(in oklch, var(--primary) 14%, var(--card));
+  border-radius: var(--radius-pill);
+}
+
+.glyph {
+  width: var(--icon-lg);
+  height: var(--icon-lg);
+}
+
+.lead {
+  font-size: var(--text-lg);
+  font-weight: 700;
+}
+
+.caption {
+  font-size: var(--text-sm);
+  color: var(--muted-foreground);
 }

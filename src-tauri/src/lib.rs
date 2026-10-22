@@ -6,6 +6,7 @@ mod commands;
 mod crypto;
 mod db;
 mod ffmpeg;
+mod files;
 mod growth;
 mod image;
 mod journal;

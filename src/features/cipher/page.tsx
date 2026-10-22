@@ -117,7 +117,7 @@ function CipherWorkspace() {
     <section className={styles.page}>
       <header className={styles.head}>
         <h1 className={styles.title}>文件加密</h1>
-        <p className={styles.hint}>拖进窗口或选择文件。加密后文件名加上 .enc，解密时去掉这个后缀。</p>
+        <p className={styles.hint}>拖进窗口，或选择文件、文件夹。加密后文件名加上 .enc，解密时去掉这个后缀。</p>
         <Button disabled={enqueue.isPending} onClick={() => enqueue.mutate()}>
           加入队列
         </Button>

@@ -1,7 +1,7 @@
 /// 返回前端可调用的命令分发函数
 ///
 /// # 返回值
-/// 汇总版本、数据库、成员、标签、地点、媒体、任务、计划、日记、成长、书架、时间线和日历命令的处理函数
+/// 汇总版本、文件、数据库、成员、标签、地点、媒体、任务、计划、日记、成长、书架、时间线和日历命令的处理函数
 ///
 /// # Panics
 /// 不会主动 panic
@@ -37,6 +37,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Syn
     crate::media::commands::media_create,
     crate::media::commands::media_delete,
     crate::ffmpeg::commands::ffmpeg_probe,
+    crate::files::commands::collect_files,
     crate::task::commands::task_enqueue,
     crate::task::commands::task_list,
     crate::task::commands::task_cancel,

@@ -87,6 +87,8 @@
   --measure: 42rem;
   --site-width: 68rem;
   --header-h: 3.5rem;
+  /* 桌面标题栏 36px。全屏或移动端会在运行时改掉。拖放遮罩从这条线下面开始。 */
+  --titlebar-h: 2.25rem;
   --sidebar-w: 11.2rem;
   --dock-h: 4rem;
   --bar-h: 4.5rem;

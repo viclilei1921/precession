@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import { windowIsFullscreen, windowIsMaximized, windowOnResized } from '@/bridge';
 import { useAppStore } from '@/store/app';
 import { debounce } from '@/utils/lodash';
@@ -16,6 +16,20 @@ export function TitleBar() {
 
   const [maximized, setMaximized] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
+
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    if (!visible) {
+      root.style.setProperty('--titlebar-h', 'var(--inset-top)');
+    } else if (macos && fullscreen) {
+      root.style.setProperty('--titlebar-h', '0px');
+    } else {
+      root.style.removeProperty('--titlebar-h');
+    }
+    return () => {
+      root.style.removeProperty('--titlebar-h');
+    };
+  }, [visible, macos, fullscreen]);
 
   useEffect(() => {
     if (!visible) {
