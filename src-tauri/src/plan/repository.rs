@@ -430,8 +430,8 @@ pub(super) fn update(conn: &Connection, id: &str, patch: &PlanPatch) -> Result<P
          body = COALESCE(?2, body),
          status = COALESCE(?3, status),
          priority = COALESCE(?4, priority),
-         scheduled_at = COALESCE(?5, scheduled_at),
-         due_at = COALESCE(?6, due_at),
+         scheduled_at = CASE WHEN ?18 THEN NULL ELSE COALESCE(?5, scheduled_at) END,
+         due_at = CASE WHEN ?19 THEN NULL ELSE COALESCE(?6, due_at) END,
          result = COALESCE(?7, result),
          locked = COALESCE(?8, locked),
          highlight = COALESCE(?9, highlight),
@@ -464,7 +464,9 @@ pub(super) fn update(conn: &Connection, id: &str, patch: &PlanPatch) -> Result<P
         patch.sort,
         patch.time_zone,
         now,
-        id
+        id,
+        patch.clear_scheduled_at,
+        patch.clear_due_at
       ],
     )
     .map_err(|e| db_fail("plan update", e))?;

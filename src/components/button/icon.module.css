@@ -39,6 +39,14 @@
   height: var(--icon-md);
 }
 
+.rounded {
+  border-radius: var(--radius-sm);
+}
+
+.square {
+  border-radius: 0;
+}
+
 .compact[data-tone="destructive"] svg {
   width: var(--icon-sm);
   height: var(--icon-sm);

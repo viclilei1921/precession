@@ -445,6 +445,8 @@ pub struct PlanInput {
 /// - `place_ids`: 地点 ID 列表。不传则保持原值
 /// - `repeat`: 重复规则。不传则保持原值
 /// - `reminders`: 提醒。不传则保持原值
+/// - `clear_scheduled_at`: 为 true 时清空安排时间
+/// - `clear_due_at`: 为 true 时清空截止时间
 ///
 /// # 示例
 /// 见 [`plan_update`](super::commands::plan_update)
@@ -493,6 +495,12 @@ pub struct PlanPatch {
   pub repeat: Option<PlanRepeatInput>,
   /// 提醒。不传则保持原值
   pub reminders: Option<Vec<PlanReminderInput>>,
+  /// 为 true 时清空安排时间
+  #[serde(default)]
+  pub clear_scheduled_at: bool,
+  /// 为 true 时清空截止时间
+  #[serde(default)]
+  pub clear_due_at: bool,
 }
 
 impl PlanPatch {

@@ -7,6 +7,8 @@ import styles from './icon.module.css';
 type IconButtonVariant = 'standard' | 'filled' | 'outlined';
 /** 图标按钮的大小 */
 type IconButtonSize = 'default' | 'compact' | 'plain';
+/** 图标按钮的外形。圆形是默认，圆角和直角给顶栏、组合按钮用 */
+type IconButtonShape = 'circle' | 'rounded' | 'square';
 /** 图标按钮的色调 */
 type IconButtonTone = 'destructive';
 
@@ -18,6 +20,8 @@ type IconButtonProps = {
   variant?: IconButtonVariant;
   /** 标题栏用 compact。plain 不占固定方框，给完成勾选用。 */
   size?: IconButtonSize;
+  /** 圆形、圆角方块，或直角。组合里用直角，外框负责圆角 */
+  shape?: IconButtonShape;
   /** 图标按钮的色调 */
   tone?: IconButtonTone;
   /** 选中时铺一层浅底，例如侧栏已收起 */
@@ -43,11 +47,12 @@ const variantClass: Record<IconButtonVariant, string> = {
   standard: styles.standard
 };
 
-/** 圆形图标按钮。图标作为 children 放入。 */
+/** 图标按钮。图标作为 children 放入。默认圆形，也可以是圆角或直角。 */
 export function IconButton({
   label,
   variant = 'standard',
   size = 'default',
+  shape = 'circle',
   tone,
   selected,
   expanded,
@@ -68,6 +73,8 @@ export function IconButton({
         variantClass[variant],
         size === 'compact' && styles.compact,
         size === 'plain' && styles.plain,
+        shape === 'rounded' && styles.rounded,
+        shape === 'square' && styles.square,
         className
       )}
       data-tone={tone}

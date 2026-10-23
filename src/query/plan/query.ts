@@ -1,10 +1,15 @@
 import type { QueryClient } from '@tanstack/react-query';
 import { queryOptions } from '@tanstack/react-query';
-import { planList } from '@/bridge/plan';
+import { planGroupList, planList } from '@/bridge/plan';
 
 export const planListQuery = queryOptions({
   queryKey: ['plan', 'list'],
   queryFn: () => planList()
+});
+
+export const planGroupListQuery = queryOptions({
+  queryKey: ['plan', 'groups'],
+  queryFn: () => planGroupList()
 });
 
 /** 计划和今天都读这份列表，写完要一起刷新时间轴 */

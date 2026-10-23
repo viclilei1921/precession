@@ -434,7 +434,7 @@ mod tests {
   use crate::media::dto::MediaInput;
   use crate::owner::Owner;
   use crate::plan::{
-    constants::{STATUS_DONE, STATUS_SCHEDULED},
+    constants::{STATUS_DONE, STATUS_DRAFT, STATUS_SCHEDULED},
     dto::{PlanRepeatInput, PlanStepInput},
   };
   use crate::utils::id::new_uuid_v4;
@@ -478,6 +478,27 @@ mod tests {
 
     db.lock().expect("lock");
     assert!(matches!(list(&db, &PlanQuery::default()), Err(PlanError::Locked)));
+  }
+
+  /// 清空安排时间和截止时间
+  #[test]
+  fn clear_schedule_times() {
+    let (_dir, db) = setup();
+    let item = create(&db, sample()).expect("create");
+    let cleared = update(
+      &db,
+      &item.id,
+      PlanPatch {
+        status: Some(STATUS_DRAFT.into()),
+        clear_scheduled_at: true,
+        clear_due_at: true,
+        ..PlanPatch::default()
+      },
+    )
+    .expect("clear");
+    assert_eq!(cleared.status, STATUS_DRAFT);
+    assert!(cleared.scheduled_at.is_none());
+    assert!(cleared.due_at.is_none());
   }
 
   /// 关系、更新和清理

@@ -71,7 +71,7 @@ export function todayPlanPanel(plans: Plan[], todayStart: number): Plan[] {
   const tomorrow = addLocalDays(todayStart, 1);
   return plans
     .filter((plan) => {
-      if (plan.scheduledAt == null || plan.status === 'inbox') {
+      if (plan.scheduledAt == null || plan.status === 'draft') {
         return false;
       }
       if (plan.status === 'done') {

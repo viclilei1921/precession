@@ -1,8 +1,8 @@
 import { invokeCommand } from './invoke';
 import type { Media } from './media';
 
-/** 计划状态 */
-export type PlanStatus = 'inbox' | 'scheduled' | 'done';
+/** 计划状态。没有日期时是草稿 */
+export type PlanStatus = 'draft' | 'scheduled' | 'done';
 
 /** 计划步骤 */
 export type PlanStep = {
@@ -141,6 +141,10 @@ export type PlanPatch = {
   placeIds?: string[];
   repeat?: PlanRepeatInput;
   reminders?: PlanReminderInput[];
+  /** 为 true 时清空安排时间 */
+  clearScheduledAt?: boolean;
+  /** 为 true 时清空截止时间 */
+  clearDueAt?: boolean;
 };
 
 /** 清单 */
