@@ -43,11 +43,11 @@ pub enum TaskDraft {
 ///
 /// # 字段
 /// - `id`: 任务 ID
-/// - `kind`: 任务类型，`encryptFile`、`decryptFile`、`importMedia`、`encryptMedia`、`decryptMedia`、`convertVideo`、`cutVideo`、`mergeVideo`、`appendVideo`、`convertAvif`、`convertJxl`
+/// - `kind`: 任务类型，`encryptFile`、`decryptFile`、`importUpload`、`encryptUpload`、`decryptUpload`、`convertVideo`、`cutVideo`、`mergeVideo`、`appendVideo`、`convertAvif`、`convertJxl`
 /// - `status`: 任务状态，`pending`、`processing`、`completed`、`failed`、`canceled`
 /// - `progress`: 任务进度，0.0 到 1.0
 /// - `message`: 任务消息。任务处理中时才有
-/// - `media_id`: 媒体 ID。媒体任务时才有
+/// - `upload_id`: 上传文件 ID。上传文件任务时才有
 /// - `title`: 文件名。多文件时带上数量
 /// - `output`: 输出文件。空则没有可打开的结果。任务完成时才有
 /// - `draft`: 任务草稿。任务取消时才有
@@ -59,7 +59,7 @@ pub enum TaskDraft {
 pub struct Task {
   /// 任务 ID
   pub id: String,
-  /// 任务类型: encryptFile, decryptFile, importMedia, encryptMedia, decryptMedia, convertVideo, cutVideo, mergeVideo, appendVideo, convertAvif, convertJxl
+  /// 任务类型: encryptFile, decryptFile, importUpload, encryptUpload, decryptUpload, convertVideo, cutVideo, mergeVideo, appendVideo, convertAvif, convertJxl
   pub kind: String,
   /// 任务状态: pending, processing, completed, failed, canceled
   pub status: String,
@@ -67,8 +67,8 @@ pub struct Task {
   pub progress: f64,
   /// 任务消息。任务处理中时才有。
   pub message: String,
-  /// 媒体 ID。媒体任务时才有。
-  pub media_id: Option<String>,
+  /// 上传文件 ID。上传文件任务时才有。
+  pub upload_id: Option<String>,
   /// 文件名。多文件时带上数量。
   pub title: String,
   /// 输出文件。空则没有可打开的结果。任务完成时才有。
@@ -79,14 +79,14 @@ pub struct Task {
 
 /// 入队参数
 ///
-/// 密码只在这一次传入。线上用 `kind` 区分变体。视频编码和图片参数可以省略，省略时用该类型的默认值。
+/// 密码只在这一次传入。线上用 `kind` 区分变体，变体名和字段名都是 camelCase。视频编码和图片参数可以省略，省略时用该类型的默认值。
 ///
 /// # 变体
 /// - `EncryptFile`: 加密文件，载荷含密码
 /// - `DecryptFile`: 解密文件，载荷含密码
-/// - `ImportMedia`: 导入媒体，载荷含所属记录和是否加密
-/// - `EncryptMedia`: 加密已有媒体
-/// - `DecryptMedia`: 解密已有媒体
+/// - `ImportUpload`: 导入上传文件，载荷含所属记录和是否加密
+/// - `EncryptUpload`: 加密已上传文件
+/// - `DecryptUpload`: 解密已上传文件
 /// - `ConvertVideo`: 转换视频
 /// - `CutVideo`: 按片段裁剪视频
 /// - `MergeVideo`: 合并多段视频
@@ -104,18 +104,18 @@ pub struct Task {
 /// assert!(matches!(input, TaskInput::EncryptFile { .. }));
 /// ```
 #[derive(Debug, Deserialize)]
-#[serde(tag = "kind", rename_all = "camelCase")]
+#[serde(tag = "kind", rename_all = "camelCase", rename_all_fields = "camelCase")]
 pub enum TaskInput {
   /// 加密文件
   EncryptFile { input: String, output: String, password: String },
   /// 解密文件
   DecryptFile { input: String, output: String, password: String },
-  /// 导入媒体
-  ImportMedia { source: String, owner: String, owner_id: String, media_kind: String, encrypt: bool, password: String },
-  /// 加密媒体
-  EncryptMedia { media_id: String, password: String },
-  /// 解密媒体
-  DecryptMedia { media_id: String, password: String },
+  /// 导入上传文件
+  ImportUpload { source: String, owner: String, owner_id: String, upload_kind: String, encrypt: bool, password: String },
+  /// 加密上传文件
+  EncryptUpload { upload_id: String, password: String },
+  /// 解密上传文件
+  DecryptUpload { upload_id: String, password: String },
   /// 转换视频
   ConvertVideo {
     input: String,

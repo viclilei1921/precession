@@ -102,7 +102,7 @@ pub fn book_update(db: &DbState, id: &str, input: BookInput) -> Result<Book, Lib
   db.with_conn(|conn| repository::book_update(conn, id, &input))
 }
 
-/// 按标识删除书籍
+/// 按标识删除书籍，再在后台清理它留下的上传文件
 ///
 /// # 参数
 /// - `db`: 数据库状态
@@ -122,7 +122,9 @@ pub fn book_update(db: &DbState, id: &str, input: BookInput) -> Result<Book, Lib
 /// book_delete(db, id)?;
 /// ```
 pub fn book_delete(db: &DbState, id: &str) -> Result<(), LibraryError> {
-  db.with_conn(|conn| repository::book_delete(conn, id))
+  db.with_conn(|conn| repository::book_delete(conn, id))?;
+  crate::upload::sweep_later(db);
+  Ok(())
 }
 
 /// 按书籍列出书摘和笔记
@@ -220,7 +222,7 @@ pub fn note_update(db: &DbState, id: &str, input: BookNoteInput) -> Result<BookN
   db.with_conn(|conn| repository::note_update(conn, id, &input))
 }
 
-/// 按标识删除书摘或笔记
+/// 按标识删除书摘或笔记，再在后台清理它留下的上传文件
 ///
 /// # 参数
 /// - `db`: 数据库状态
@@ -240,7 +242,9 @@ pub fn note_update(db: &DbState, id: &str, input: BookNoteInput) -> Result<BookN
 /// note_delete(db, id)?;
 /// ```
 pub fn note_delete(db: &DbState, id: &str) -> Result<(), LibraryError> {
-  db.with_conn(|conn| repository::note_delete(conn, id))
+  db.with_conn(|conn| repository::note_delete(conn, id))?;
+  crate::upload::sweep_later(db);
+  Ok(())
 }
 
 /// 整理并校验书籍输入
@@ -323,7 +327,7 @@ mod tests {
       crate::member::migrate,
       crate::tag::migrate,
       crate::place::migrate,
-      crate::media::migrate,
+      crate::upload::migrate,
       crate::journal::migrate,
       crate::library::migrate,
     ]);

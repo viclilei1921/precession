@@ -744,7 +744,7 @@ fn clear_refs(conn: &Connection, id: &str) -> Result<(), JournalError> {
   crate::member::clear(conn, owner, id).map_err(|_| JournalError::Internal)?;
   crate::tag::clear(conn, owner, id).map_err(|_| JournalError::Internal)?;
   crate::place::clear(conn, owner, id).map_err(|_| JournalError::Internal)?;
-  crate::media::clear(conn, owner, id).map_err(|_| JournalError::Internal)?;
+  crate::upload::clear(conn, owner, id).map_err(|_| JournalError::Internal)?;
   Ok(())
 }
 

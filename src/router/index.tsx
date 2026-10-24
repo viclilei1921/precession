@@ -5,6 +5,7 @@ import { ImagePage } from '@/features/image/page';
 import { JournalEntryPage } from '@/features/journal/entry-page';
 import { JournalPage } from '@/features/journal/page';
 import { LibraryPage } from '@/features/library/page';
+import { ReadPage } from '@/features/library/read-page';
 import { ReaderPage } from '@/features/library/reader-page';
 import { PlanPage } from '@/features/plan/page';
 import { ReviewPage } from '@/features/review/page';
@@ -127,10 +128,28 @@ const libraryRoute = createRoute({
   component: LibraryPage
 });
 
+type BookSearch = {
+  task?: string;
+};
+
+function validateBookSearch(search: Record<string, unknown>): BookSearch {
+  if (typeof search.task === 'string' && search.task.length > 0) {
+    return { task: search.task };
+  }
+  return {};
+}
+
 const readerRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: PATH.bookReader,
+  validateSearch: validateBookSearch,
   component: ReaderPage
+});
+
+const readRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: PATH.bookRead,
+  component: ReadPage
 });
 
 const videoRoute = createRoute({
@@ -210,6 +229,7 @@ const routeTree = rootRoute.addChildren([
   growthRoute,
   libraryRoute,
   readerRoute,
+  readRoute,
   videoRoute,
   imageRoute,
   cipherRoute,

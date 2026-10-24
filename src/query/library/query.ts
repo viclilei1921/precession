@@ -1,6 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query';
 import { queryOptions } from '@tanstack/react-query';
-import { bookGet, bookList, bookNoteGet, bookNoteList } from '@/bridge/library';
+import { bookChapter, bookGet, bookList, bookNoteGet, bookNoteList, bookOutline } from '@/bridge/library';
 
 export const bookListQuery = queryOptions({
   queryKey: ['library', 'books'],
@@ -18,6 +18,20 @@ export function bookNoteListQuery(bookId: string) {
   return queryOptions({
     queryKey: ['library', 'notes', bookId],
     queryFn: () => bookNoteList(bookId)
+  });
+}
+
+export function bookOutlineQuery(bookId: string) {
+  return queryOptions({
+    queryKey: ['library', 'outline', bookId],
+    queryFn: () => bookOutline(bookId)
+  });
+}
+
+export function bookChapterQuery(bookId: string, index: number) {
+  return queryOptions({
+    queryKey: ['library', 'chapter', bookId, index],
+    queryFn: () => bookChapter(bookId, index)
   });
 }
 

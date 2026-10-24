@@ -9,7 +9,7 @@ use zeroize::Zeroize;
 
 use super::constants::{
   KIND_APPEND_VIDEO, KIND_CONVERT_AVIF, KIND_CONVERT_JXL, KIND_CONVERT_VIDEO, KIND_CUT_VIDEO, KIND_DECRYPT_FILE,
-  KIND_DECRYPT_MEDIA, KIND_ENCRYPT_FILE, KIND_ENCRYPT_MEDIA, KIND_IMPORT_MEDIA, KIND_MERGE_VIDEO, PROGRESS_STEP,
+  KIND_DECRYPT_UPLOAD, KIND_ENCRYPT_FILE, KIND_ENCRYPT_UPLOAD, KIND_IMPORT_UPLOAD, KIND_MERGE_VIDEO, PROGRESS_STEP,
 };
 use super::dto::{Task, TaskDraft, TaskInput};
 use super::error::TaskError;
@@ -19,7 +19,8 @@ use super::step::{self, Step};
 use crate::db::state::DbState;
 use crate::ffmpeg::models::{TimeSegment, VideoEncode};
 use crate::image::models::{AvifEncodeParams, JxlEncodeParams};
-use crate::media::{KIND_IMAGE, KIND_VIDEO};
+use crate::upload;
+use crate::upload::{KIND_IMAGE, KIND_VIDEO, KINDS};
 use crate::utils::id::new_uuid_v4;
 
 /// 校验后的任务规格
@@ -28,8 +29,8 @@ use crate::utils::id::new_uuid_v4;
 ///
 /// # 变体
 /// - `File`: 加密或解密一个文件，载荷是输入、输出和是否加密
-/// - `Import`: 导入媒体
-/// - `Media`: 加密或解密已有媒体
+/// - `Import`: 导入上传文件
+/// - `Upload`: 加密或解密已上传文件
 /// - `ConvertVideo`: 转换视频
 /// - `CutVideo`: 按片段裁剪视频
 /// - `MergeVideo`: 合并多段视频
@@ -39,10 +40,10 @@ use crate::utils::id::new_uuid_v4;
 pub(super) enum Spec {
   /// 加密或解密一个文件，载荷是输入、输出和是否加密
   File { input: PathBuf, output: PathBuf, encrypt: bool },
-  /// 导入媒体
-  Import { source: PathBuf, owner: String, owner_id: String, media_kind: String, encrypt: bool },
-  /// 加密或解密已有媒体
-  Media { media_id: String, encrypt: bool },
+  /// 导入上传文件
+  Import { source: PathBuf, owner: String, owner_id: String, upload_kind: String, encrypt: bool },
+  /// 加密或解密已上传文件
+  Upload { upload_id: String, encrypt: bool },
   /// 转换视频
   ConvertVideo { input: String, output: String, encode: VideoEncode },
   /// 按片段裁剪视频
@@ -60,10 +61,10 @@ pub(super) enum Spec {
 /// 校验通过、尚未入队的任务
 ///
 /// # 字段
-/// - `kind`: 任务类型，`encryptFile`、`decryptFile`、`importMedia`、`encryptMedia`、`decryptMedia`、`convertVideo`、`cutVideo`、`mergeVideo`、`appendVideo`、`convertAvif`、`convertJxl`
+/// - `kind`: 任务类型，`encryptFile`、`decryptFile`、`importUpload`、`encryptUpload`、`decryptUpload`、`convertVideo`、`cutVideo`、`mergeVideo`、`appendVideo`、`convertAvif`、`convertJxl`
 /// - `spec`: 任务规格
 /// - `password`: 任务密码
-/// - `media_id`: 媒体 ID。媒体任务时才有
+/// - `upload_id`: 上传文件 ID。上传文件任务时才有
 /// - `target`: 目标路径
 /// - `title`: 任务标题
 /// - `output`: 输出文件
@@ -72,14 +73,14 @@ pub(super) enum Spec {
 /// # 示例
 /// 见 [`enqueue`]
 pub(super) struct Prepared {
-  /// 任务类型: encryptFile, decryptFile, importMedia, encryptMedia, decryptMedia, convertVideo, cutVideo, mergeVideo, appendVideo, convertAvif, convertJxl
+  /// 任务类型: encryptFile, decryptFile, importUpload, encryptUpload, decryptUpload, convertVideo, cutVideo, mergeVideo, appendVideo, convertAvif, convertJxl
   pub kind: String,
   /// 任务规格
   pub spec: Spec,
   /// 任务密码
   pub password: String,
-  /// 媒体 ID。媒体任务时才有。
-  pub media_id: Option<String>,
+  /// 上传文件 ID。上传文件任务时才有。
+  pub upload_id: Option<String>,
   /// 目标路径
   pub target: String,
   /// 任务标题
@@ -125,7 +126,7 @@ pub(super) fn enqueue(db: &DbState, queue: &TaskQueue, input: TaskInput) -> Resu
 /// - `report`: 进度回调。侧车路径不使用它
 ///
 /// # 返回值
-/// 成功时返回可选的媒体 ID。侧车成功时是 `None`
+/// 成功时返回可选的上传文件 ID。侧车成功时是 `None`
 ///
 /// # 错误
 /// 非桌面的侧车规格返回 `TaskError::DesktopOnly`。其余失败返回 `TaskError`
@@ -135,7 +136,7 @@ pub(super) fn enqueue(db: &DbState, queue: &TaskQueue, input: TaskInput) -> Resu
 ///
 /// # 示例
 /// ```ignore
-/// let media_id = run_job(app, db, ticket, &mut report)?;
+/// let upload_id = run_job(app, db, ticket, &mut report)?;
 /// ```
 pub(super) fn run_job(
   app: &AppHandle,
@@ -159,7 +160,7 @@ pub(super) fn run_job(
 /// - `report`: 进度和说明回调
 ///
 /// # 返回值
-/// 成功时返回可选的媒体 ID，并回调 100 和「完成」
+/// 成功时返回可选的上传文件 ID，并回调 100 和「完成」
 ///
 /// # 错误
 /// 步骤失败、取消或提交失败时返回 `TaskError`。取消为 `TaskError::Canceled`
@@ -169,7 +170,7 @@ pub(super) fn run_job(
 ///
 /// # 示例
 /// ```ignore
-/// let media_id = run(db, ticket, &mut report)?;
+/// let upload_id = run(db, ticket, &mut report)?;
 /// ```
 pub(super) fn run(
   db: &DbState,
@@ -206,10 +207,10 @@ pub(super) fn run(
     return Err(TaskError::Canceled);
   }
   match commit(db, &built) {
-    Ok(media_id) => {
+    Ok(upload_id) => {
       cleanup(&built.temps);
       report(100.0, "完成");
-      Ok(media_id)
+      Ok(upload_id)
     }
     Err(err) => {
       cleanup(&built.temps);
@@ -273,20 +274,62 @@ struct Built {
 ///
 /// # 变体
 /// - `None`: 不额外提交
-/// - `Import`: 把结果登记成媒体
-/// - `Replace`: 用旁路文件换上原媒体
+/// - `Import`: 把临时文件改名到上传目录，再登记成上传文件
+/// - `Replace`: 用旁路文件换上原上传文件
 enum After {
   /// 不额外提交
   None,
-  /// 把结果登记成媒体
-  Import { id: String, owner: String, owner_id: String, kind: String, rel_path: String, mime: String, encrypted: bool },
-  /// 用旁路文件换上原媒体
-  Replace { media_id: String, source: PathBuf, temp: PathBuf, encrypted: bool },
+  /// 把临时文件改名到上传目录，再登记成上传文件
+  Import(Box<Imported>),
+  /// 用旁路文件换上原上传文件
+  Replace { upload_id: String, source: PathBuf, temp: PathBuf, encrypted: bool },
+}
+
+/// 导入跑完步骤后要提交的内容
+///
+/// # 字段
+/// - `staged`: 临时目录里写好的文件
+/// - `dest`: 上传目录里的最终位置
+/// - `id`: 上传文件 ID
+/// - `owner`: 归属类型
+/// - `owner_id`: 归属 ID
+/// - `kind`: 上传文件类型
+/// - `rel_path`: `dest` 相对数据根目录的路径
+/// - `mime`: MIME 类型
+/// - `name`: 源文件名
+/// - `size`: 源文件字节数
+/// - `encrypted`: 是否已加密
+///
+/// # 示例
+/// 见 [`build`]
+struct Imported {
+  /// 临时目录里写好的文件
+  staged: PathBuf,
+  /// 上传目录里的最终位置
+  dest: PathBuf,
+  /// 上传文件 ID
+  id: String,
+  /// 归属类型
+  owner: String,
+  /// 归属 ID
+  owner_id: String,
+  /// 上传文件类型
+  kind: String,
+  /// `dest` 相对数据根目录的路径
+  rel_path: String,
+  /// MIME 类型
+  mime: String,
+  /// 源文件名
+  name: String,
+  /// 源文件字节数
+  size: i64,
+  /// 是否已加密
+  encrypted: bool,
 }
 
 /// 把任务票展开成步骤、临时文件和提交动作
 ///
-/// 导入并加密时先复制再加密。媒体加解密写到旁路文件，提交时再换上。转码类规格在这里直接拒绝。
+/// 导入先写到上传临时目录，加密时先复制再加密，提交时才改名到 `upload/{kind}/{id}.{ext}`。上传文件加解密写到旁路文件，提交时再换上。转码类规格在这里直接拒绝。
 ///
 /// # 参数
 /// - `db`: 数据库状态
@@ -296,7 +339,7 @@ enum After {
 /// 成功时返回步骤和提交计划
 ///
 /// # 错误
-/// 媒体已加密还要加密时返回 `AlreadyEncrypted`，未加密还要解密时返回 `NotEncrypted`。转码类返回 `Failed`，消息是「转码任务不能走加解密步骤」。读媒体失败时返回对应的 `TaskError`
+/// 上传文件已加密还要加密时返回 `AlreadyEncrypted`，未加密还要解密时返回 `NotEncrypted`。转码类返回 `Failed`，消息是「转码任务不能走加解密步骤」。读上传文件失败时返回对应的 `TaskError`
 ///
 /// # Panics
 /// 不会主动 panic
@@ -313,62 +356,61 @@ fn build(db: &DbState, ticket: &Ticket) -> Result<Built, TaskError> {
       dest: None,
       after: After::None,
     }),
-    Spec::Import { source, owner, owner_id, media_kind, encrypt } => {
+    Spec::Import { source, owner, owner_id, upload_kind, encrypt } => {
       let id = new_uuid_v4();
-      let dest = data_root(db).join("media").join(&id);
-      let rel_path = format!("media/{id}");
-      let mime = mime_of(source, media_kind);
-      if *encrypt {
-        let temp = step::side_path(&dest, "part");
-        Ok(Built {
-          steps: vec![
-            Step::Copy { from: source.clone(), to: temp.clone() },
-            cipher_step(true, temp.clone(), dest.clone()),
+      let rel_path = upload::rel_path(upload_kind, &id, upload::ext_of(source).as_deref());
+      let dest = upload::resolve(db, &rel_path);
+      let staged = upload::tmp_path(db, &format!("{id}.part"));
+      let size = fs::metadata(source).map(|meta| meta.len() as i64).unwrap_or(0);
+      let (steps, temps) = if *encrypt {
+        let plain = upload::tmp_path(db, &format!("{id}.plain"));
+        (
+          vec![
+            Step::Copy { from: source.clone(), to: plain.clone() },
+            cipher_step(true, plain.clone(), staged.clone()),
           ],
-          temps: vec![temp],
-          dest: Some(dest),
-          after: After::Import {
-            id,
-            owner: owner.clone(),
-            owner_id: owner_id.clone(),
-            kind: media_kind.clone(),
-            rel_path,
-            mime,
-            encrypted: true,
-          },
-        })
+          vec![plain, staged.clone()],
+        )
       } else {
-        Ok(Built {
-          steps: vec![Step::Copy { from: source.clone(), to: dest.clone() }],
-          temps: Vec::new(),
-          dest: Some(dest),
-          after: After::Import {
-            id,
-            owner: owner.clone(),
-            owner_id: owner_id.clone(),
-            kind: media_kind.clone(),
-            rel_path,
-            mime,
-            encrypted: false,
-          },
-        })
-      }
+        (
+          vec![Step::Copy { from: source.clone(), to: staged.clone() }],
+          vec![staged.clone()],
+        )
+      };
+      Ok(Built {
+        steps,
+        temps,
+        dest: None,
+        after: After::Import(Box::new(Imported {
+          staged,
+          dest,
+          id,
+          owner: owner.clone(),
+          owner_id: owner_id.clone(),
+          kind: upload_kind.clone(),
+          rel_path,
+          mime: mime_of(source, upload_kind),
+          name: file_name(&source.display().to_string()),
+          size,
+          encrypted: *encrypt,
+        })),
+      })
     }
-    Spec::Media { media_id, encrypt } => {
-      let media = db.with_conn(|conn| crate::media::get(conn, media_id))?;
-      if *encrypt && media.encrypted {
+    Spec::Upload { upload_id, encrypt } => {
+      let file = db.with_conn(|conn| crate::upload::get(conn, upload_id))?;
+      if *encrypt && file.encrypted {
         return Err(TaskError::AlreadyEncrypted);
       }
-      if !*encrypt && !media.encrypted {
+      if !*encrypt && !file.encrypted {
         return Err(TaskError::NotEncrypted);
       }
-      let source = resolve(&data_root(db), &media.rel_path);
+      let source = upload::resolve(db, &file.rel_path);
       let temp = step::side_path(&source, "part");
       Ok(Built {
         steps: vec![cipher_step(*encrypt, source.clone(), temp.clone())],
         temps: vec![temp.clone()],
         dest: None,
-        after: After::Replace { media_id: media_id.clone(), source, temp, encrypted: *encrypt },
+        after: After::Replace { upload_id: upload_id.clone(), source, temp, encrypted: *encrypt },
       })
     }
     Spec::ConvertVideo { .. }
@@ -401,52 +443,63 @@ fn cipher_step(encrypt: bool, from: PathBuf, to: PathBuf) -> Step {
   if encrypt { Step::Encrypt { from, to } } else { Step::Decrypt { from, to } }
 }
 
-/// 按提交动作写入媒体记录，或换上加解密后的文件
+/// 按提交动作写入上传文件记录，或换上加解密后的文件
 ///
-/// 导入先确认数据库可写，再插入记录。替换时先换文件再改加密标志；改标志失败会把备份恢复回去。换文件之前数据库不可写，则删掉临时文件。
+/// 导入先确认数据库可写，再在 [`upload::commit_guard`] 下把临时文件改名到上传目录并插入记录；插入失败时删掉改名后的文件。替换时先换文件再改加密标志；改标志失败会把备份恢复回去。换文件之前数据库不可写，则删掉临时文件。
 ///
 /// # 参数
 /// - `db`: 数据库状态
 /// - `built`: 步骤跑完后的提交计划
 ///
 /// # 返回值
-/// 没有后续动作时返回 `None`，导入或替换成功时返回媒体 ID
+/// 没有后续动作时返回 `None`，导入或替换成功时返回上传文件 ID
 ///
 /// # 错误
-/// 数据库锁定返回 `TaskError::Locked`，其他数据库失败返回 `TaskError::Internal`。换文件失败返回 `replace_with_backup` 的错误
+/// 数据库锁定返回 `TaskError::Locked`，其他数据库失败返回 `TaskError::Internal`。导入建目录或改名失败返回 `TaskError::Internal`。换文件失败返回 `replace_with_backup` 的错误
 ///
 /// # Panics
 /// 不会主动 panic
 ///
 /// # 示例
 /// ```ignore
-/// let media_id = commit(db, &built)?;
+/// let upload_id = commit(db, &built)?;
 /// ```
 fn commit(db: &DbState, built: &Built) -> Result<Option<String>, TaskError> {
   match &built.after {
     After::None => Ok(None),
-    After::Import { id, owner, owner_id, kind, rel_path, mime, encrypted } => {
+    After::Import(imported) => {
       db.with_conn(|_| Ok::<(), TaskError>(()))?;
-      db.with_conn(|conn| {
-        crate::media::insert_imported(
+      let _guard = upload::commit_guard();
+      if let Some(parent) = imported.dest.parent() {
+        fs::create_dir_all(parent).map_err(|err| io_fail("upload dir", err))?;
+      }
+      fs::rename(&imported.staged, &imported.dest).map_err(|err| io_fail("upload rename", err))?;
+      let inserted = db.with_conn(|conn| {
+        crate::upload::insert_imported(
           conn,
-          id,
-          crate::media::dto::MediaInput {
-            owner: owner.clone(),
-            owner_id: owner_id.clone(),
-            kind: kind.clone(),
-            rel_path: rel_path.clone(),
-            mime: mime.clone(),
+          &imported.id,
+          crate::upload::dto::UploadInput {
+            owner: imported.owner.clone(),
+            owner_id: imported.owner_id.clone(),
+            kind: imported.kind.clone(),
+            rel_path: imported.rel_path.clone(),
+            mime: imported.mime.clone(),
+            name: imported.name.clone(),
+            size: imported.size,
             sort: 0,
             locked: false,
           },
-          *encrypted,
+          imported.encrypted,
         )
         .map(|_| ())
-      })?;
-      Ok(Some(id.clone()))
+      });
+      if let Err(err) = inserted {
+        let _ = fs::remove_file(&imported.dest);
+        return Err(err.into());
+      }
+      Ok(Some(imported.id.clone()))
     }
-    After::Replace { media_id, source, temp, encrypted } => {
+    After::Replace { upload_id, source, temp, encrypted } => {
       if let Err(err) = db.with_conn(|_| Ok::<(), TaskError>(())) {
         let _ = fs::remove_file(temp);
         return Err(err);
@@ -458,12 +511,12 @@ fn commit(db: &DbState, built: &Built) -> Result<Option<String>, TaskError> {
           return Err(err);
         }
       };
-      if let Err(err) = db.with_conn(|conn| crate::media::set_encrypted(conn, media_id, *encrypted)) {
+      if let Err(err) = db.with_conn(|conn| crate::upload::set_encrypted(conn, upload_id, *encrypted)) {
         step::restore(&backup, source);
         return Err(err.into());
       }
       let _ = fs::remove_file(&backup);
-      Ok(Some(media_id.clone()))
+      Ok(Some(upload_id.clone()))
     }
   }
 }
@@ -516,11 +569,15 @@ fn prepare(db: &DbState, input: TaskInput) -> Result<Prepared, TaskError> {
     TaskInput::DecryptFile { input, output, password } => {
       prepare_file(KIND_DECRYPT_FILE, input, output, password, false)
     }
-    TaskInput::ImportMedia { source, owner, owner_id, media_kind, encrypt, password } => {
-      prepare_import(db, source, owner, owner_id, media_kind, encrypt, password)
+    TaskInput::ImportUpload { source, owner, owner_id, upload_kind, encrypt, password } => {
+      prepare_import(db, source, owner, owner_id, upload_kind, encrypt, password)
     }
-    TaskInput::EncryptMedia { media_id, password } => prepare_media(db, KIND_ENCRYPT_MEDIA, media_id, password, true),
-    TaskInput::DecryptMedia { media_id, password } => prepare_media(db, KIND_DECRYPT_MEDIA, media_id, password, false),
+    TaskInput::EncryptUpload { upload_id, password } => {
+      prepare_upload(db, KIND_ENCRYPT_UPLOAD, upload_id, password, true)
+    }
+    TaskInput::DecryptUpload { upload_id, password } => {
+      prepare_upload(db, KIND_DECRYPT_UPLOAD, upload_id, password, false)
+    }
     TaskInput::ConvertVideo { input, output, encode } => prepare_convert_video(input, output, encode),
     TaskInput::CutVideo { input, output, segments, encode } => prepare_cut_video(input, output, segments, encode),
     TaskInput::MergeVideo { inputs, output, encode } => prepare_merge_video(inputs, output, encode),
@@ -753,7 +810,7 @@ fn prepare_convert_jxl(input: String, output: String, mut params: JxlEncodeParam
   ))
 }
 
-/// 组装一条没有密码、没有媒体 ID 的侧车任务
+/// 组装一条没有密码、没有上传文件 ID 的侧车任务
 ///
 /// # 参数
 /// - `kind`: 任务类型
@@ -781,7 +838,7 @@ fn sidecar_job(kind: &str, target: String, spec: Spec) -> Prepared {
 /// - `target`: 用来判断忙闲的目标
 /// - `spec`: 任务规格
 /// - `password`: 口令。侧车任务为空
-/// - `media_id`: 媒体 ID
+/// - `upload_id`: 上传文件 ID
 ///
 /// # 返回值
 /// 可入队的任务
@@ -791,16 +848,16 @@ fn sidecar_job(kind: &str, target: String, spec: Spec) -> Prepared {
 ///
 /// # 示例
 /// ```
-/// let prepared = finish(kind, target, spec, password, media_id);
+/// let prepared = finish(kind, target, spec, password, upload_id);
 /// ```
-fn finish(kind: &str, target: String, spec: Spec, password: String, media_id: Option<String>) -> Prepared {
+fn finish(kind: &str, target: String, spec: Spec, password: String, upload_id: Option<String>) -> Prepared {
   let (title, output, draft) = describe(&spec);
-  Prepared { kind: kind.to_string(), spec, password, media_id, target, title, output, draft }
+  Prepared { kind: kind.to_string(), spec, password, upload_id, target, title, output, draft }
 }
 
 /// 从规格取出标题、输出路径和可还原的草稿
 ///
-/// 导入没有输出和草稿。媒体标题固定为「影像」，也没有输出和草稿。多文件标题带上数量。
+/// 导入没有输出和草稿。已上传文件的加解密标题固定为「上传文件」，也没有输出和草稿。多文件标题带上数量。
 ///
 /// # 参数
 /// - `spec`: 任务规格
@@ -873,7 +930,7 @@ fn describe(spec: &Spec) -> (String, String, Option<TaskDraft>) {
       Some(TaskDraft::ConvertJxl { input: input.clone(), output: output.clone(), params: params.clone() }),
     ),
     Spec::Import { source, .. } => (file_name(&source.display().to_string()), String::new(), None),
-    Spec::Media { .. } => ("影像".to_string(), String::new(), None),
+    Spec::Upload { .. } => ("上传文件".to_string(), String::new(), None),
   }
 }
 
@@ -1104,7 +1161,7 @@ fn prepare_file(
   Ok(finish(kind, target, Spec::File { input, output, encrypt }, password, None))
 }
 
-/// 准备导入媒体任务
+/// 准备导入上传文件任务
 ///
 /// 不加密时清零密码。加密时口令不能为空。归属必须能解析，并且在库里存在。失败时清零密码。
 ///
@@ -1113,7 +1170,7 @@ fn prepare_file(
 /// - `source`: 源文件
 /// - `owner`: 归属类型
 /// - `owner_id`: 归属 ID
-/// - `media_kind`: 媒体类型，只接受图片或视频
+/// - `upload_kind`: 上传文件类型，只接受图片、视频、书或文件
 /// - `encrypt`: 是否加密后入库
 /// - `password`: 口令
 ///
@@ -1121,21 +1178,21 @@ fn prepare_file(
 /// 成功时返回可入队任务。目标是源路径
 ///
 /// # 错误
-/// 加密但口令为空返回 `PasswordEmpty`。源、归属或归属 ID 空白后为空返回 `PathEmpty`。类型不是图片或视频，或归属解析失败，返回 `KindInvalid`。源不是文件返回 `Missing`。查询归属失败返回 `Internal`。归属不存在返回 `ReferencedMissing`
+/// 加密但口令为空返回 `PasswordEmpty`。源、归属或归属 ID 空白后为空返回 `PathEmpty`。类型不是图片、视频、书或文件，或归属解析失败，返回 `KindInvalid`。源不是文件返回 `Missing`。查询归属失败返回 `Internal`。归属不存在返回 `ReferencedMissing`
 ///
 /// # Panics
 /// 不会主动 panic
 ///
 /// # 示例
 /// ```ignore
-/// let prepared = prepare_import(db, source, owner, owner_id, media_kind, encrypt, password)?;
+/// let prepared = prepare_import(db, source, owner, owner_id, upload_kind, encrypt, password)?;
 /// ```
 fn prepare_import(
   db: &DbState,
   source: String,
   owner: String,
   owner_id: String,
-  media_kind: String,
+  upload_kind: String,
   encrypt: bool,
   mut password: String,
 ) -> Result<Prepared, TaskError> {
@@ -1149,11 +1206,11 @@ fn prepare_import(
   let source = source.trim().to_string();
   let owner = owner.trim().to_string();
   let owner_id = owner_id.trim().to_string();
-  let media_kind = media_kind.trim().to_string();
+  let upload_kind = upload_kind.trim().to_string();
   if source.is_empty() || owner.is_empty() || owner_id.is_empty() {
     return Err(reject(password, TaskError::PathEmpty));
   }
-  if media_kind != KIND_IMAGE && media_kind != KIND_VIDEO {
+  if !KINDS.contains(&upload_kind.as_str()) {
     return Err(reject(password, TaskError::KindInvalid));
   }
   let source_path = PathBuf::from(&source);
@@ -1176,42 +1233,42 @@ fn prepare_import(
     password.zeroize();
   }
   Ok(finish(
-    KIND_IMPORT_MEDIA,
+    KIND_IMPORT_UPLOAD,
     source,
-    Spec::Import { source: source_path, owner, owner_id, media_kind, encrypt },
+    Spec::Import { source: source_path, owner, owner_id, upload_kind, encrypt },
     password,
     None,
   ))
 }
 
-/// 准备媒体加密或解密任务
+/// 准备上传文件加密或解密任务
 ///
 /// 失败时清零密码。已是目标加密状态时拒绝。
 ///
 /// # 参数
 /// - `db`: 数据库状态
 /// - `kind`: 任务类型
-/// - `media_id`: 媒体 ID
+/// - `upload_id`: 上传文件 ID
 /// - `password`: 口令
 /// - `encrypt`: 为真时加密
 ///
 /// # 返回值
-/// 成功时返回可入队任务，并带上媒体 ID
+/// 成功时返回可入队任务，并带上上传文件 ID
 ///
 /// # 错误
-/// 口令为空返回 `PasswordEmpty`，ID 空白后为空返回 `PathEmpty`。读媒体失败时返回映射后的 `TaskError`。已加密还要加密返回 `AlreadyEncrypted`，未加密还要解密返回 `NotEncrypted`
+/// 口令为空返回 `PasswordEmpty`，ID 空白后为空返回 `PathEmpty`。读上传文件失败时返回映射后的 `TaskError`。已加密还要加密返回 `AlreadyEncrypted`，未加密还要解密返回 `NotEncrypted`
 ///
 /// # Panics
 /// 不会主动 panic
 ///
 /// # 示例
 /// ```ignore
-/// let prepared = prepare_media(db, kind, media_id, password, true)?;
+/// let prepared = prepare_upload(db, kind, upload_id, password, true)?;
 /// ```
-fn prepare_media(
+fn prepare_upload(
   db: &DbState,
   kind: &str,
-  media_id: String,
+  upload_id: String,
   password: String,
   encrypt: bool,
 ) -> Result<Prepared, TaskError> {
@@ -1222,79 +1279,57 @@ fn prepare_media(
   if password.is_empty() {
     return Err(reject(password, TaskError::PasswordEmpty));
   }
-  let media_id = media_id.trim().to_string();
-  if media_id.is_empty() {
+  let upload_id = upload_id.trim().to_string();
+  if upload_id.is_empty() {
     return Err(reject(password, TaskError::PathEmpty));
   }
-  let media = match db.with_conn(|conn| crate::media::get(conn, &media_id)) {
-    Ok(media) => media,
+  let file = match db.with_conn(|conn| crate::upload::get(conn, &upload_id)) {
+    Ok(file) => file,
     Err(err) => return Err(reject(password, err.into())),
   };
-  if encrypt && media.encrypted {
+  if encrypt && file.encrypted {
     return Err(reject(password, TaskError::AlreadyEncrypted));
   }
-  if !encrypt && !media.encrypted {
+  if !encrypt && !file.encrypted {
     return Err(reject(password, TaskError::NotEncrypted));
   }
   Ok(finish(
     kind,
-    media_id.clone(),
-    Spec::Media { media_id: media_id.clone(), encrypt },
+    upload_id.clone(),
+    Spec::Upload { upload_id: upload_id.clone(), encrypt },
     password,
-    Some(media_id),
+    Some(upload_id),
   ))
 }
 
-/// 取数据库目录的父目录，没有父目录时用数据库目录本身
+/// 记下 I/O 错误并返回 `Internal`
 ///
 /// # 参数
-/// - `db`: 数据库状态
+/// - `context`: 出错位置说明
+/// - `err`: 标准库 I/O 错误
 ///
 /// # 返回值
-/// 数据根目录
+/// `TaskError::Internal`
 ///
 /// # Panics
 /// 不会主动 panic
 ///
 /// # 示例
 /// ```ignore
-/// let root = data_root(db);
+/// let err = io_fail("upload rename", err);
 /// ```
-fn data_root(db: &DbState) -> PathBuf {
-  db.dir.parent().map(Path::to_path_buf).unwrap_or_else(|| db.dir.clone())
+fn io_fail(context: &str, err: std::io::Error) -> TaskError {
+  tauri_plugin_log::log::error!("{context}: {err}");
+  TaskError::Internal
 }
 
-/// 把相对路径接到根目录上
+/// 按扩展名给出 MIME，认不出时按上传文件类型回退
 ///
-/// `rel` 已经是绝对路径时原样返回。
-///
-/// # 参数
-/// - `root`: 根目录
-/// - `rel`: 相对或绝对路径
-///
-/// # 返回值
-/// 解析后的路径
-///
-/// # Panics
-/// 不会主动 panic
-///
-/// # 示例
-/// ```
-/// let path = resolve(Path::new("/data"), "media/a");
-/// assert_eq!(path, PathBuf::from("/data/media/a"));
-/// ```
-fn resolve(root: &Path, rel: &str) -> PathBuf {
-  let path = PathBuf::from(rel);
-  if path.is_absolute() { path } else { root.join(path) }
-}
-
-/// 按扩展名给出 MIME，对不上时按媒体类型回退
-///
-/// 图片回退 `image/jpeg`，视频回退 `video/mp4`，都不是则返回空字符串。
+/// 图片回退 `image/jpeg`，视频回退 `video/mp4`，其余回退 `application/octet-stream`。
 ///
 /// # 参数
 /// - `path`: 文件路径
-/// - `kind`: 媒体类型
+/// - `kind`: 上传文件类型
 ///
 /// # 返回值
 /// MIME 字符串
@@ -1305,20 +1340,16 @@ fn resolve(root: &Path, rel: &str) -> PathBuf {
 /// # 示例
 /// ```
 /// assert_eq!(mime_of(Path::new("a.png"), "image"), "image/png");
+/// assert_eq!(mime_of(Path::new("a"), "video"), "video/mp4");
 /// ```
 fn mime_of(path: &Path, kind: &str) -> String {
-  let ext = path.extension().and_then(|ext| ext.to_str()).unwrap_or("").to_ascii_lowercase();
-  match ext.as_str() {
-    "jpg" | "jpeg" => "image/jpeg".to_string(),
-    "png" => "image/png".to_string(),
-    "webp" => "image/webp".to_string(),
-    "gif" => "image/gif".to_string(),
-    "mp4" => "video/mp4".to_string(),
-    "webm" => "video/webm".to_string(),
-    "mov" => "video/quicktime".to_string(),
-    _ if kind == KIND_IMAGE => "image/jpeg".to_string(),
-    _ if kind == KIND_VIDEO => "video/mp4".to_string(),
-    _ => String::new(),
+  if let Some(mime) = mime_guess::from_path(path).first_raw() {
+    return mime.to_string();
+  }
+  match kind {
+    KIND_IMAGE => "image/jpeg".to_string(),
+    KIND_VIDEO => "video/mp4".to_string(),
+    _ => "application/octet-stream".to_string(),
   }
 }
 
@@ -1329,7 +1360,7 @@ mod tests {
 
   use rusqlite::params;
 
-  use super::super::constants::{KIND_IMPORT_MEDIA, STATUS_CANCELED, STATUS_COMPLETED, STATUS_PENDING};
+  use super::super::constants::{KIND_IMPORT_UPLOAD, STATUS_CANCELED, STATUS_COMPLETED, STATUS_PENDING};
   use super::super::dto::TaskDraft;
   use super::*;
   use crate::db::error::DbError;
@@ -1342,7 +1373,7 @@ mod tests {
       crate::member::migrate,
       crate::tag::migrate,
       crate::place::migrate,
-      crate::media::migrate,
+      crate::upload::migrate,
       crate::plan::migrate,
     ]);
     db.create("test-password-123", "test-password-123").expect("create db");
@@ -1366,7 +1397,58 @@ mod tests {
   }
 
   #[test]
-  fn import_encrypts_into_data_media() {
+  fn import_input_reads_camel_case_fields() {
+    let input: TaskInput = serde_json::from_str(
+      r#"{"kind":"importUpload","source":"a.jpg","owner":"plan","ownerId":"p1","uploadKind":"image","encrypt":false,"password":""}"#,
+    )
+    .expect("parse");
+    assert!(matches!(
+      input,
+      TaskInput::ImportUpload { ref owner_id, ref upload_kind, .. } if owner_id == "p1" && upload_kind == "image"
+    ));
+    let input: TaskInput =
+      serde_json::from_str(r#"{"kind":"encryptUpload","uploadId":"u1","password":"pw"}"#).expect("parse");
+    assert!(matches!(input, TaskInput::EncryptUpload { ref upload_id, .. } if upload_id == "u1"));
+  }
+
+  #[test]
+  fn import_book_lands_in_upload_with_name_and_size() {
+    let (dir, db) = setup();
+    let plan_id = seed_plan(&db);
+    let source = dir.path().join("三体.EPUB");
+    fs::write(&source, b"PK-book-bytes").expect("source");
+    let queue = TaskQueue::default();
+    enqueue(
+      &db,
+      &queue,
+      TaskInput::ImportUpload {
+        source: source.display().to_string(),
+        owner: Owner::Plan.as_str().into(),
+        owner_id: plan_id,
+        upload_kind: "book".into(),
+        encrypt: false,
+        password: String::new(),
+      },
+    )
+    .expect("enqueue");
+    let done = queue.drive(&db).expect("drive");
+    assert_eq!(done.status, STATUS_COMPLETED);
+    let upload_id = done.upload_id.expect("upload id");
+    let file = db.with_conn(|conn| crate::upload::get(conn, &upload_id)).expect("get");
+    assert_eq!(file.rel_path, format!("upload/book/{upload_id}.epub"));
+    assert_eq!(file.name, "三体.EPUB");
+    assert_eq!(file.size, 13);
+    assert_eq!(file.mime, "application/epub+zip");
+    assert_eq!(
+      fs::read(upload::resolve(&db, &file.rel_path)).expect("stored"),
+      b"PK-book-bytes"
+    );
+    let tmp = upload::tmp_path(&db, "");
+    assert_eq!(fs::read_dir(tmp).map(|entries| entries.count()).unwrap_or(0), 0);
+  }
+
+  #[test]
+  fn import_encrypts_into_upload() {
     let (dir, db) = setup();
     let plan_id = seed_plan(&db);
     let source = dir.path().join("shot.jpg");
@@ -1375,26 +1457,27 @@ mod tests {
     let pending = enqueue(
       &db,
       &queue,
-      TaskInput::ImportMedia {
+      TaskInput::ImportUpload {
         source: source.display().to_string(),
         owner: Owner::Plan.as_str().into(),
         owner_id: plan_id.clone(),
-        media_kind: KIND_IMAGE.into(),
+        upload_kind: KIND_IMAGE.into(),
         encrypt: true,
         password: "file-password".into(),
       },
     )
     .expect("enqueue");
-    assert_eq!(pending.kind, KIND_IMPORT_MEDIA);
+    assert_eq!(pending.kind, KIND_IMPORT_UPLOAD);
     assert_eq!(pending.status, STATUS_PENDING);
     let done = queue.drive(&db).expect("drive");
     assert_eq!(done.status, STATUS_COMPLETED);
     assert_eq!(done.progress, 100.0);
-    let media_id = done.media_id.expect("media id");
-    let media = db.with_conn(|conn| crate::media::get(conn, &media_id)).expect("get");
-    assert!(media.encrypted);
-    assert_eq!(media.rel_path, format!("media/{media_id}"));
-    let stored = data_root(&db).join(&media.rel_path);
+    let upload_id = done.upload_id.expect("upload id");
+    let file = db.with_conn(|conn| crate::upload::get(conn, &upload_id)).expect("get");
+    assert!(file.encrypted);
+    assert_eq!(file.rel_path, format!("upload/image/{upload_id}.jpg"));
+    assert_eq!(file.name, "shot.jpg");
+    let stored = upload::resolve(&db, &file.rel_path);
     let sealed = fs::read(&stored).expect("stored");
     assert_eq!(&sealed[..8], b"chacha20");
 
@@ -1402,7 +1485,7 @@ mod tests {
       enqueue(
         &db,
         &queue,
-        TaskInput::EncryptMedia { media_id: media_id.clone(), password: "file-password".into() },
+        TaskInput::EncryptUpload { upload_id: upload_id.clone(), password: "file-password".into() },
       ),
       Err(TaskError::AlreadyEncrypted)
     ));
@@ -1410,18 +1493,18 @@ mod tests {
     enqueue(
       &db,
       &queue,
-      TaskInput::DecryptMedia { media_id, password: "file-password".into() },
+      TaskInput::DecryptUpload { upload_id, password: "file-password".into() },
     )
     .expect("decrypt");
     let opened = queue.drive(&db).expect("decrypt drive");
     assert_eq!(opened.status, STATUS_COMPLETED);
     assert_eq!(fs::read(stored).expect("plain"), b"plain-image-bytes");
-    let media = db.with_conn(|conn| crate::media::get(conn, opened.media_id.as_deref().unwrap())).expect("get");
-    assert!(!media.encrypted);
+    let file = db.with_conn(|conn| crate::upload::get(conn, opened.upload_id.as_deref().unwrap())).expect("get");
+    assert!(!file.encrypted);
   }
 
   #[test]
-  fn empty_password_is_rejected_and_file_job_skips_media() {
+  fn empty_password_is_rejected_and_file_job_skips_upload() {
     let (dir, db) = setup();
     let queue = TaskQueue::default();
     let input = dir.path().join("plain.bin");
@@ -1443,11 +1526,11 @@ mod tests {
       enqueue(
         &db,
         &queue,
-        TaskInput::ImportMedia {
+        TaskInput::ImportUpload {
           source: input.display().to_string(),
           owner: Owner::Plan.as_str().into(),
           owner_id: "missing".into(),
-          media_kind: KIND_IMAGE.into(),
+          upload_kind: KIND_IMAGE.into(),
           encrypt: true,
           password: String::new(),
         },
@@ -1467,11 +1550,11 @@ mod tests {
     .expect("file");
     let done = queue.drive(&db).expect("drive");
     assert_eq!(done.status, STATUS_COMPLETED);
-    assert!(done.media_id.is_none());
+    assert!(done.upload_id.is_none());
     assert_eq!(&fs::read(&output).expect("enc")[..8], b"chacha20");
     let count = db
       .with_conn(|conn| {
-        conn.query_row("SELECT COUNT(*) FROM media", [], |row| row.get::<_, i64>(0)).map_err(|_| TaskError::Internal)
+        conn.query_row("SELECT COUNT(*) FROM upload", [], |row| row.get::<_, i64>(0)).map_err(|_| TaskError::Internal)
       })
       .expect("count");
     assert_eq!(count, 0i64);
@@ -1484,43 +1567,45 @@ mod tests {
     let path = dir.path().join("keep.jpg");
     let original = b"keep-these-bytes";
     fs::write(&path, original).expect("file");
-    let media_id = new_uuid_v4();
-    let media = db
+    let upload_id = new_uuid_v4();
+    let file = db
       .with_conn(|conn| {
-        crate::media::insert_imported(
+        crate::upload::insert_imported(
           conn,
-          &media_id,
-          crate::media::dto::MediaInput {
+          &upload_id,
+          crate::upload::dto::UploadInput {
             owner: Owner::Plan.as_str().into(),
             owner_id: plan_id.clone(),
             kind: KIND_IMAGE.into(),
             rel_path: path.display().to_string(),
             mime: "image/jpeg".into(),
+            name: String::new(),
+            size: 0,
             sort: 0,
             locked: false,
           },
           false,
         )
       })
-      .expect("media");
+      .expect("upload");
     let queue = TaskQueue::default();
     let pending = enqueue(
       &db,
       &queue,
-      TaskInput::EncryptMedia { media_id: media.id.clone(), password: "file-password".into() },
+      TaskInput::EncryptUpload { upload_id: file.id.clone(), password: "file-password".into() },
     )
     .expect("enqueue");
     let canceled = queue.cancel(&pending.id).expect("cancel");
     assert_eq!(canceled.task.status, STATUS_CANCELED);
     assert!(matches!(queue.drive(&db), Err(TaskError::NotFound)));
     assert_eq!(fs::read(&path).expect("still"), original);
-    let row = db.with_conn(|conn| crate::media::get(conn, &media.id)).expect("get");
+    let row = db.with_conn(|conn| crate::upload::get(conn, &file.id)).expect("get");
     assert!(!row.encrypted);
 
     let again = enqueue(
       &db,
       &queue,
-      TaskInput::EncryptMedia { media_id: media.id.clone(), password: "file-password".into() },
+      TaskInput::EncryptUpload { upload_id: file.id.clone(), password: "file-password".into() },
     )
     .expect("again");
     let ticket = queue.try_ticket().expect("ticket").expect("pending");
@@ -1531,7 +1616,7 @@ mod tests {
     let _ = queue.finish(&again.id, &result);
     assert_eq!(fs::read(&path).expect("original"), original);
     assert!(!step::side_path(&path, "part").exists());
-    let row = db.with_conn(|conn| crate::media::get(conn, &media.id)).expect("get");
+    let row = db.with_conn(|conn| crate::upload::get(conn, &file.id)).expect("get");
     assert!(!row.encrypted);
   }
 
@@ -1541,30 +1626,32 @@ mod tests {
     let plan_id = seed_plan(&db);
     let path = dir.path().join("still.jpg");
     fs::write(&path, b"still-plain").expect("file");
-    let media_id = new_uuid_v4();
-    let media = db
+    let upload_id = new_uuid_v4();
+    let file = db
       .with_conn(|conn| {
-        crate::media::insert_imported(
+        crate::upload::insert_imported(
           conn,
-          &media_id,
-          crate::media::dto::MediaInput {
+          &upload_id,
+          crate::upload::dto::UploadInput {
             owner: Owner::Plan.as_str().into(),
             owner_id: plan_id.clone(),
             kind: KIND_IMAGE.into(),
             rel_path: path.display().to_string(),
             mime: "image/jpeg".into(),
+            name: String::new(),
+            size: 0,
             sort: 0,
             locked: false,
           },
           false,
         )
       })
-      .expect("media");
+      .expect("upload");
     let queue = TaskQueue::default();
     enqueue(
       &db,
       &queue,
-      TaskInput::EncryptMedia { media_id: media.id.clone(), password: "file-password".into() },
+      TaskInput::EncryptUpload { upload_id: file.id.clone(), password: "file-password".into() },
     )
     .expect("enqueue");
     let ticket = queue.try_ticket().expect("ticket").expect("pending");
@@ -1575,7 +1662,7 @@ mod tests {
     assert_eq!(fs::read(&path).expect("original"), b"still-plain");
     assert!(!step::side_path(&path, "part").exists());
     db.unlock("test-password-123").expect("unlock");
-    let row = db.with_conn(|conn| crate::media::get(conn, &media.id)).expect("get");
+    let row = db.with_conn(|conn| crate::upload::get(conn, &file.id)).expect("get");
     assert!(!row.encrypted);
   }
 

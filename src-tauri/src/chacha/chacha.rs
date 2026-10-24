@@ -3,7 +3,7 @@
 //! 这是 ChaCha20 密钥流，没有校验和。密码错了不会报错，只会解出另一串字节。
 
 use std::fs::{self, File};
-use std::io::{self, Read, Write};
+use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::path::Path;
 
 use argon2::{Algorithm, Argon2, Params, Version};
@@ -531,6 +531,226 @@ fn apply_at(data: &mut [u8], offset: u64, key: &[u8; KEY_LEN], nonce: &[u8; NONC
   cipher.apply_keystream(data);
 }
 
+/// 从一个加密文件的头和密码派生出的密钥
+///
+/// 盐和 nonce 每个文件不同，所以只能解开派生它的那个文件。派生要跑一次 Argon2id，查看期间留着它，后续随机读不用再派生。
+///
+/// # 字段
+/// - `key`: 32 字节密钥，丢弃时清零
+/// - `nonce`: 文件头里的 12 字节 nonce
+///
+/// # 示例
+/// ```ignore
+/// let key = FileKey::read(&mut file, password)?;
+/// let reader = CipherReader::with_key(file, key)?;
+/// ```
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Clone)]
+pub(crate) struct FileKey {
+  /// 32 字节密钥，丢弃时清零
+  key: Zeroizing<[u8; KEY_LEN]>,
+  /// 文件头里的 12 字节 nonce
+  nonce: [u8; NONCE_LEN],
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+impl FileKey {
+  /// 从文件开头读文件头，再用密码派生密钥
+  ///
+  /// 密码不对时不会返回错误，之后只会解出另一串字节。读完后读取位置停在正文开头。
+  ///
+  /// # 参数
+  /// - `reader`: 密文，读取位置在文件开头
+  /// - `password`: 文件密码
+  ///
+  /// # 返回值
+  /// 这个文件的密钥
+  ///
+  /// # 错误
+  /// - 密码为空返回 `PasswordEmpty`
+  /// - 文件头不完整返回 `Truncated`，魔数不符返回 `BadMagic`，版本不符返回 `BadVersion`
+  /// - 派生密钥失败返回 `Internal`
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```ignore
+  /// let key = FileKey::read(&mut file, password)?;
+  /// ```
+  pub(crate) fn read(reader: &mut impl Read, password: &str) -> Result<Self, FileError> {
+    if password.is_empty() {
+      return Err(FileError::PasswordEmpty);
+    }
+    let (salt, nonce) = read_header(reader)?;
+    let key = derive_key(password, &salt)?;
+    Ok(Self { key, nonce })
+  }
+}
+
+/// 边读边解密的密文读取器
+///
+/// 实现 `Read + Seek`，位置以明文字节计。ChaCha20 可以从任意偏移开始生成密钥流，所以随机读不用解密前面的内容，视频拖动进度条、zip 读目录都靠这一点。没有校验和，密码错了只会读出另一串字节。
+///
+/// # 字段
+/// - `inner`: 密文来源
+/// - `key`: 这个文件的密钥
+/// - `pos`: 当前明文位置
+/// - `len`: 明文总长度，即密文长度减去文件头
+///
+/// # 示例
+/// ```ignore
+/// let mut reader = CipherReader::open(File::open(path)?, password)?;
+/// reader.seek(SeekFrom::Start(1024))?;
+/// ```
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct CipherReader<R> {
+  /// 密文来源
+  inner: R,
+  /// 这个文件的密钥
+  key: FileKey,
+  /// 当前明文位置
+  pos: u64,
+  /// 明文总长度，即密文长度减去文件头
+  len: u64,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+impl<R: Read + Seek> CipherReader<R> {
+  /// 读文件头、派生密钥，得到停在明文开头的读取器
+  ///
+  /// # 参数
+  /// - `inner`: 密文来源
+  /// - `password`: 文件密码
+  ///
+  /// # 返回值
+  /// 位置为 0 的读取器
+  ///
+  /// # 错误
+  /// 定位失败返回 `Internal`。文件头和派生密钥的错误同 [`FileKey::read`]
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```ignore
+  /// let reader = CipherReader::open(file, password)?;
+  /// ```
+  pub(crate) fn open(mut inner: R, password: &str) -> Result<Self, FileError> {
+    inner.seek(SeekFrom::Start(0)).map_err(io_fail)?;
+    let key = FileKey::read(&mut inner, password)?;
+    Self::with_key(inner, key)
+  }
+
+  /// 用已经派生好的密钥打开读取器，不再跑 Argon2id
+  ///
+  /// 只核对长度够放下文件头，不重新读盐和 nonce。
+  ///
+  /// # 参数
+  /// - `inner`: 密文来源
+  /// - `key`: 从同一个文件派生的密钥
+  ///
+  /// # 返回值
+  /// 位置为 0 的读取器
+  ///
+  /// # 错误
+  /// 定位失败返回 `Internal`；短于文件头返回 `Truncated`
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```ignore
+  /// let reader = CipherReader::with_key(file, key.clone())?;
+  /// ```
+  pub(crate) fn with_key(mut inner: R, key: FileKey) -> Result<Self, FileError> {
+    let total = inner.seek(SeekFrom::End(0)).map_err(io_fail)?;
+    let len = total.checked_sub(HEADER_LEN as u64).ok_or(FileError::Truncated)?;
+    inner.seek(SeekFrom::Start(HEADER_LEN as u64)).map_err(io_fail)?;
+    Ok(Self { inner, key, pos: 0, len })
+  }
+
+  /// 返回明文总长度
+  ///
+  /// # 返回值
+  /// 密文长度减去文件头
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```ignore
+  /// let size = reader.len();
+  /// ```
+  pub(crate) fn len(&self) -> u64 {
+    self.len
+  }
+}
+
+impl<R: Read> Read for CipherReader<R> {
+  /// 读出密文并按当前明文位置解密
+  ///
+  /// # 参数
+  /// - `buf`: 接收明文的缓冲区
+  ///
+  /// # 返回值
+  /// 读到的字节数，到末尾时为 0
+  ///
+  /// # 错误
+  /// 底层读取失败时原样返回
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```ignore
+  /// let n = reader.read(&mut buf)?;
+  /// ```
+  fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+    let n = self.inner.read(buf)?;
+    apply_at(&mut buf[..n], self.pos, &self.key.key, &self.key.nonce);
+    self.pos += n as u64;
+    Ok(n)
+  }
+}
+
+impl<R: Seek> Seek for CipherReader<R> {
+  /// 按明文位置定位，底层跳过文件头
+  ///
+  /// 允许定位到末尾之后，之后的读取返回 0。
+  ///
+  /// # 参数
+  /// - `to`: 目标位置，`End` 相对明文末尾
+  ///
+  /// # 返回值
+  /// 新的明文位置
+  ///
+  /// # 错误
+  /// 目标位置为负或溢出时返回 `InvalidInput`；底层定位失败时原样返回
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```ignore
+  /// let pos = reader.seek(SeekFrom::Start(4096))?;
+  /// ```
+  fn seek(&mut self, to: SeekFrom) -> io::Result<u64> {
+    let target = match to {
+      SeekFrom::Start(at) => Some(at),
+      SeekFrom::End(delta) => self.len.checked_add_signed(delta),
+      SeekFrom::Current(delta) => self.pos.checked_add_signed(delta),
+    };
+    let target = target.ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "seek out of range"))?;
+    let raw = target
+      .checked_add(HEADER_LEN as u64)
+      .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "seek out of range"))?;
+    self.inner.seek(SeekFrom::Start(raw))?;
+    self.pos = target;
+    Ok(target)
+  }
+}
+
 /// 用固定的 Argon2id 参数从密码和盐派生 32 字节密钥
 ///
 /// # 参数
@@ -720,6 +940,70 @@ mod tests {
     assert!(matches!(err, Err(FileError::Canceled)));
     assert!(calls >= 1);
     assert!(!enc.exists());
+  }
+
+  #[test]
+  fn cipher_reader_random_access_matches_plaintext() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let plain = dir.path().join("clip.bin");
+    let enc = dir.path().join("clip.enc");
+    let body = sample(CHUNK * 3 + 777);
+    fs::write(&plain, &body).expect("write");
+    encrypt_path(&plain, &enc, "video-password", &mut (|_, _| Ok(()))).expect("encrypt");
+
+    let mut reader = CipherReader::open(File::open(&enc).expect("open"), "video-password").expect("reader");
+    assert_eq!(reader.len(), body.len() as u64);
+
+    let spans = [(0usize, 16usize), (CHUNK - 5, 10), (CHUNK * 2 + 1, CHUNK + 3), (body.len() - 9, 9), (12_345, 1)];
+    for (start, len) in spans {
+      reader.seek(SeekFrom::Start(start as u64)).expect("seek");
+      let mut buf = vec![0u8; len];
+      reader.read_exact(&mut buf).expect("read");
+      assert_eq!(buf, &body[start..start + len], "span at {start}");
+    }
+
+    let tail = reader.seek(SeekFrom::End(-4)).expect("end");
+    assert_eq!(tail, body.len() as u64 - 4);
+    let mut rest = Vec::new();
+    reader.read_to_end(&mut rest).expect("rest");
+    assert_eq!(rest, &body[body.len() - 4..]);
+    assert_eq!(reader.read(&mut [0u8; 8]).expect("eof"), 0);
+
+    reader.seek(SeekFrom::Start(100)).expect("back");
+    reader.seek(SeekFrom::Current(-40)).expect("current");
+    let mut one = [0u8; 1];
+    reader.read_exact(&mut one).expect("one");
+    assert_eq!(one[0], body[60]);
+    assert!(reader.seek(SeekFrom::Current(-1000)).is_err());
+
+    let mut file = File::open(&enc).expect("reopen");
+    let key = FileKey::read(&mut file, "video-password").expect("key");
+    let mut keyed = CipherReader::with_key(file, key).expect("keyed");
+    let mut all = Vec::new();
+    keyed.read_to_end(&mut all).expect("all");
+    assert_eq!(all, body);
+  }
+
+  #[test]
+  fn cipher_reader_rejects_bad_input() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let short = dir.path().join("short.bin");
+    fs::write(&short, b"chacha20").expect("short");
+    assert!(matches!(
+      CipherReader::open(File::open(&short).expect("open"), "pw"),
+      Err(FileError::Truncated)
+    ));
+    assert!(matches!(
+      CipherReader::open(File::open(&short).expect("open"), ""),
+      Err(FileError::PasswordEmpty)
+    ));
+
+    let enc = dir.path().join("photo.enc");
+    fs::write(&enc, encrypt_bytes(b"jpeg-bytes", "right").expect("seal")).expect("enc");
+    let mut wrong = CipherReader::open(File::open(&enc).expect("open"), "wrong").expect("still opens");
+    let mut out = Vec::new();
+    wrong.read_to_end(&mut out).expect("read");
+    assert_ne!(out, b"jpeg-bytes");
   }
 
   #[test]

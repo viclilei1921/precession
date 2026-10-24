@@ -66,6 +66,7 @@ fn map_book(row: &rusqlite::Row<'_>) -> rusqlite::Result<Book> {
     finished_at: row.get(8)?,
     created_at: row.get(9)?,
     updated_at: row.get(10)?,
+    uploads: Vec::new(),
   })
 }
 
@@ -268,7 +269,11 @@ pub(super) fn book_list(conn: &Connection) -> Result<Vec<Book>, LibraryError> {
   let sql = format!("SELECT {BOOK_COLUMNS} FROM {BOOK_TABLE} WHERE deleted_at IS NULL ORDER BY updated_at DESC");
   let mut stmt = conn.prepare(&sql).map_err(|e| db_fail("book list", e))?;
   let rows = stmt.query_map([], map_book).map_err(|e| db_fail("book list", e))?;
-  rows.collect::<Result<Vec<_>, _>>().map_err(|e| db_fail("book list", e))
+  let mut items = rows.collect::<Result<Vec<_>, _>>().map_err(|e| db_fail("book list", e))?;
+  for item in &mut items {
+    attach_uploads(conn, item)?;
+  }
+  Ok(items)
 }
 
 /// 按标识读取未删除的书籍
@@ -292,10 +297,12 @@ pub(super) fn book_list(conn: &Connection) -> Result<Vec<Book>, LibraryError> {
 /// ```
 pub(super) fn book_get(conn: &Connection, id: &str) -> Result<Book, LibraryError> {
   let sql = format!("SELECT {BOOK_COLUMNS} FROM {BOOK_TABLE} WHERE id = ?1 AND deleted_at IS NULL");
-  conn.query_row(&sql, [id], map_book).map_err(|e| match e {
+  let mut book = conn.query_row(&sql, [id], map_book).map_err(|e| match e {
     rusqlite::Error::QueryReturnedNoRows => LibraryError::NotFound,
     other => db_fail("book get", other),
-  })
+  })?;
+  attach_uploads(conn, &mut book)?;
+  Ok(book)
 }
 
 /// 插入书籍并读回
@@ -436,6 +443,7 @@ pub(super) fn book_delete(conn: &Connection, id: &str) -> Result<(), LibraryErro
   for note_id in ids {
     clear_note(&tx, &note_id)?;
   }
+  crate::upload::clear(&tx, Owner::Book.as_str(), id).map_err(|_| LibraryError::Internal)?;
   tx.commit().map_err(|e| db_fail("book delete commit", e))?;
   Ok(())
 }
@@ -765,31 +773,17 @@ fn replace_refs(conn: &Connection, id: &str, input: &BookNoteInput) -> Result<()
   Ok(())
 }
 
-/// 清除书摘或笔记上的成员、标签、地点、媒体和手记关联
-///
-/// # 参数
-/// - `conn`: 数据库连接
-/// - `id`: 书摘或笔记标识
-///
-/// # 返回值
-/// 清除完成时返回空成功
-///
-/// # 错误
-/// 任一清除失败时返回内部错误
-///
-/// # Panics
-/// 不会主动 panic
-///
-/// # 示例
-/// ```ignore
-/// clear_note(conn, id)?;
-/// ```
+fn attach_uploads(conn: &Connection, book: &mut Book) -> Result<(), LibraryError> {
+  book.uploads = crate::upload::list_for(conn, Owner::Book.as_str(), &book.id).map_err(|_| LibraryError::Internal)?;
+  Ok(())
+}
+
 fn clear_note(conn: &Connection, id: &str) -> Result<(), LibraryError> {
   let owner = Owner::BookNote.as_str();
   crate::member::clear(conn, owner, id).map_err(|_| LibraryError::Internal)?;
   crate::tag::clear(conn, owner, id).map_err(|_| LibraryError::Internal)?;
   crate::place::clear(conn, owner, id).map_err(|_| LibraryError::Internal)?;
-  crate::media::clear(conn, owner, id).map_err(|_| LibraryError::Internal)?;
+  crate::upload::clear(conn, owner, id).map_err(|_| LibraryError::Internal)?;
   crate::journal::clear_note(conn, id).map_err(|_| LibraryError::Internal)?;
   Ok(())
 }

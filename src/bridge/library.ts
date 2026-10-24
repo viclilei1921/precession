@@ -1,4 +1,5 @@
 import { invokeCommand } from './invoke';
+import type { Upload } from './upload';
 
 /** 书架状态 */
 export type BookStatus = 'want' | 'reading' | 'finished';
@@ -19,6 +20,8 @@ export type Book = {
   finishedAt: number | null;
   createdAt: number;
   updatedAt: number;
+  /** 挂在这本书上的文件 */
+  uploads: Upload[];
 };
 
 /** 新建或修改书 */
@@ -116,4 +119,41 @@ export function bookNoteUpdate(id: string, input: BookNoteInput) {
 /** 软删除书摘或笔记 */
 export function bookNoteDelete(id: string) {
   return invokeCommand<void>('book_note_delete', { id });
+}
+
+/** 导入前从本地文件读出的书名和作者 */
+export type BookPeek = {
+  title: string;
+  author: string;
+  /** epub、mobi 或 txt */
+  format: string;
+};
+
+/** 目录里的一章 */
+export type BookOutlineItem = {
+  index: number;
+  title: string;
+};
+
+/** 一章正文。html 为真时 content 是清理过的 HTML */
+export type BookChapter = {
+  index: number;
+  title: string;
+  content: string;
+  html: boolean;
+};
+
+/** 从用户选中的文件读出书名、作者和格式 */
+export function bookPeek(path: string) {
+  return invokeCommand<BookPeek>('book_peek', { path });
+}
+
+/** 列出这本书的目录 */
+export function bookOutline(bookId: string) {
+  return invokeCommand<BookOutlineItem[]>('book_outline', { bookId });
+}
+
+/** 读取一章正文 */
+export function bookChapter(bookId: string, index: number) {
+  return invokeCommand<BookChapter>('book_chapter', { bookId, index });
 }

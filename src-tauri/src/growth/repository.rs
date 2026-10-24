@@ -508,7 +508,7 @@ fn clear_refs(conn: &Connection, id: &str) -> Result<(), GrowthError> {
   crate::member::clear(conn, owner, id).map_err(|_| GrowthError::Internal)?;
   crate::tag::clear(conn, owner, id).map_err(|_| GrowthError::Internal)?;
   crate::place::clear(conn, owner, id).map_err(|_| GrowthError::Internal)?;
-  crate::media::clear(conn, owner, id).map_err(|_| GrowthError::Internal)?;
+  crate::upload::clear(conn, owner, id).map_err(|_| GrowthError::Internal)?;
   Ok(())
 }
 

@@ -13,8 +13,10 @@ export const PATH = {
   growth: '/growth',
   /* 书库 */
   library: '/library',
-  /* 阅读器 */
+  /* 书页 */
   bookReader: '/library/$bookId',
+  /* 正文阅读 */
+  bookRead: '/library/$bookId/read',
   /* 视频处理 */
   video: '/video',
   /* 图片转码 */

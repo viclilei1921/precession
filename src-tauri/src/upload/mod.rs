@@ -1,3 +1,9 @@
+//! 上传文件。把窗口里选的文件导入应用，放进和数据库平级的 `upload` 目录，
+//! 在业务记录上登记，再按需读取：图片查看、视频播放和拖动、书籍阅读。
+//!
+//! - `repository`、`service`：文件记录的增删查
+//! - `storage`：落盘位置、导入提交锁、孤儿清理
+
 pub mod commands;
 pub mod dto;
 pub mod error;
@@ -5,14 +11,16 @@ pub mod error;
 mod constants;
 mod repository;
 mod service;
+mod storage;
 
-pub(crate) use constants::{KIND_IMAGE, KIND_VIDEO};
+pub(crate) use constants::{KIND_IMAGE, KIND_VIDEO, KINDS};
+pub(crate) use storage::{clear_tmp, commit_guard, ext_of, on_open, rel_path, resolve, sweep_later, tmp_path};
 
 use rusqlite::Connection;
 
 use crate::db::error::DbError;
 
-/// 迁移媒体表结构
+/// 迁移上传文件表结构
 ///
 /// # 参数
 /// - `conn`: 数据库连接
@@ -34,7 +42,9 @@ pub(crate) fn migrate(conn: &Connection) -> Result<(), DbError> {
   repository::ensure_schema(conn).map_err(|_| DbError::Internal)
 }
 
-/// 清除所属记录上的媒体
+/// 清除所属记录上的文件记录
+///
+/// 只删记录。文件由所属记录删除后的 [`sweep_later`] 清掉。
 ///
 /// # 参数
 /// - `conn`: 数据库连接
@@ -45,7 +55,7 @@ pub(crate) fn migrate(conn: &Connection) -> Result<(), DbError> {
 /// 清除完成时返回空成功
 ///
 /// # 错误
-/// 删除失败时返回媒体错误
+/// 删除失败时返回上传文件错误
 ///
 /// # Panics
 /// 不会主动 panic
@@ -54,11 +64,11 @@ pub(crate) fn migrate(conn: &Connection) -> Result<(), DbError> {
 /// ```ignore
 /// clear(conn, owner, owner_id)?;
 /// ```
-pub(crate) fn clear(conn: &Connection, owner: &str, owner_id: &str) -> Result<(), error::MediaError> {
+pub(crate) fn clear(conn: &Connection, owner: &str, owner_id: &str) -> Result<(), error::UploadError> {
   repository::clear(conn, owner, owner_id)
 }
 
-/// 列出所属记录上的媒体
+/// 列出所属记录上的文件
 ///
 /// # 参数
 /// - `conn`: 数据库连接
@@ -66,10 +76,10 @@ pub(crate) fn clear(conn: &Connection, owner: &str, owner_id: &str) -> Result<()
 /// - `owner_id`: 所属记录标识
 ///
 /// # 返回值
-/// 返回媒体列表
+/// 返回文件记录列表
 ///
 /// # 错误
-/// 查询失败时返回媒体错误
+/// 查询失败时返回上传文件错误
 ///
 /// # Panics
 /// 不会主动 panic
@@ -78,21 +88,21 @@ pub(crate) fn clear(conn: &Connection, owner: &str, owner_id: &str) -> Result<()
 /// ```ignore
 /// let rows = list_for(conn, owner, owner_id)?;
 /// ```
-pub(crate) fn list_for(conn: &Connection, owner: &str, owner_id: &str) -> Result<Vec<dto::Media>, error::MediaError> {
+pub(crate) fn list_for(conn: &Connection, owner: &str, owner_id: &str) -> Result<Vec<dto::Upload>, error::UploadError> {
   repository::list(conn, owner, owner_id)
 }
 
-/// 按标识读取媒体
+/// 按标识读取文件记录
 ///
 /// # 参数
 /// - `conn`: 数据库连接
-/// - `id`: 媒体标识
+/// - `id`: 文件标识
 ///
 /// # 返回值
-/// 返回对应的媒体
+/// 返回对应的文件记录
 ///
 /// # 错误
-/// 读取失败时返回媒体错误
+/// 读取失败时返回上传文件错误
 ///
 /// # Panics
 /// 不会主动 panic
@@ -101,22 +111,22 @@ pub(crate) fn list_for(conn: &Connection, owner: &str, owner_id: &str) -> Result
 /// ```ignore
 /// let row = get(conn, id)?;
 /// ```
-pub(crate) fn get(conn: &Connection, id: &str) -> Result<dto::Media, error::MediaError> {
+pub(crate) fn get(conn: &Connection, id: &str) -> Result<dto::Upload, error::UploadError> {
   repository::get(conn, id)
 }
 
-/// 设置媒体的加密标记
+/// 设置文件的加密标记
 ///
 /// # 参数
 /// - `conn`: 数据库连接
-/// - `id`: 媒体标识
+/// - `id`: 文件标识
 /// - `encrypted`: 是否已加密
 ///
 /// # 返回值
 /// 更新成功时返回空成功
 ///
 /// # 错误
-/// 更新失败时返回媒体错误
+/// 更新失败时返回上传文件错误
 ///
 /// # Panics
 /// 不会主动 panic
@@ -125,23 +135,23 @@ pub(crate) fn get(conn: &Connection, id: &str) -> Result<dto::Media, error::Medi
 /// ```ignore
 /// set_encrypted(conn, id, encrypted)?;
 /// ```
-pub(crate) fn set_encrypted(conn: &Connection, id: &str, encrypted: bool) -> Result<(), error::MediaError> {
+pub(crate) fn set_encrypted(conn: &Connection, id: &str, encrypted: bool) -> Result<(), error::UploadError> {
   repository::set_encrypted(conn, id, encrypted)
 }
 
-/// 按指定标识写入导入的媒体
+/// 校验输入后按指定标识写入导入的文件记录
 ///
 /// # 参数
 /// - `conn`: 数据库连接
-/// - `id`: 媒体标识
-/// - `input`: 媒体输入
+/// - `id`: 文件标识
+/// - `input`: 文件输入
 /// - `encrypted`: 是否已加密
 ///
 /// # 返回值
-/// 返回写入后的媒体
+/// 返回写入后的文件记录
 ///
 /// # 错误
-/// 写入失败时返回媒体错误
+/// 输入不合法、所属记录不存在或写入失败时返回上传文件错误
 ///
 /// # Panics
 /// 不会主动 panic
@@ -153,8 +163,9 @@ pub(crate) fn set_encrypted(conn: &Connection, id: &str, encrypted: bool) -> Res
 pub(crate) fn insert_imported(
   conn: &Connection,
   id: &str,
-  input: dto::MediaInput,
+  input: dto::UploadInput,
   encrypted: bool,
-) -> Result<dto::Media, error::MediaError> {
-  repository::insert_imported(conn, id, input, encrypted)
+) -> Result<dto::Upload, error::UploadError> {
+  let (owner, input) = repository::prepare(input)?;
+  repository::insert(conn, id, owner, &input, encrypted)
 }

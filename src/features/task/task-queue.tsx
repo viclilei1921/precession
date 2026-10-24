@@ -15,9 +15,9 @@ import styles from './task-queue.module.css';
 const kindLabel: Record<TaskKind, string> = {
   encryptFile: '加密文件',
   decryptFile: '解密文件',
-  importMedia: '导入影像',
-  encryptMedia: '加密影像',
-  decryptMedia: '解密影像',
+  importUpload: '导入文件',
+  encryptUpload: '加密已上传文件',
+  decryptUpload: '解密已上传文件',
   convertVideo: '转码视频',
   cutVideo: '裁剪视频',
   mergeVideo: '合并视频',

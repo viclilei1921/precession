@@ -18,12 +18,12 @@ pub const STATUS_CANCELED: &str = "canceled";
 pub const KIND_ENCRYPT_FILE: &str = "encryptFile";
 /// 任务类型 - 解密文件
 pub const KIND_DECRYPT_FILE: &str = "decryptFile";
-/// 任务类型 - 导入媒体
-pub const KIND_IMPORT_MEDIA: &str = "importMedia";
-/// 任务类型 - 加密媒体
-pub const KIND_ENCRYPT_MEDIA: &str = "encryptMedia";
-/// 任务类型 - 解密媒体
-pub const KIND_DECRYPT_MEDIA: &str = "decryptMedia";
+/// 任务类型 - 导入上传文件
+pub const KIND_IMPORT_UPLOAD: &str = "importUpload";
+/// 任务类型 - 加密上传文件
+pub const KIND_ENCRYPT_UPLOAD: &str = "encryptUpload";
+/// 任务类型 - 解密上传文件
+pub const KIND_DECRYPT_UPLOAD: &str = "decryptUpload";
 /// 任务类型 - 转换视频
 pub const KIND_CONVERT_VIDEO: &str = "convertVideo";
 /// 任务类型 - 剪辑视频

@@ -1,5 +1,5 @@
 import { invokeCommand } from './invoke';
-import type { Media } from './media';
+import type { Upload } from './upload';
 
 /** 计划状态。没有日期时是草稿 */
 export type PlanStatus = 'draft' | 'scheduled' | 'done';
@@ -87,7 +87,7 @@ export type Plan = {
   placeIds: string[];
   repeat: PlanRepeat | null;
   reminders: PlanReminder[];
-  media: Media[];
+  uploads: Upload[];
   comments: PlanComment[];
   createdAt: number;
   updatedAt: number;

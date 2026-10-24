@@ -1931,6 +1931,7 @@ impl MobiParser {
   ///   assert!(parser.get_cover().is_none());
   /// }
   /// ```
+  #[allow(dead_code)]
   fn get_cover(&self) -> Option<(Vec<u8>, &'static str)> {
     if self.resource_start == OFFSET_UNAVAILABLE {
       return None;
@@ -2208,6 +2209,7 @@ pub fn parse_content(path: &Path) -> Result<(MobiMeta, Vec<MobiChapter>), MobiEr
 ///   None => {}
 /// }
 /// ```
+#[allow(dead_code)]
 pub fn extract_cover(path: &Path) -> Result<Option<(Vec<u8>, &'static str)>, MobiError> {
   let p = MobiParser::from_path(path)?;
   Ok(p.get_cover())

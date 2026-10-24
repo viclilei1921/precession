@@ -1,14 +1,18 @@
 //! 本地电子书解析。支持 EPUB、MOBI、TXT。
 //!
 //! 只读文件、拆章节，不建表，也不走档案库。书和书摘仍在 `library`。
-//! 阅读入口还没接到书库。接上之后去掉这条 allow，让没用到的解析代码重新报警。
-#![allow(dead_code)]
+//! 阅读命令按上传文件打开这本书。
 
 mod epub;
 mod format;
 mod mobi;
 mod txt;
 mod types;
+
+pub mod commands;
+mod read;
+mod sanitize;
+mod session;
 
 use std::path::Path;
 
@@ -181,6 +185,7 @@ impl OpenedBook {
   /// let (_meta, chapters) = book.content().unwrap();
   /// assert!(!chapters.is_empty());
   /// ```
+  #[allow(dead_code)]
   pub fn content(self) -> Result<(BookMeta, Vec<Chapter>), BookError> {
     match self {
       OpenedBook::Epub(b) => b.content(),

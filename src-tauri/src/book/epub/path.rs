@@ -49,6 +49,7 @@ pub fn is_external_uri(uri: &str) -> bool {
 /// assert_eq!(path_relative("OPS/chapter", "OPS/images/a.png"), "../images/a.png");
 /// assert_eq!(path_relative("a/b", "a/b"), "");
 /// ```
+#[allow(dead_code)]
 pub fn path_relative(from: &str, to: &str) -> String {
   if from.is_empty() {
     return to.to_string();

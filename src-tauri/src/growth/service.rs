@@ -114,7 +114,7 @@ pub fn update(db: &DbState, id: &str, input: GrowthEntryInput) -> Result<GrowthE
   db.with_conn(|conn| repository::update(conn, id, &input))
 }
 
-/// 按标识删除成长记录
+/// 按标识删除成长记录，再在后台清理它留下的上传文件
 ///
 /// # 参数
 /// - `db`: 数据库状态
@@ -134,7 +134,9 @@ pub fn update(db: &DbState, id: &str, input: GrowthEntryInput) -> Result<GrowthE
 /// delete(db, id)?;
 /// ```
 pub fn delete(db: &DbState, id: &str) -> Result<(), GrowthError> {
-  db.with_conn(|conn| repository::delete(conn, id))
+  db.with_conn(|conn| repository::delete(conn, id))?;
+  crate::upload::sweep_later(db);
+  Ok(())
 }
 
 /// 整理并校验成长记录输入
@@ -183,7 +185,7 @@ mod tests {
       crate::member::migrate,
       crate::tag::migrate,
       crate::place::migrate,
-      crate::media::migrate,
+      crate::upload::migrate,
       crate::growth::migrate,
     ]);
     db.create("test-password-123", "test-password-123").expect("create db");

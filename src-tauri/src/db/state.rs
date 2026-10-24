@@ -19,6 +19,11 @@ use crate::crypto::device::{self, DeviceSlot};
 /// 指向 `fn(&Connection) -> Result<(), DbError>`。建库/解锁且连接已就绪后调用，不让 `db` 依赖具体功能表。
 pub type SchemaMigrator = fn(&Connection) -> Result<(), DbError>;
 
+/// 数据库打开后的钩子
+///
+/// 指向 `fn(&DbState)`。建库或解锁、会话放好之后调用。钩子里可以再用 `with_conn`，不能阻塞太久。
+pub type OpenHook = fn(&DbState);
+
 /// 已解锁的数据库会话
 ///
 /// # 字段
@@ -49,6 +54,7 @@ struct Session {
 /// - `session`: 数据库会话
 /// - `device`: 系统密钥库。测试可以换成内存假槽。
 /// - `migrators`: 各业务模块的建表 / 迁移。`Clone` 只复制函数指针。
+/// - `open_hooks`: 打开数据库后要执行的钩子。`Clone` 只复制函数指针。
 ///
 /// # 示例
 /// 见 [`DbState::new`]
@@ -68,12 +74,14 @@ pub struct DbState {
   device: Arc<dyn DeviceSlot>,
   /// 各业务模块的建表 / 迁移。`Clone` 只复制函数指针。
   migrators: Vec<SchemaMigrator>,
+  /// 打开数据库后要执行的钩子。`Clone` 只复制函数指针。
+  open_hooks: Vec<OpenHook>,
 }
 
 impl DbState {
   /// 根据应用数据目录组装数据库路径和空会话
   ///
-  /// 目录是 `app_data_dir/data/db`。设备槽用当前平台槽，迁移列表为空。
+  /// 目录是 `app_data_dir/data/db`。设备槽用当前平台槽，迁移列表和打开钩子为空。
   ///
   /// # 参数
   /// - `app_data_dir`: 应用本地数据目录
@@ -99,6 +107,7 @@ impl DbState {
       session: Arc::new(Mutex::new(None)),
       device: device::platform_slot(),
       migrators: Vec::new(),
+      open_hooks: Vec::new(),
     }
   }
 
@@ -141,6 +150,46 @@ impl DbState {
   pub fn with_migrators(mut self, migrators: Vec<SchemaMigrator>) -> Self {
     self.migrators = migrators;
     self
+  }
+
+  /// 换上给定的打开钩子列表
+  ///
+  /// # 参数
+  /// - `hooks`: 建库或解锁成功后要执行的钩子
+  ///
+  /// # 返回值
+  /// 换上钩子后的句柄
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```ignore
+  /// let state = state.with_open_hooks(hooks);
+  /// ```
+  pub fn with_open_hooks(mut self, hooks: Vec<OpenHook>) -> Self {
+    self.open_hooks = hooks;
+    self
+  }
+
+  /// 按注册顺序执行打开钩子
+  ///
+  /// 调用前必须已经放好会话，并且没有持有会话锁。
+  ///
+  /// # 返回值
+  /// 不返回数据
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```ignore
+  /// state.run_open_hooks();
+  /// ```
+  fn run_open_hooks(&self) {
+    for hook in &self.open_hooks {
+      hook(self);
+    }
   }
 
   /// 按注册顺序执行业务表迁移
@@ -279,6 +328,7 @@ impl DbState {
     }
 
     *self.session.lock().unwrap() = Some(Session { dek, conn });
+    self.run_open_hooks();
 
     tauri_plugin_log::log::info!("db created");
     Ok(())
@@ -323,6 +373,7 @@ impl DbState {
 
     *self.session.lock().unwrap() = Some(Session { dek, conn });
     self.clear_user_lock();
+    self.run_open_hooks();
 
     Ok(())
   }
@@ -419,6 +470,7 @@ impl DbState {
     self.apply_migrators(&conn)?;
     *self.session.lock().unwrap() = Some(Session { dek, conn });
     self.clear_user_lock();
+    self.run_open_hooks();
     tauri_plugin_log::log::info!("db unlocked with device slot");
     Ok(())
   }

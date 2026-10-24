@@ -1,7 +1,7 @@
 use serde::Serialize;
 
 use crate::db::error::DbError;
-use crate::media::error::MediaError;
+use crate::upload::error::UploadError;
 
 /// 任务操作失败
 ///
@@ -13,7 +13,7 @@ use crate::media::error::MediaError;
 /// - `Missing`: 文件不存在
 /// - `PasswordEmpty`: 密码不能为空
 /// - `SamePath`: 输入和输出不能是同一个文件
-/// - `NotFound`: 媒体不存在
+/// - `NotFound`: 上传文件不存在
 /// - `ReferencedMissing`: 引用不存在
 /// - `Locked`: 数据库未解锁
 /// - `AlreadyEncrypted`: 文件已经加密
@@ -44,8 +44,8 @@ pub enum TaskError {
   /// 输入和输出不能是同一个文件
   #[error("输入和输出不能是同一个文件")]
   SamePath,
-  /// 媒体不存在
-  #[error("媒体不存在")]
+  /// 上传文件不存在
+  #[error("上传文件不存在")]
   NotFound,
   /// 引用不存在
   #[error("引用不存在")]
@@ -114,11 +114,11 @@ impl From<DbError> for TaskError {
   }
 }
 
-impl From<MediaError> for TaskError {
-  /// 按同名变体把媒体错误映射成任务错误
+impl From<UploadError> for TaskError {
+  /// 按同名变体把上传文件错误映射成任务错误
   ///
   /// # 参数
-  /// - `err`: 媒体错误
+  /// - `err`: 上传文件错误
   ///
   /// # 返回值
   /// 对应的 `TaskError`
@@ -128,16 +128,16 @@ impl From<MediaError> for TaskError {
   ///
   /// # 示例
   /// ```
-  /// let err = TaskError::from(MediaError::NotFound);
+  /// let err = TaskError::from(UploadError::NotFound);
   /// assert!(matches!(err, TaskError::NotFound));
   /// ```
-  fn from(err: MediaError) -> Self {
+  fn from(err: UploadError) -> Self {
     match err {
-      MediaError::KindInvalid => TaskError::KindInvalid,
-      MediaError::NotFound => TaskError::NotFound,
-      MediaError::ReferencedMissing => TaskError::ReferencedMissing,
-      MediaError::Locked => TaskError::Locked,
-      MediaError::Internal => TaskError::Internal,
+      UploadError::KindInvalid => TaskError::KindInvalid,
+      UploadError::NotFound => TaskError::NotFound,
+      UploadError::ReferencedMissing => TaskError::ReferencedMissing,
+      UploadError::Locked => TaskError::Locked,
+      UploadError::Internal => TaskError::Internal,
     }
   }
 }

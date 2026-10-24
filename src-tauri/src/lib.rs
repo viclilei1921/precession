@@ -11,7 +11,6 @@ mod growth;
 mod image;
 mod journal;
 mod library;
-mod media;
 mod member;
 mod owner;
 mod place;
@@ -23,6 +22,7 @@ mod tag;
 mod task;
 mod timeline;
 mod tray;
+mod upload;
 mod utils;
 
 use tauri::Manager;
@@ -73,6 +73,9 @@ pub fn run() {
 
     // 接上本平台的系统密钥库
     let db = platform::Current::attach_device(app, db);
+
+    // 任务工人还没启动，上次没提交的导入临时文件可以直接清掉
+    upload::clear_tmp(&db);
 
     // 管理数据库状态
     app.manage(db);

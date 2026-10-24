@@ -57,6 +57,7 @@ impl Format {
   /// assert_eq!(Format::parse("epub"), Some(Format::Epub));
   /// assert_eq!(Format::parse("pdf"), None);
   /// ```
+  #[allow(dead_code)]
   pub fn parse(s: &str) -> Option<Self> {
     match s {
       "epub" => Some(Format::Epub),

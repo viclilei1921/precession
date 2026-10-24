@@ -21,14 +21,14 @@ use crate::db::state::DbState;
 ///
 /// # 字段
 /// - `id`: 任务 ID
-/// - `kind`: 任务类型，`encryptFile`、`decryptFile`、`importMedia`、`encryptMedia`、`decryptMedia`、`convertVideo`、`cutVideo`、`mergeVideo`、`appendVideo`、`convertAvif`、`convertJxl`
+/// - `kind`: 任务类型，`encryptFile`、`decryptFile`、`importUpload`、`encryptUpload`、`decryptUpload`、`convertVideo`、`cutVideo`、`mergeVideo`、`appendVideo`、`convertAvif`、`convertJxl`
 /// - `spec`: 任务规格。工人取走后为空
 /// - `password`: 任务密码，丢弃时清零
 /// - `status`: 任务状态
 /// - `progress`: 任务进度，0.0 到 1.0
 /// - `message`: 任务消息。任务处理中时才有
 /// - `cancel`: 取消标志
-/// - `media_id`: 媒体 ID。媒体任务时才有
+/// - `upload_id`: 上传文件 ID。上传文件任务时才有
 /// - `target`: 目标路径，用来拒绝同一目标同时跑两条
 /// - `title`: 任务标题
 /// - `output`: 输出文件
@@ -39,7 +39,7 @@ use crate::db::state::DbState;
 struct Job {
   /// 任务 ID
   id: String,
-  /// 任务类型: encryptFile, decryptFile, importMedia, encryptMedia, decryptMedia, convertVideo, cutVideo, mergeVideo, appendVideo, convertAvif, convertJxl
+  /// 任务类型: encryptFile, decryptFile, importUpload, encryptUpload, decryptUpload, convertVideo, cutVideo, mergeVideo, appendVideo, convertAvif, convertJxl
   kind: String,
   /// 任务规格。工人取走后为空
   spec: Option<Spec>,
@@ -53,8 +53,8 @@ struct Job {
   message: String,
   /// 取消标志
   cancel: Arc<AtomicBool>,
-  /// 媒体 ID。媒体任务时才有。
-  media_id: Option<String>,
+  /// 上传文件 ID。上传文件任务时才有。
+  upload_id: Option<String>,
   /// 目标路径，用来拒绝同一目标同时跑两条
   target: String,
   /// 任务标题
@@ -238,7 +238,7 @@ impl TaskQueue {
   /// let task = queue.push(prepared)?;
   /// ```
   pub(super) fn push(&self, prepared: Prepared) -> Result<Task, TaskError> {
-    let Prepared { kind, spec, mut password, media_id, target, title, output, draft } = prepared;
+    let Prepared { kind, spec, mut password, upload_id, target, title, output, draft } = prepared;
     let mut jobs = match self.lock() {
       Ok(jobs) => jobs,
       Err(err) => {
@@ -261,7 +261,7 @@ impl TaskQueue {
       progress: 0.0,
       message: "准备开始...".to_string(),
       cancel: Arc::new(AtomicBool::new(false)),
-      media_id,
+      upload_id,
       target,
       title,
       output,
@@ -458,11 +458,11 @@ impl TaskQueue {
 
   /// 按执行结果收尾，并清零密码
   ///
-  /// 成功时若带媒体 ID 就写上，状态改为完成、进度 100、消息「完成」。`Canceled` 改为已取消、消息「已取消」。其他错误改为失败，消息用错误的显示文本。
+  /// 成功时若带上传文件 ID 就写上，状态改为完成、进度 100、消息「完成」。`Canceled` 改为已取消、消息「已取消」。其他错误改为失败，消息用错误的显示文本。
   ///
   /// # 参数
   /// - `id`: 任务 ID
-  /// - `result`: 执行结果。`Ok` 里是可选的媒体 ID
+  /// - `result`: 执行结果。`Ok` 里是可选的上传文件 ID
   ///
   /// # 返回值
   /// 成功时返回收尾后的任务视图
@@ -484,9 +484,9 @@ impl TaskQueue {
     };
     job.password.zeroize();
     match result {
-      Ok(media_id) => {
-        if let Some(media_id) = media_id {
-          job.media_id = Some(media_id.clone());
+      Ok(upload_id) => {
+        if let Some(upload_id) = upload_id {
+          job.upload_id = Some(upload_id.clone());
         }
         job.status = Status::Completed;
         job.progress = 100.0;
@@ -580,7 +580,7 @@ mod tests {
       kind: KIND_ENCRYPT_FILE.into(),
       spec: Spec::File { input: PathBuf::from("in"), output: PathBuf::from(target), encrypt: true },
       password: "secret".into(),
-      media_id: None,
+      upload_id: None,
       target: target.into(),
       title: "in".into(),
       output: target.into(),
@@ -639,7 +639,7 @@ fn view(job: &Job) -> Task {
     .to_string(),
     progress: job.progress,
     message: job.message.clone(),
-    media_id: job.media_id.clone(),
+    upload_id: job.upload_id.clone(),
     title: job.title.clone(),
     output: job.output.clone(),
     draft: job.draft.clone(),

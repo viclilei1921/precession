@@ -1,6 +1,7 @@
 import { BookOpenIcon } from '@phosphor-icons/react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
+import { noteBody } from '@/features/library/components/note-form';
 import { useCardLayout } from '@/features/today/board/board';
 import { bookListQuery } from '@/query/library/query';
 import { timelineListQuery } from '@/query/timeline/query';
@@ -17,7 +18,7 @@ export function LibraryCard() {
     .filter((book) => book.status === 'reading')
     .sort((left, right) => right.updatedAt - left.updatedAt)[0];
   const excerpt = excerptsQuery.data?.[0];
-  const quote = excerpt ? excerpt.title.trim() || excerpt.body.trim() : '';
+  const quote = excerpt ? noteBody(excerpt) : '';
   const percent = reading ? Math.round(reading.progress * 100) : 0;
   const error = booksQuery.error ?? excerptsQuery.error;
 

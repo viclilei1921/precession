@@ -115,7 +115,7 @@ pub fn update(db: &DbState, id: &str, input: JournalEntryInput) -> Result<Journa
   db.with_conn(|conn| repository::update(conn, id, &input))
 }
 
-/// 删除手记
+/// 删除手记，再在后台清理它留下的上传文件
 ///
 /// # 参数
 /// - `db`: 数据库状态
@@ -135,7 +135,9 @@ pub fn update(db: &DbState, id: &str, input: JournalEntryInput) -> Result<Journa
 /// delete(db, id)?;
 /// ```
 pub fn delete(db: &DbState, id: &str) -> Result<(), JournalError> {
-  db.with_conn(|conn| repository::delete(conn, id))
+  db.with_conn(|conn| repository::delete(conn, id))?;
+  crate::upload::sweep_later(db);
+  Ok(())
 }
 
 /// 列出与手记相关的流转
@@ -403,7 +405,7 @@ mod tests {
       crate::member::migrate,
       crate::tag::migrate,
       crate::place::migrate,
-      crate::media::migrate,
+      crate::upload::migrate,
       crate::journal::migrate,
     ]);
     db.create("test-password-123", "test-password-123").expect("create db");

@@ -922,7 +922,7 @@ fn query(
         place_ids: Vec::new(),
         repeat: None,
         reminders: Vec::new(),
-        media: Vec::new(),
+        uploads: Vec::new(),
         comments: Vec::new(),
         created_at: row.get(17)?,
         updated_at: row.get(18)?,
@@ -938,7 +938,7 @@ fn query(
     item.member_ids = crate::member::list_ids(conn, owner, &item.id).map_err(|_| PlanError::Internal)?;
     item.tag_ids = crate::tag::list_ids(conn, owner, &item.id).map_err(|_| PlanError::Internal)?;
     item.place_ids = crate::place::list_ids(conn, owner, &item.id).map_err(|_| PlanError::Internal)?;
-    item.media = crate::media::list_for(conn, owner, &item.id).map_err(|_| PlanError::Internal)?;
+    item.uploads = crate::upload::list_for(conn, owner, &item.id).map_err(|_| PlanError::Internal)?;
   }
   Ok(items)
 }
@@ -1286,7 +1286,7 @@ fn clear_refs(conn: &Connection, id: &str) -> Result<(), PlanError> {
   crate::member::clear(conn, owner, id).map_err(|_| PlanError::Internal)?;
   crate::tag::clear(conn, owner, id).map_err(|_| PlanError::Internal)?;
   crate::place::clear(conn, owner, id).map_err(|_| PlanError::Internal)?;
-  crate::media::clear(conn, owner, id).map_err(|_| PlanError::Internal)?;
+  crate::upload::clear(conn, owner, id).map_err(|_| PlanError::Internal)?;
   Ok(())
 }
 

@@ -24,6 +24,7 @@ pub struct NavItem {
   /// 子项。nav 来自嵌套 `ol`，NCX 只在 `navPoint` 下递归
   pub subitems: Vec<NavItem>,
   /// epub type。NCX 和未读取 type 时为空
+  #[allow(dead_code)]
   pub type_props: Vec<String>,
 }
 
@@ -68,6 +69,7 @@ pub struct NavDoc {
 /// assert_eq!(section.section_type, ["loi"]);
 /// ```
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct NavSection {
   /// 节标签
   pub label: String,
@@ -108,6 +110,7 @@ pub struct NcxDoc {
 /// # 示例
 /// 见 [`resolve_href_in_nav`]
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct ResolvedHref {
   /// 导航树先序摊平后的下标
   pub index: usize,
@@ -261,6 +264,7 @@ pub fn parse_ncx_document(xml: &str, ncx_href: &str) -> Result<NcxDoc, EpubError
 /// assert_eq!(hit.index, 0);
 /// assert_eq!(hit.fragment.as_deref(), Some("a"));
 /// ```
+#[allow(dead_code)]
 pub fn resolve_href_in_nav(items: &[NavItem], href: &str) -> Option<ResolvedHref> {
   let (want_path, want_frag) = split_toc_href(href);
   let flat = flatten_nav(items);
@@ -448,6 +452,7 @@ fn parse_ncx_item(node: roxmltree::Node<'_, '_>, ncx_href: &str) -> NavItem {
 /// assert_eq!(flat.len(), 2);
 /// assert_eq!(flat[1].label, "子");
 /// ```
+#[allow(dead_code)]
 fn flatten_nav(items: &[NavItem]) -> Vec<NavItem> {
   let mut out = Vec::new();
   for item in items {

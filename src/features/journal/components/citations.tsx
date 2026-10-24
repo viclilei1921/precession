@@ -4,6 +4,7 @@ import { journalCitationCreate, journalCitationDelete } from '@/bridge/journal';
 import { Button } from '@/components/button';
 import styles from '@/components/record.module.css';
 import { Select } from '@/components/select';
+import { noteBody } from '@/features/library/components/note-form';
 import { journalCitationListQuery, refreshJournalCitations } from '@/query/journal/query';
 import { bookListQuery, bookNoteListQuery, bookNoteQuery } from '@/query/library/query';
 import { errorMessage } from '@/utils/error';
@@ -61,7 +62,7 @@ export function Citations({ entryId }: { entryId: string }) {
           <option value="">选择一条</option>
           {(notesQuery.data ?? []).map((note) => (
             <option key={note.id} value={note.id}>
-              {note.title}
+              {noteBody(note)}
             </option>
           ))}
         </Select>
@@ -80,7 +81,7 @@ function CitationRow({ noteId, onRemove }: { noteId: string; onRemove: () => voi
 
   return (
     <div className={styles.row}>
-      <span className={styles.rowTitle}>{noteQuery.data?.title ?? '书摘'}</span>
+      <span className={styles.rowTitle}>{noteQuery.data ? noteBody(noteQuery.data) : '书摘'}</span>
       <Button variant="outlined" onClick={onRemove}>
         取消
       </Button>

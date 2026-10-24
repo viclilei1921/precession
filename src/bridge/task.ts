@@ -2,7 +2,7 @@ import type { UnlistenFn } from '@tauri-apps/api/event';
 import { listen } from '@tauri-apps/api/event';
 
 import { invokeCommand } from './invoke';
-import type { MediaKind, OwnerKind } from './media';
+import type { OwnerKind, UploadKind } from './upload';
 
 /** 任务状态 */
 export type TaskStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'canceled';
@@ -11,9 +11,9 @@ export type TaskStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'ca
 export type TaskKind =
   | 'encryptFile'
   | 'decryptFile'
-  | 'importMedia'
-  | 'encryptMedia'
-  | 'decryptMedia'
+  | 'importUpload'
+  | 'encryptUpload'
+  | 'decryptUpload'
   | 'convertVideo'
   | 'cutVideo'
   | 'mergeVideo'
@@ -39,7 +39,7 @@ export type Task = {
   status: TaskStatus;
   progress: number;
   message: string;
-  mediaId: string | null;
+  uploadId: string | null;
   /** 文件名。多文件时带上数量。 */
   title: string;
   /** 输出文件。空字符串表示没有可打开的结果。 */
@@ -241,16 +241,16 @@ export type TaskInput =
   | { kind: 'encryptFile'; input: string; output: string; password: string }
   | { kind: 'decryptFile'; input: string; output: string; password: string }
   | {
-      kind: 'importMedia';
+      kind: 'importUpload';
       source: string;
       owner: OwnerKind;
       ownerId: string;
-      mediaKind: MediaKind;
+      uploadKind: UploadKind;
       encrypt: boolean;
       password: string;
     }
-  | { kind: 'encryptMedia'; mediaId: string; password: string }
-  | { kind: 'decryptMedia'; mediaId: string; password: string }
+  | { kind: 'encryptUpload'; uploadId: string; password: string }
+  | { kind: 'decryptUpload'; uploadId: string; password: string }
   | { kind: 'convertVideo'; input: string; output: string; encode?: VideoEncode }
   | { kind: 'cutVideo'; input: string; output: string; segments: TimeSegment[]; encode?: VideoEncode }
   | { kind: 'mergeVideo'; inputs: string[]; output: string; encode?: VideoEncode }

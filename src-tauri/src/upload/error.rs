@@ -2,23 +2,23 @@ use serde::Serialize;
 
 use crate::db::error::DbError;
 
-/// 媒体操作失败
+/// 上传文件操作失败
 ///
 /// 序列化时只写出错误文本。数据库锁定变成 `Locked`，其余数据库错误变成 `Internal`。
 ///
 /// # 变体
 /// - `KindInvalid`: 类型不正确
-/// - `NotFound`: 媒体不存在
+/// - `NotFound`: 文件记录不存在
 /// - `ReferencedMissing`: 所属记录不存在
 /// - `Locked`: 数据库未解锁
 /// - `Internal`: 操作失败
 #[derive(Debug, thiserror::Error)]
-pub enum MediaError {
+pub enum UploadError {
   /// 类型不正确
   #[error("类型不正确")]
   KindInvalid,
-  /// 媒体不存在
-  #[error("媒体不存在")]
+  /// 文件记录不存在
+  #[error("文件记录不存在")]
   NotFound,
   /// 所属记录不存在
   #[error("引用不存在")]
@@ -31,8 +31,8 @@ pub enum MediaError {
   Internal,
 }
 
-impl From<DbError> for MediaError {
-  /// 把数据库错误转成媒体错误
+impl From<DbError> for UploadError {
+  /// 把数据库错误转成上传文件错误
   ///
   /// # 参数
   /// - `err`: 数据库错误
@@ -45,18 +45,18 @@ impl From<DbError> for MediaError {
   ///
   /// # 示例
   /// ```
-  /// let err = MediaError::from(db_err);
+  /// let err = UploadError::from(db_err);
   /// ```
   fn from(err: DbError) -> Self {
     match err {
-      DbError::Locked => MediaError::Locked,
-      _ => MediaError::Internal,
+      DbError::Locked => UploadError::Locked,
+      _ => UploadError::Internal,
     }
   }
 }
 
-impl Serialize for MediaError {
-  /// 把媒体错误序列化为错误文本
+impl Serialize for UploadError {
+  /// 把上传文件错误序列化为错误文本
   ///
   /// # 参数
   /// - `serializer`: 序列化器

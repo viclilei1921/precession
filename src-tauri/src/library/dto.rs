@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::upload::dto::Upload;
+
 /// 书架上的一本书
 ///
 /// `status` 只能是 `want`、`reading` 或 `finished`。`progress` 在 0 到 1 之间。线上字段名是 camelCase。
@@ -16,6 +18,7 @@ use serde::{Deserialize, Serialize};
 /// - `finished_at`: 读完时间，可以没有
 /// - `created_at`: 创建时间
 /// - `updated_at`: 更新时间
+/// - `uploads`: 挂在这本书上的文件
 ///
 /// # 示例
 /// 见 [`book_create`](super::commands::book_create)
@@ -44,6 +47,8 @@ pub struct Book {
   pub created_at: i64,
   /// 更新时间
   pub updated_at: i64,
+  /// 挂在这本书上的文件
+  pub uploads: Vec<Upload>,
 }
 
 /// 新建或修改书

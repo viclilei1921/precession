@@ -2,6 +2,8 @@
 //!
 //! 前端阅读进度暂未接线；保留供高亮/定位扩展使用。
 
+#![allow(dead_code)]
+
 use super::error::EpubError;
 
 /// CFI step

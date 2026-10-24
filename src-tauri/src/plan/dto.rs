@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
-use crate::media::dto::Media;
 use crate::plan::constants::{REPEAT_KINDS, STATUS_DRAFT};
+use crate::upload::dto::Upload;
 
 /// 返回默认计划状态
 ///
@@ -235,7 +235,7 @@ pub struct PlanComment {
 /// - `place_ids`: 地点 ID 列表
 /// - `repeat`: 重复规则，可以没有
 /// - `reminders`: 提醒
-/// - `media`: 挂上的媒体
+/// - `uploads`: 挂上的文件
 /// - `comments`: 评论
 /// - `created_at`: 创建时间
 /// - `updated_at`: 更新时间
@@ -291,8 +291,8 @@ pub struct Plan {
   pub repeat: Option<PlanRepeat>,
   /// 提醒
   pub reminders: Vec<PlanReminder>,
-  /// 挂上的媒体
-  pub media: Vec<Media>,
+  /// 挂上的文件
+  pub uploads: Vec<Upload>,
   /// 评论
   pub comments: Vec<PlanComment>,
   /// 创建时间

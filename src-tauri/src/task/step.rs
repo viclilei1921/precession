@@ -268,8 +268,8 @@ pub(super) fn restore(backup: &Path, target: &Path) {
 ///
 /// # 示例
 /// ```
-/// let path = side_path(Path::new("media/a"), "part");
-/// assert_eq!(path, PathBuf::from("media/a.part"));
+/// let path = side_path(Path::new("upload/image/a.jpg"), "part");
+/// assert_eq!(path, PathBuf::from("upload/image/a.jpg.part"));
 /// ```
 pub(super) fn side_path(path: &Path, suffix: &str) -> PathBuf {
   let mut name = path.file_name().unwrap_or_default().to_os_string();

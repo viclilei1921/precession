@@ -48,7 +48,7 @@ mod imp {
   ///
   /// # 示例
   /// ```ignore
-  /// let media_id = run_sidecar(app, ticket)?;
+  /// let upload_id = run_sidecar(app, ticket)?;
   /// ```
   pub fn run_sidecar(app: &AppHandle, ticket: &Ticket) -> Result<Option<String>, TaskError> {
     let job = JobCtx::new(app.clone(), ticket.id.clone(), Arc::clone(&ticket.cancel));
@@ -66,7 +66,7 @@ mod imp {
   /// 成功时无额外值
   ///
   /// # 错误
-  /// 文件、导入、媒体规格返回 `SidecarError::Invalid`，消息是「不是转码任务」。其余失败返回侧车错误
+  /// 文件、导入、上传文件规格返回 `SidecarError::Invalid`，消息是「不是转码任务」。其余失败返回侧车错误
   ///
   /// # Panics
   /// 不会主动 panic
@@ -93,7 +93,7 @@ mod imp {
       Spec::ConvertJxl { input, output, params } => {
         crate::image::run_convert_jxl(app, job, input, output, params.clone()).await
       }
-      Spec::File { .. } | Spec::Import { .. } | Spec::Media { .. } => {
+      Spec::File { .. } | Spec::Import { .. } | Spec::Upload { .. } => {
         Err(crate::sidecar::SidecarError::invalid("不是转码任务"))
       }
     }
@@ -268,7 +268,7 @@ mod imp {
   ///
   /// # 示例
   /// ```ignore
-  /// let media_id = run_sidecar(app, ticket)?;
+  /// let upload_id = run_sidecar(app, ticket)?;
   /// ```
   pub fn run_sidecar(app: &AppHandle, ticket: &Ticket) -> Result<Option<String>, TaskError> {
     let _ = (app, ticket);

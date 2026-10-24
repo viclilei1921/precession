@@ -1,4 +1,8 @@
 //! EPUB Media Overlay (SMIL) 解析
+//!
+//! 阅读侧暂未接线，保留供后续 media overlay 使用。
+
+#![allow(dead_code)]
 
 use roxmltree::Document;
 

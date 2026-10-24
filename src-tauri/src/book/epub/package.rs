@@ -72,6 +72,7 @@ pub(crate) struct ParsedPackage {
   /// 书名和作者。空字符串分别换成「未知标题」「未知作者」
   pub meta: EpubMeta,
   /// OPF 里的完整元数据
+  #[allow(dead_code)]
   pub meta_full: EpubMetaFull,
   /// `itemref` 按 manifest 生成的章节条目
   pub spine: Vec<SpineEntry>,

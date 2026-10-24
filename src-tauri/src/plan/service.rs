@@ -146,7 +146,7 @@ pub fn complete(db: &DbState, id: &str, result: &str) -> Result<Plan, PlanError>
   db.with_conn(|conn| repository::complete(conn, id, STATUS_DONE, result, now))
 }
 
-/// 删除计划
+/// 删除计划，再在后台清理它留下的上传文件
 ///
 /// # 参数
 /// - `db`: 数据库状态
@@ -166,7 +166,9 @@ pub fn complete(db: &DbState, id: &str, result: &str) -> Result<Plan, PlanError>
 /// delete(db, id)?;
 /// ```
 pub fn delete(db: &DbState, id: &str) -> Result<(), PlanError> {
-  db.with_conn(|conn| repository::delete(conn, id))
+  db.with_conn(|conn| repository::delete(conn, id))?;
+  crate::upload::sweep_later(db);
+  Ok(())
 }
 
 /// 列出清单
@@ -430,13 +432,13 @@ fn ensure_parent(conn: &Connection, plan_id: Option<&str>, parent_id: &str) -> R
 mod tests {
   use super::*;
   use crate::db::error::DbError;
-  use crate::media::KIND_IMAGE;
-  use crate::media::dto::MediaInput;
   use crate::owner::Owner;
   use crate::plan::{
     constants::{STATUS_DONE, STATUS_DRAFT, STATUS_SCHEDULED},
     dto::{PlanRepeatInput, PlanStepInput},
   };
+  use crate::upload::KIND_IMAGE;
+  use crate::upload::dto::UploadInput;
   use crate::utils::id::new_uuid_v4;
 
   fn setup() -> (tempfile::TempDir, DbState) {
@@ -445,7 +447,7 @@ mod tests {
       crate::member::migrate,
       crate::tag::migrate,
       crate::place::migrate,
-      crate::media::migrate,
+      crate::upload::migrate,
       crate::plan::migrate,
     ]);
     db.create("test-password-123", "test-password-123").expect("create db");
@@ -564,26 +566,28 @@ mod tests {
     let listed_item = listed.iter().find(|plan| plan.id == item.id).expect("listed");
     assert!(listed_item.comments.is_empty());
 
-    let media_id = new_uuid_v4();
+    let upload_id = new_uuid_v4();
     db.with_conn(|conn| {
-      crate::media::insert_imported(
+      crate::upload::insert_imported(
         conn,
-        &media_id,
-        MediaInput {
+        &upload_id,
+        UploadInput {
           owner: Owner::Plan.as_str().into(),
           owner_id: item.id.clone(),
           kind: KIND_IMAGE.into(),
           rel_path: "a.jpg".into(),
           mime: "image/jpeg".into(),
+          name: "a.jpg".into(),
+          size: 0,
           sort: 0,
           locked: false,
         },
         false,
       )
-      .expect("media");
+      .expect("upload");
       Ok::<(), DbError>(())
     })
-    .expect("seed media");
+    .expect("seed upload");
 
     let renamed =
       update(&db, &item.id, PlanPatch { title: Some("夜跑".into()), ..PlanPatch::default() }).expect("patch");
@@ -591,7 +595,7 @@ mod tests {
     assert_eq!(renamed.member_ids, vec![member_id]);
     assert!(renamed.repeat.is_some());
     assert_eq!(renamed.reminders.len(), 1);
-    assert_eq!(renamed.media.len(), 1);
+    assert_eq!(renamed.uploads.len(), 1);
     assert_eq!(renamed.comments.len(), 1);
 
     let untouched = update(&db, &item.id, PlanPatch::default()).expect("empty patch");
@@ -602,11 +606,11 @@ mod tests {
     let child = get(&db, &child.id).expect("child remains");
     assert!(child.parent_id.is_none());
     db.with_conn(|conn| {
-      let left = crate::media::list_for(conn, Owner::Plan.as_str(), &item.id).expect("media");
+      let left = crate::upload::list_for(conn, Owner::Plan.as_str(), &item.id).expect("uploads");
       assert!(left.is_empty());
       Ok::<(), DbError>(())
     })
-    .expect("media cleared");
+    .expect("uploads cleared");
 
     let mut parked = sample();
     parked.title = "买菜".into();

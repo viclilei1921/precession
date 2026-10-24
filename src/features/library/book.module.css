@@ -1,0 +1,174 @@
+.page {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-4);
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 16rem minmax(0, 1fr);
+  gap: var(--space-6);
+  align-items: stretch;
+}
+
+.dossier {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: start;
+}
+
+.dossier h1 {
+  margin: 0;
+  font-size: var(--text-xl);
+  font-weight: 400;
+}
+
+.meta,
+.note {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--muted-foreground);
+}
+
+.stars {
+  display: flex;
+  gap: 0.1rem;
+}
+
+.stars button {
+  padding: 0;
+  font-size: 1.15rem;
+  line-height: 1;
+  color: var(--border);
+  background: transparent;
+  border: 0;
+}
+
+.stars button[data-on="true"] {
+  color: var(--journal);
+}
+
+.range {
+  display: grid;
+  gap: 0.25rem;
+  width: 100%;
+  font-size: var(--text-sm);
+}
+
+.range input {
+  width: 100%;
+  accent-color: var(--library);
+}
+
+.segments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.action {
+  flex: 1;
+}
+
+.notes {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  padding: var(--space-4);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.notesHead {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.notesHead h2 {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+
+.list {
+  display: grid;
+  flex: 1;
+  gap: var(--space-3);
+  align-content: start;
+  margin-top: var(--space-4);
+}
+
+.emptyNotes {
+  display: grid;
+  gap: var(--space-2);
+  place-items: center;
+  min-height: 16rem;
+  padding: var(--space-6) var(--space-4);
+  text-align: center;
+  background: radial-gradient(circle at 50% 0, var(--library-soft), transparent 58%), var(--background);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.emptyNotes p {
+  margin: 0;
+  font-size: var(--text-lg);
+}
+
+.emptyNotes span {
+  max-width: 16rem;
+  font-size: var(--text-sm);
+  color: var(--muted-foreground);
+}
+
+.noteCard {
+  display: grid;
+  gap: 0.35rem;
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  text-align: left;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.noteCard[data-highlight="true"] {
+  box-shadow: inset 3px 0 0 var(--library);
+}
+
+.noteTop,
+.noteMeta {
+  display: flex;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--muted-foreground);
+}
+
+.body {
+  font-size: var(--text-sm);
+  line-height: 1.7;
+}
+
+:global(html[data-platform="mobile"]) .layout {
+  grid-template-columns: 1fr;
+}
