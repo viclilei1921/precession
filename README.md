@@ -35,6 +35,8 @@ pnpm build:win
 pnpm build:mac
 pnpm build:android
 
+# Windows 商店 MSIX 见 docs/windows-publish.md
+
 # 前后端格式化并修复
 pnpm format
 

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap rescap">
+  <Identity
+    Name="viclilei.precession"
+    Publisher="CN=A342B656-55E4-4555-9649-7D1585494CF3"
+    Version="0.1.0.1"
+    ProcessorArchitecture="x64" />
+  <Properties>
+    <DisplayName>precession</DisplayName>
+    <PublisherDisplayName>viclilei</PublisherDisplayName>
+    <Logo>src-tauri\icons\StoreLogo.png</Logo>
+  </Properties>
+  <Resources>
+    <Resource Language="zh-CN" />
+  </Resources>
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+  <Applications>
+    <Application Id="App" Executable="precession.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+        DisplayName="precession"
+        Description="本地的计划、手记与书库"
+        BackgroundColor="transparent"
+        Square150x150Logo="src-tauri\icons\Square150x150Logo.png"
+        Square44x44Logo="src-tauri\icons\Square44x44Logo.png" />
+    </Application>
+  </Applications>
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>

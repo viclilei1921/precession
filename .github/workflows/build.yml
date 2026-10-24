@@ -2,8 +2,9 @@
 # Precession 跨平台构建 — GitHub Actions
 # =============================================================================
 # 触发条件：推送 tag（v*）时自动构建，也可手动触发。
-# 构建矩阵：Windows (NSIS)、macOS Apple Silicon (DMG)、Android arm64 (APK)。
+# 构建矩阵：Windows (NSIS + MSIX)、macOS Apple Silicon (DMG)、Android arm64 (APK)。
 # 产物：每个平台的安装包上传为 Artifacts，tag 推送时额外创建 GitHub Release 草稿。
+# Windows MSIX 在 NSIS 构建之后，用已经编好的 exe 和去掉架构后缀的侧车组装。
 # Android 不走 tauri-action：在 Ubuntu 上装 SDK/NDK 后执行 `tauri android build`。
 #
 # 侧车（ffmpeg / cjxl / avifenc）提交在 Git LFS，以仓库中的裁剪静态构建为准。
@@ -45,7 +46,7 @@ jobs:
           # ---- Windows x86_64 ----
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            bundle: nsis                           # Windows 使用 NSIS 安装包
+            bundle: nsis                           # Windows 使用 NSIS 安装包，随后另打 MSIX
 
           # ---- macOS Apple Silicon (aarch64) ----
           - os: macos-latest                       # macos-latest = ARM runner
@@ -183,13 +184,67 @@ jobs:
           # 避免把分支名（如 main）当成 tag 去建一个发布。
           tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
           releaseName: ${{ github.ref_type == 'tag' && format('Precession {0}', github.ref_name) || '' }}
-          releaseBody: ${{ github.ref_type == 'tag' && format('Precession {0} 安装包（Windows、macOS、Android）。', github.ref_name) || '' }}
+          releaseBody: ${{ github.ref_type == 'tag' && format('Precession {0} 安装包（Windows NSIS、Windows MSIX、macOS、Android）。', github.ref_name) || '' }}
           releaseDraft: true                   # 先创建为草稿，确认后手动发布
           prerelease: false
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundle }}
 
       # =====================================================================
-      # 9. 上传构建产物为 Artifact（即使不是 tag 触发也能下载）
+      # 9. Windows：用本次 release 目录里的 exe 打 MSIX
+      # =====================================================================
+      # 侧车必须是 tauri-build 去掉架构后缀后的 ffmpeg.exe / cjxl.exe / avifenc.exe。
+      # 包内清单必须叫 AppxManifest.xml。版本沿用 Package.appxmanifest，覆盖安装前要先改高。
+      # 正式证书配置仓库 Secrets（不要把 pfx 提交进仓库）：
+      #   WINDOWS_CERTIFICATE_BASE64   devcert.pfx 的 Base64
+      #   WINDOWS_CERTIFICATE_PASSWORD 该 pfx 的密码
+      # 两个 Secret 缺一不可，未配置时这一步直接失败。
+      - name: Pack MSIX
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not $env:WINDOWS_CERTIFICATE_BASE64 -or -not $env:WINDOWS_CERTIFICATE_PASSWORD) {
+            throw "缺少 WINDOWS_CERTIFICATE_BASE64 或 WINDOWS_CERTIFICATE_PASSWORD。在仓库 Secrets 中配置 devcert.pfx 的 Base64 和密码后再构建。"
+          }
+          $release = "src-tauri/target/${{ matrix.target }}/release"
+          $layout = "src-tauri/target/msix-layout"
+          New-Item -ItemType Directory -Force "$layout/src-tauri/icons" | Out-Null
+          foreach ($name in @('precession.exe', 'ffmpeg.exe', 'cjxl.exe', 'avifenc.exe')) {
+            $src = Join-Path $release $name
+            if (-not (Test-Path $src)) { throw "缺少 $src" }
+            Copy-Item $src $layout -Force
+          }
+          Copy-Item src-tauri/icons/StoreLogo.png, src-tauri/icons/Square44x44Logo.png, src-tauri/icons/Square150x150Logo.png "$layout/src-tauri/icons/" -Force
+          Copy-Item Package.appxmanifest "$layout/AppxManifest.xml" -Force
+
+          $pfx = Join-Path $env:RUNNER_TEMP "devcert.pfx"
+          $bytes = [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE_BASE64.Trim())
+          [IO.File]::WriteAllBytes($pfx, $bytes)
+          $pass = $env:WINDOWS_CERTIFICATE_PASSWORD
+
+          $makeappx = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin" -Recurse -Filter makeappx.exe |
+            Where-Object { $_.DirectoryName -match '\\x64$' } |
+            Sort-Object { [version]($_.Directory.Parent.Name) } -Descending |
+            Select-Object -First 1
+          if (-not $makeappx) { throw "找不到 makeappx.exe" }
+          $signtool = Join-Path $makeappx.DirectoryName "signtool.exe"
+          & $makeappx.FullName pack /d $layout /p precession.msix /o
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $signtool sign /fd SHA256 /f $pfx /p $pass precession.msix
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Attach MSIX to release
+        if: runner.os == 'Windows' && github.ref_type == 'tag'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ github.ref_name }}" precession.msix --clobber
+
+      # =====================================================================
+      # 10. 上传构建产物为 Artifact（即使不是 tag 触发也能下载）
       # =====================================================================
       - name: Upload artifacts
         uses: actions/upload-artifact@v6
@@ -202,6 +257,7 @@ jobs:
             src-tauri/target/${{ matrix.target }}/release/bundle/**/*.dmg
             src-tauri/target/${{ matrix.target }}/release/bundle/**/*.deb
             src-tauri/target/${{ matrix.target }}/release/bundle/**/*.AppImage
+            precession.msix
           if-no-files-found: warn              # 找不到文件时发出警告而非失败
           retention-days: 30                   # 产物保留 30 天
 
@@ -393,4 +449,4 @@ jobs:
           gh release create "${TAG}" "${APK}" \
             --draft \
             --title "Precession ${TAG}" \
-            --notes "Precession ${TAG} 安装包（Windows、macOS、Android）。"
+            --notes "Precession ${TAG} 安装包（Windows NSIS、Windows MSIX、macOS、Android）。"
