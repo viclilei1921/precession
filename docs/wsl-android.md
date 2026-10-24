@@ -14,11 +14,10 @@ WSL 没有图形界面没关系。SDK 用命令行即可。App 界面跑在手�
 
 ## 1. 两套环境怎么分工
 
-
-| 在哪做        | 做什么                                                       |
-| ---------- | --------------------------------------------------------- |
+| 在哪做     | 做什么                                                               |
+| ---------- | -------------------------------------------------------------------- |
 | Windows    | 桌面 `pnpm app` / `pnpm build:win`；可选：用 Android Studio 开模拟器 |
-| WSL Ubuntu | **只做 Android 编译和** `adb` **安装**                           |
+| WSL Ubuntu | **只做 Android 编译和** `adb` **安装**                               |
 
 
 ## 3. Windows侧
@@ -59,18 +58,18 @@ sudo apt install -y \
 ```
 
 
-| 包                 | 为什么要装                                                                                                                                             |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `build-essential` | 元包，带上 `gcc` / `g++` / `make` / `libc6-dev`。Cargo 的 `build.rs` 在**宿主机**上跑 C 编译器；`openssl-src` 编 OpenSSL 时也会调 `make`。没有 `make`，SQLCipher 过不了。       |
-| `pkg-config`      | 给 Rust 原生 crate 查头文件和 `.pc`。`openssl-sys`、部分系统库探测会用到。                                                                                             |
+| 包                | 为什么要装                                                                                                                                                                         |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `build-essential` | 元包，带上 `gcc` / `g++` / `make` / `libc6-dev`。Cargo 的 `build.rs` 在**宿主机**上跑 C 编译器；`openssl-src` 编 OpenSSL 时也会调 `make`。没有 `make`，SQLCipher 过不了。          |
+| `pkg-config`      | 给 Rust 原生 crate 查头文件和 `.pc`。`openssl-sys`、部分系统库探测会用到。                                                                                                         |
 | `perl`            | **SQLCipher 的关键依赖。** OpenSSL 的 `./Configure` 是 Perl 脚本。WSL 的 `/usr/bin/perl` 是 Unix Perl，路径用正斜杠，这正是 Windows Strawberry（`MSWin32`）编 Android 失败的原因。 |
-| `python3`         | NDK / Android SDK 部分包装脚本、以及 OpenSSL 3 构建会调 Python。不装可能在 NDK clang 包装器或 `sdkmanager` 外围脚本上报缺解释器。                                                   |
-| `unzip`           | 解压 Google 的 `commandlinetools-linux-*.zip`。                                                                                                       |
-| `zip`             | 打 APK、部分 Gradle / 构建脚本会调 `zip`。                                                                                                                   |
-| `curl`            | 装 `rustup`、`fnm`、下载 cmdline-tools。                                                                                                                |
-| `ca-certificates` | `curl` / `sdkmanager` 走 HTTPS。精简镜像有时缺证书。                                                                                                          |
-| `git`             | `rustup` 默认工具链、Cargo git 依赖、从 `/mnt/d` 同步代码。                                                                                                      |
-| `openjdk-21-jdk`  | Gradle 8.14 + AGP 8.11 跑在 JVM 上。只要 JRE 没有 `javac`，有些任务会失败。AGP 8.11 最低 JDK 17，这里与 Windows 已用的 21 对齐。                                               |
+| `python3`         | NDK / Android SDK 部分包装脚本、以及 OpenSSL 3 构建会调 Python。不装可能在 NDK clang 包装器或 `sdkmanager` 外围脚本上报缺解释器。                                                  |
+| `unzip`           | 解压 Google 的 `commandlinetools-linux-*.zip`。                                                                                                                                    |
+| `zip`             | 打 APK、部分 Gradle / 构建脚本会调 `zip`。                                                                                                                                         |
+| `curl`            | 装 `rustup`、`fnm`、下载 cmdline-tools。                                                                                                                                           |
+| `ca-certificates` | `curl` / `sdkmanager` 走 HTTPS。精简镜像有时缺证书。                                                                                                                               |
+| `git`             | `rustup` 默认工具链、Cargo git 依赖、从 `/mnt/d` 同步代码。                                                                                                                        |
+| `openjdk-21-jdk`  | Gradle 8.14 + AGP 8.11 跑在 JVM 上。只要 JRE 没有 `javac`，有些任务会失败。AGP 8.11 最低 JDK 17，这里与 Windows 已用的 21 对齐。                                                   |
 
 
 `build-essential` 已经包含 `make`，不必再单独 `apt install make`。`perl` 要单独写，因为它不在 `build-essential` 里。
@@ -88,11 +87,11 @@ rustup target add \
 ```
 
 
-| target                                        | 为什么                                           |
-| --------------------------------------------- | --------------------------------------------- |
-| `aarch64-linux-android`                       | 现在的手机；`pnpm run build:android` 也是这个。          |
+| target                                        | 为什么                                               |
+| --------------------------------------------- | ---------------------------------------------------- |
+| `aarch64-linux-android`                       | 现在的手机；`pnpm run build:android` 也是这个。      |
 | `armv7-linux-androideabi`                     | 32 位 ARM。`tauri android dev` 默认 universal 会编。 |
-| `i686-linux-android` / `x86_64-linux-android` | 模拟器常见 ABI。                                    |
+| `i686-linux-android` / `x86_64-linux-android` | 模拟器常见 ABI。                                     |
 
 
 ## 6. Node + pnpm
@@ -204,13 +203,13 @@ yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_H
 ```
 
 
-| SDK 包                     | 为什么要装                                                                                                                                                                                           |
-| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `cmdline-tools`（上一步的 zip） | 提供 `sdkmanager`。没有它后面的包装不了。                                                                                                                                                                     |
-| `platform-tools`          | `adb`。装 APK、看设备、端口转发、Chrome inspect 都靠它。                                                                                                                                                        |
-| `platforms;android-36`    | 对应 `compileSdk = 36` / `targetSdk = 36`。缺了 Gradle 会报找不到 `android-36`。                                                                                                                           |
-| `build-tools;36.1.0`      | `aapt2`、`d8`、`zipalign`、`apksigner`。打 APK 和签名用。                                                                                                                                                 |
-| `ndk;29.0.13846066`       | **SQLCipher/OpenSSL 和 Rust Android 的编译器。** 提供 `linux-x86_64` 的 `clang` / `llvm-ar`，以及 `aarch64-linux-android24-clang` 这类包装器。`minSdk = 24`，所以是 API 24 的 triple。Tauri / cargo-mobile2 用它当 linker。 |
+| SDK 包                          | 为什么要装                                                                                                                                                                                                                  |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cmdline-tools`（上一步的 zip） | 提供 `sdkmanager`。没有它后面的包装不了。                                                                                                                                                                                   |
+| `platform-tools`                | `adb`。装 APK、看设备、端口转发、Chrome inspect 都靠它。                                                                                                                                                                    |
+| `platforms;android-36`          | 对应 `compileSdk = 36` / `targetSdk = 36`。缺了 Gradle 会报找不到 `android-36`。                                                                                                                                            |
+| `build-tools;36.1.0`            | `aapt2`、`d8`、`zipalign`、`apksigner`。打 APK 和签名用。                                                                                                                                                                   |
+| `ndk;29.0.13846066`             | **SQLCipher/OpenSSL 和 Rust Android 的编译器。** 提供 `linux-x86_64` 的 `clang` / `llvm-ar`，以及 `aarch64-linux-android24-clang` 这类包装器。`minSdk = 24`，所以是 API 24 的 triple。Tauri / cargo-mobile2 用它当 linker。 |
 
 
 装完自检（都应存在）：
@@ -266,12 +265,12 @@ pnpm -v
 ```
 
 
-| 变量                           | 为什么                                                                                                                                              |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `JAVA_HOME`                  | Gradle / `sdkmanager` 找 JDK。只把 `java` 放进 PATH 不够，AGP 会读这个变量。                                                                                     |
-| `ANDROID_HOME`               | Tauri CLI、Gradle、`sdkmanager` 的 SDK 根目录。必须指向 **Linux** SDK。                                                                                      |
-| `ANDROID_SDK_ROOT`           | 部分旧脚本仍读这个名字，和 `ANDROID_HOME` 设成同一处。                                                                                                              |
-| `NDK_HOME`                   | Tauri / cargo-mobile2 用来拼 clang 路径。必须是 `.../ndk/<精确版本>`，不要只写到 `ndk/`。                                                                            |
+| 变量                         | 为什么                                                                                                                                                                      |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `JAVA_HOME`                  | Gradle / `sdkmanager` 找 JDK。只把 `java` 放进 PATH 不够，AGP 会读这个变量。                                                                                                |
+| `ANDROID_HOME`               | Tauri CLI、Gradle、`sdkmanager` 的 SDK 根目录。必须指向 **Linux** SDK。                                                                                                     |
+| `ANDROID_SDK_ROOT`           | 部分旧脚本仍读这个名字，和 `ANDROID_HOME` 设成同一处。                                                                                                                      |
+| `NDK_HOME`                   | Tauri / cargo-mobile2 用来拼 clang 路径。必须是 `.../ndk/<精确版本>`，不要只写到 `ndk/`。                                                                                   |
 | `AR_*` / `RANLIB_*` / `CC_*` | NDK 23 起没有 `aarch64-linux-android-ranlib` 这种旧名字，只剩 `llvm-ar` / `llvm-ranlib`。不设的话 OpenSSL 能 Configure、能编 `.o`，却在 `make install_dev` 以 exit 2 失败。 |
 
 
@@ -401,12 +400,12 @@ CI 的 Android 包由 `.github/workflows/build.yml` 里的 `build-android` 签�
 
 点 **New repository secret**，一次加一条。用上一节已经生成的 `$HOME/precession-release.jks`，别名 `precession`。换一把新密钥后，证书指纹会变，已安装的包无法覆盖升级，备案指纹也对不上。
 
-| Name | Secret |
-| --- | --- |
-| `ANDROID_KEY_ALIAS` | `precession` |
-| `ANDROID_KEYSTORE_PASSWORD` | 生成密钥库时设的口令 |
-| `ANDROID_KEY_PASSWORD` | 密钥口令。生成时直接回车的话，与密钥库口令相同 |
-| `ANDROID_KEYSTORE_BASE64` | 密钥库文件的 Base64，一整段，不要换行，不要带 `BEGIN` / `END` |
+| Name                        | Secret                                                        |
+| --------------------------- | ------------------------------------------------------------- |
+| `ANDROID_KEY_ALIAS`         | `precession`                                                  |
+| `ANDROID_KEYSTORE_PASSWORD` | 生成密钥库时设的口令                                          |
+| `ANDROID_KEY_PASSWORD`      | 密钥口令。生成时直接回车的话，与密钥库口令相同                |
+| `ANDROID_KEYSTORE_BASE64`   | 密钥库文件的 Base64，一整段，不要换行，不要带 `BEGIN` / `END` |
 
 取出 Base64：
 

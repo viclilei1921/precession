@@ -10,6 +10,8 @@ use crate::db::error::DbError;
 /// - `KindInvalid`: 类型不正确
 /// - `NotFound`: 文件记录不存在
 /// - `ReferencedMissing`: 所属记录不存在
+/// - `Encrypted`: 文件已经加密
+/// - `TooLarge`: 文件太大
 /// - `Locked`: 数据库未解锁
 /// - `Internal`: 操作失败
 #[derive(Debug, thiserror::Error)]
@@ -23,6 +25,12 @@ pub enum UploadError {
   /// 所属记录不存在
   #[error("引用不存在")]
   ReferencedMissing,
+  /// 文件已经加密
+  #[error("文件已经加密")]
+  Encrypted,
+  /// 文件太大
+  #[error("文件太大")]
+  TooLarge,
   /// 数据库未解锁
   #[error("数据库未解锁")]
   Locked,

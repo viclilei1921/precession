@@ -8,6 +8,11 @@ const hmrOnDevPort = host === '127.0.0.1' || host === 'localhost' || host === ':
 
 export default defineConfig(() => ({
   plugins: [react()],
+  define: {
+    __VUE_OPTIONS_API__: JSON.stringify(true),
+    __VUE_PROD_DEVTOOLS__: JSON.stringify(false),
+    __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: JSON.stringify(false)
+  },
   publicDir: 'public',
   css: {
     modules: {

@@ -8,25 +8,25 @@
 
 在 [合作伙伴中心](https://partner.microsoft.com/dashboard/apps/overview) 用个人开发者账号登录，新产品选 **MSIX 或 PWA 应用**，名称填 `precession`。保留成功后，打开 **产品管理 → 产品标识**，把下面三项原样抄进清单。`CN=` 要保留。
 
-| 页面标签 | 清单字段 | 当前值 |
-| --- | --- | --- |
-| Package/Identity/Name | `Identity Name` | `viclilei.precession` |
-| Package/Identity/Publisher | `Identity Publisher` | `CN=A342B656-55E4-4555-9649-7D1585494CF3` |
-| Package/Properties/PublisherDisplayName | `PublisherDisplayName` | `viclilei` |
+| 页面标签                                | 清单字段               | 当前值                                    |
+| --------------------------------------- | ---------------------- | ----------------------------------------- |
+| Package/Identity/Name                   | `Identity Name`        | `viclilei.precession`                     |
+| Package/Identity/Publisher              | `Identity Publisher`   | `CN=A342B656-55E4-4555-9649-7D1585494CF3` |
+| Package/Properties/PublisherDisplayName | `PublisherDisplayName` | `viclilei`                                |
 
 `com.viclilei.precession` 只是 Tauri 内部标识，商店不认。
 
 清单里其余固定值：
 
-| 字段 | 值 |
-| --- | --- |
-| DisplayName | `precession` |
-| Version | 四段式。当前是 `0.1.0.1`。每次覆盖安装都必须更高，例如 `0.1.0.2` |
-| Executable | `precession.exe` |
-| EntryPoint | `Windows.FullTrustApplication` |
-| Language | `zh-CN` |
-| 能力 | `runFullTrust` |
-| 架构 | `x64` |
+| 字段        | 值                                                               |
+| ----------- | ---------------------------------------------------------------- |
+| DisplayName | `precession`                                                     |
+| Version     | 四段式。当前是 `0.1.0.1`。每次覆盖安装都必须更高，例如 `0.1.0.2` |
+| Executable  | `precession.exe`                                                 |
+| EntryPoint  | `Windows.FullTrustApplication`                                   |
+| Language    | `zh-CN`                                                          |
+| 能力        | `runFullTrust`                                                   |
+| 架构        | `x64`                                                            |
 
 图标用 `src-tauri/icons/` 里现成的 `StoreLogo.png`、`Square44x44Logo.png`、`Square150x150Logo.png`。不要单独写 `Square310x310Logo`：指定它时还必须有一张 310×150 的宽磁贴，项目里没有这张图。
 
@@ -40,10 +40,10 @@ pnpm tauri build --no-bundle
 
 编译完成后，程序旁边的旁路文件名已经去掉架构后缀。打包必须用这一组，不要用 `src-tauri/binaries/` 里带 `-x86_64-pc-windows-msvc` 的源文件。运行时在 `precession.exe` 同目录查找短文件名，找不到就报「系统找不到指定的文件」。
 
-| 源文件 | 打进 MSIX 的文件 |
-| --- | --- |
-| `ffmpeg-x86_64-pc-windows-msvc.exe` | `src-tauri/target/release/ffmpeg.exe` |
-| `cjxl-x86_64-pc-windows-msvc.exe` | `src-tauri/target/release/cjxl.exe` |
+| 源文件                               | 打进 MSIX 的文件                       |
+| ------------------------------------ | -------------------------------------- |
+| `ffmpeg-x86_64-pc-windows-msvc.exe`  | `src-tauri/target/release/ffmpeg.exe`  |
+| `cjxl-x86_64-pc-windows-msvc.exe`    | `src-tauri/target/release/cjxl.exe`    |
 | `avifenc-x86_64-pc-windows-msvc.exe` | `src-tauri/target/release/avifenc.exe` |
 
 ## 3. 组装并签名
@@ -102,10 +102,10 @@ Get-ChildItem Cert:\LocalMachine\TrustedPeople, Cert:\CurrentUser\TrustedPeople,
 
 稳定签名配置两个仓库 Secrets，不要把 pfx 提交进仓库：
 
-| Secret | 内容 |
-| --- | --- |
-| `WINDOWS_CERTIFICATE_BASE64` | `devcert.pfx` 的 Base64 |
-| `WINDOWS_CERTIFICATE_PASSWORD` | 该 pfx 的密码 |
+| Secret                         | 内容                    |
+| ------------------------------ | ----------------------- |
+| `WINDOWS_CERTIFICATE_BASE64`   | `devcert.pfx` 的 Base64 |
+| `WINDOWS_CERTIFICATE_PASSWORD` | 该 pfx 的密码           |
 
 本机生成 Base64：
 
@@ -119,13 +119,13 @@ Get-ChildItem Cert:\LocalMachine\TrustedPeople, Cert:\CurrentUser\TrustedPeople,
 
 回到合作伙伴中心该产品，点「开始提交」。只面向 Windows 电脑，不要勾选 Xbox。
 
-| 页 | 填写 |
-| --- | --- |
-| 定价和可用性 | 免费。市场先选中国。只想自己安装时，可见性选专用受众，填入这个微软账号的邮箱 |
-| 属性 | 类别选生产力。子类别、网站、支持联系信息留空 |
-| 年龄分级 | 全部选「无」：无暴力、无性内容、无粗话、无毒品、无赌博、无应用内购买、无用户之间交流、不把个人信息发给第三方 |
-| 包 | 上传 `precession.msix`。设备系列只留桌面。架构 x64。最低系统 Windows 10 |
-| 商店列表 | 语言选简体中文。说明和功能见下文。截图至少 1 张 PNG，宽高不小于 1366×768。`StoreLogo.png` 不能当作截图 |
+| 页           | 填写                                                                                                         |
+| ------------ | ------------------------------------------------------------------------------------------------------------ |
+| 定价和可用性 | 免费。市场先选中国。只想自己安装时，可见性选专用受众，填入这个微软账号的邮箱                                 |
+| 属性         | 类别选生产力。子类别、网站、支持联系信息留空                                                                 |
+| 年龄分级     | 全部选「无」：无暴力、无性内容、无粗话、无毒品、无赌博、无应用内购买、无用户之间交流、不把个人信息发给第三方 |
+| 包           | 上传 `precession.msix`。设备系列只留桌面。架构 x64。最低系统 Windows 10                                      |
+| 商店列表     | 语言选简体中文。说明和功能见下文。截图至少 1 张 PNG，宽高不小于 1366×768。`StoreLogo.png` 不能当作截图       |
 
 隐私政策这一项要填一个公网能打开的 https 地址，不能把正文直接贴进网址栏。桌面应用即使数据只留在本机，这一项也必填。页面正文可以用：
 

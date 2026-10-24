@@ -1,15 +1,16 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { BookNote, BookNoteKind } from '@/bridge/library';
 import { bookNoteCreate, bookNoteDelete, bookNoteUpdate } from '@/bridge/library';
 import { Button } from '@/components/button';
 import { SegmentButton } from '@/components/button/segment';
 import { Checkbox } from '@/components/checkbox';
 import { DateField } from '@/components/date-field';
+import type { MarkdownEditorHandle } from '@/components/markdown';
+import { MarkdownField, markdownPlain, retainBodyImages } from '@/components/markdown';
 import recordStyles from '@/components/record.module.css';
 import { Scroll } from '@/components/scroll';
 import { TextField } from '@/components/text-field';
-import { Textarea } from '@/components/textarea';
 import styles from '@/features/plan/drawer.module.css';
 import { refreshLibrary } from '@/query/library/query';
 import { fromDateInputValue, startOfLocalDay, toDateInputValue } from '@/utils/day';
@@ -20,7 +21,7 @@ export function noteBody(note: { body: string; title: string; locked: boolean })
   if (note.locked) {
     return '这条已锁定。';
   }
-  return note.body.trim() || note.title.trim();
+  return markdownPlain(note.body) || note.title.trim();
 }
 
 type NoteFormProps = {
@@ -34,6 +35,7 @@ type NoteFormProps = {
 
 export function NoteForm({ bookId, note, preset, lockKind, onClose }: NoteFormProps) {
   const queryClient = useQueryClient();
+  const markdownRef = useRef<MarkdownEditorHandle>(null);
   const [kind, setKind] = useState<BookNoteKind>(lockKind ? 'excerpt' : (note?.kind ?? preset?.kind ?? 'excerpt'));
   const [body, setBody] = useState(
     note?.locked ? '' : note?.body.trim() ? note.body : (preset?.body ?? note?.title ?? '')
@@ -45,14 +47,15 @@ export function NoteForm({ bookId, note, preset, lockKind, onClose }: NoteFormPr
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [empty, setEmpty] = useState(false);
   const save = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       const sealed = Boolean(note?.locked) && body.trim() === '';
       const text = sealed ? note?.body.trim() || note?.title.trim() || '已锁定' : body.trim();
+      const first = text.split('\n')[0] || text;
       const input = {
         bookId,
         kind: lockKind ? 'excerpt' : kind,
         occurredAt: fromDateInputValue(occurredAt) ?? startOfLocalDay(),
-        title: text.split('\n')[0] || text,
+        title: markdownPlain(first) || first,
         body: sealed ? (note?.body ?? '') : body.trim(),
         chapter,
         location,
@@ -62,7 +65,12 @@ export function NoteForm({ bookId, note, preset, lockKind, onClose }: NoteFormPr
         tagIds: note?.tagIds ?? [],
         placeIds: note?.placeIds ?? []
       };
-      return note ? bookNoteUpdate(note.id, input) : bookNoteCreate(input);
+      const saved = note ? await bookNoteUpdate(note.id, input) : await bookNoteCreate(input);
+      if (note && !note.locked) {
+        await retainBodyImages('book_note', note.id, input.body);
+        markdownRef.current?.saved();
+      }
+      return saved;
     },
     onSuccess: async () => {
       await refreshLibrary(queryClient);
@@ -105,11 +113,14 @@ export function NoteForm({ bookId, note, preset, lockKind, onClose }: NoteFormPr
               </SegmentButton>
             </div>
           )}
-          <Textarea
+          <MarkdownField
+            ref={markdownRef}
             label="正文"
             hint={note?.locked && body === '' ? '这条已锁定。' : undefined}
             value={body}
-            onChange={(event) => setBody(event.target.value)}
+            disabled={Boolean(note?.locked)}
+            image={note?.locked ? undefined : note ? { owner: 'book_note', ownerId: note.id } : null}
+            onChange={setBody}
           />
           <div className={recordStyles.pair}>
             <TextField label="章节" value={chapter} onChange={(event) => setChapter(event.target.value)} />

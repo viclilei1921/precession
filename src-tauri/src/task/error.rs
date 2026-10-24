@@ -137,6 +137,8 @@ impl From<UploadError> for TaskError {
       UploadError::NotFound => TaskError::NotFound,
       UploadError::ReferencedMissing => TaskError::ReferencedMissing,
       UploadError::Locked => TaskError::Locked,
+      UploadError::Encrypted => TaskError::AlreadyEncrypted,
+      UploadError::TooLarge => TaskError::Internal,
       UploadError::Internal => TaskError::Internal,
     }
   }

@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import type { Plan } from '@/bridge/plan';
 import { Button } from '@/components/button';
+import { MarkdownField } from '@/components/markdown';
 import { Modal } from '@/components/modal';
-import { Textarea } from '@/components/textarea';
 import styles from './index.module.css';
 
 type CompleteDialogProps = {
@@ -38,12 +38,7 @@ function CompletePanel({
   return (
     <Modal title="完成计划" onClose={onClose}>
       <p className={styles.name}>{plan.title}</p>
-      <Textarea
-        label="结果"
-        value={result}
-        placeholder="可以补一句结果"
-        onChange={(event) => setResult(event.target.value)}
-      />
+      <MarkdownField compact label="结果" value={result} placeholder="可以补一句结果" onChange={setResult} />
       {error ? <p className={styles.error}>{error}</p> : null}
       <div className={styles.actions}>
         <Button variant="outlined" disabled={pending} onClick={onClose}>

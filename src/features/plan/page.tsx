@@ -180,7 +180,7 @@ export function PlanPage() {
     setCursor(next);
     if (view === 'agenda') {
       const end = endOfLocalMonth(next);
-      setThrough((current) => (end > current ? end : current));
+      setThrough((current) => Math.max(end, current));
     }
   }
 
@@ -346,7 +346,7 @@ export function PlanPage() {
               setMenuAnchor(null);
               if (item === 'agenda') {
                 const end = endOfLocalMonth(cursor);
-                setThrough((current) => (end > current ? end : current));
+                setThrough((current) => Math.max(end, current));
               }
             }}
           >

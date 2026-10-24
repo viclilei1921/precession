@@ -38,6 +38,8 @@ type IconButtonProps = {
   children: ReactNode;
   /** 图标按钮的点击事件 */
   onClick?: MouseEventHandler<HTMLButtonElement>;
+  /** 按下时触发。工具栏用来保住编辑器里的选区 */
+  onMouseDown?: MouseEventHandler<HTMLButtonElement>;
 };
 
 /** 图标按钮的种类对应的类名 */
@@ -60,7 +62,8 @@ export function IconButton({
   disabled,
   className,
   children,
-  onClick
+  onClick,
+  onMouseDown
 }: IconButtonProps) {
   const ripple = useRipple();
 
@@ -84,6 +87,7 @@ export function IconButton({
       title={label}
       disabled={disabled}
       onClick={onClick}
+      onMouseDown={onMouseDown}
       onPointerDown={ripple.onPointerDown}
       onKeyDown={ripple.onKeyDown}
     >

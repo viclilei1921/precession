@@ -6,18 +6,18 @@
 
 ## 目录
 
-| 路径 | 职责 |
-| --- | --- |
-| `src/features/<领域>/page.tsx` | 页面。承接路由，可以有交互和 `page.module.css` |
-| `src/features/<领域>/components/` | 只属于该页面的组件 |
-| `src/components/` | 可复用的界面组件，不依赖某个业务页 |
-| `src/layout/` | 壳：解锁、标题栏、侧栏、内容区 |
-| `src/query/<领域>/` | `queryOptions` 和写完后的 `refresh*` |
-| `src/store/` | Zustand。现有 `useAppStore`、`useSearchStore` |
-| `src/router/` | 路由表、`PATH`、侧栏项 |
-| `src/bridge/` | 唯一允许导入 `@tauri-apps/*` 的目录 |
-| `src/style/` | `token.css`、`reset.css`、`index.css` |
-| `src/hooks/`、`src/utils/` | 跨页面的钩子和纯函数 |
+| 路径                              | 职责                                           |
+| --------------------------------- | ---------------------------------------------- |
+| `src/features/<领域>/page.tsx`    | 页面。承接路由，可以有交互和 `page.module.css` |
+| `src/features/<领域>/components/` | 只属于该页面的组件                             |
+| `src/components/`                 | 可复用的界面组件，不依赖某个业务页             |
+| `src/layout/`                     | 壳：解锁、标题栏、侧栏、内容区                 |
+| `src/query/<领域>/`               | `queryOptions` 和写完后的 `refresh*`           |
+| `src/store/`                      | Zustand。现有 `useAppStore`、`useSearchStore`  |
+| `src/router/`                     | 路由表、`PATH`、侧栏项                         |
+| `src/bridge/`                     | 唯一允许导入 `@tauri-apps/*` 的目录            |
+| `src/style/`                      | `token.css`、`reset.css`、`index.css`          |
+| `src/hooks/`、`src/utils/`        | 跨页面的钩子和纯函数                           |
 
 新组件目录用 kebab-case，例如 `date-field`、`plan-check`。`titleBar` 保持现状。
 
@@ -59,7 +59,7 @@ CSS 文件里的类名用 kebab-case，TSX 里写 `styles.camelCase`。`vite.con
 ```tsx
 <button type="button" className={styles.segment} data-on={view === 'todo' ? 'true' : undefined}>
   待办
-</button>
+</button>;
 ```
 
 ```css
@@ -101,11 +101,11 @@ CSS Module 已经做了作用域隔离。不要为了防重名去套一层无意
 
 ## 状态
 
-| 状态 | 放哪里 |
-| --- | --- |
-| 只在当前组件里用的 UI | `useState` / `useReducer` |
-| 侧栏、主题、平台、数据库锁、标题栏搜索 | Zustand |
-| 接口返回的列表和详情 | TanStack Query |
+| 状态                                   | 放哪里                    |
+| -------------------------------------- | ------------------------- |
+| 只在当前组件里用的 UI                  | `useState` / `useReducer` |
+| 侧栏、主题、平台、数据库锁、标题栏搜索 | Zustand                   |
+| 接口返回的列表和详情                   | TanStack Query            |
 
 订阅 store 时用 selector，避免整棵 store 触发渲染：
 

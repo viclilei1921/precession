@@ -58,8 +58,6 @@ pacman -S --needed \
 
 ---
 
-
-
 ## 二、获取 FFmpeg 源码
 
 官方源下载速度慢，推荐使用国内镜像。
@@ -77,11 +75,7 @@ git checkout n9.0.2
 
 ---
 
-
-
 ## 三、编译配置
-
-
 
 ### 1. 裁剪需求说明
 
@@ -158,29 +152,23 @@ git checkout n9.0.2
 
 ### 3. 核心配置项说明
 
-
-| 分类    | 参数                                                   | 作用                                                                                                            |
-| ----- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| 白名单   | `--disable-everything` 后再 `--enable-*`               | 只编译点名的程序、封装、编解码、滤镜和协议                                                                                         |
-| 程序裁剪  | `--disable-ffplay/ffprobe/doc`                       | 禁用播放器、分析工具和文档                                                                                                 |
-| 网络    | `--disable-network`                                  | 禁用网络协议，只打开 `file`、`pipe`                                                                                      |
-| 硬件加速  | `--disable-dxva2/d3d11va/nvenc/amf/vaapi/...`        | 禁用 Windows 显卡硬件加速，以及 MinGW 会自动打开的 VAAPI。Intel QSV 没有 `--disable-qsv`，只有显式 `--enable-libmfx` 或 `--enable-libvpl` 才会编入，这里两者都不开 |
-| 文字与字幕 | `--enable-libfreetype/libharfbuzz/libfribidi/libass` | `drawtext` 需要 freetype 和 harfbuzz。字幕烧录的 `subtitles`、`ass` 需要 libass。字体用 `fontfile=`                           |
-| 软件编码  | `--enable-libx265/libsvtav1/libvpx` `--enable-gpl`   | H.265、AV1、VP9。configure 里写 `libvpx_vp9`、`movtext`。AAC 和 `mov_text` 是内置编码器，不需要额外库，也不使用 `--enable-nonfree` |
-| 静态编译  | `--enable-static --disable-shared`                   | 编译静态库，不生成动态库                                                                                                  |
-| 链接优化  | `--pkg-config-flags="--static"`                      | 让 pkg-config 以静态模式查找依赖                                                                                        |
-| 链接优化  | `--extra-libs="-lharfbuzz -lstdc++ -lpthread"`       | 补上 C++ 符号。MSYS2 的 freetype 静态库会调用 `hb_shape`，pkg-config 却把 `-lharfbuzz` 放在 `-lfreetype` 前面，需要在末尾再链一次 harfbuzz |
-| 体积优化  | `--enable-small`                                     | 优化最终二进制体积，牺牲极少量运行速度                                                                                           |
-| 安装路径  | `--prefix=/usr/local/ffmpeg-custom`                  | 指定最终安装目录                                                                                                      |
-
+| 分类       | 参数                                                 | 作用                                                                                                                                                               |
+| ---------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 白名单     | `--disable-everything` 后再 `--enable-*`             | 只编译点名的程序、封装、编解码、滤镜和协议                                                                                                                         |
+| 程序裁剪   | `--disable-ffplay/ffprobe/doc`                       | 禁用播放器、分析工具和文档                                                                                                                                         |
+| 网络       | `--disable-network`                                  | 禁用网络协议，只打开 `file`、`pipe`                                                                                                                                |
+| 硬件加速   | `--disable-dxva2/d3d11va/nvenc/amf/vaapi/...`        | 禁用 Windows 显卡硬件加速，以及 MinGW 会自动打开的 VAAPI。Intel QSV 没有 `--disable-qsv`，只有显式 `--enable-libmfx` 或 `--enable-libvpl` 才会编入，这里两者都不开 |
+| 文字与字幕 | `--enable-libfreetype/libharfbuzz/libfribidi/libass` | `drawtext` 需要 freetype 和 harfbuzz。字幕烧录的 `subtitles`、`ass` 需要 libass。字体用 `fontfile=`                                                                |
+| 软件编码   | `--enable-libx265/libsvtav1/libvpx` `--enable-gpl`   | H.265、AV1、VP9。configure 里写 `libvpx_vp9`、`movtext`。AAC 和 `mov_text` 是内置编码器，不需要额外库，也不使用 `--enable-nonfree`                                 |
+| 静态编译   | `--enable-static --disable-shared`                   | 编译静态库，不生成动态库                                                                                                                                           |
+| 链接优化   | `--pkg-config-flags="--static"`                      | 让 pkg-config 以静态模式查找依赖                                                                                                                                   |
+| 链接优化   | `--extra-libs="-lharfbuzz -lstdc++ -lpthread"`       | 补上 C++ 符号。MSYS2 的 freetype 静态库会调用 `hb_shape`，pkg-config 却把 `-lharfbuzz` 放在 `-lfreetype` 前面，需要在末尾再链一次 harfbuzz                         |
+| 体积优化   | `--enable-small`                                     | 优化最终二进制体积，牺牲极少量运行速度                                                                                                                             |
+| 安装路径   | `--prefix=/usr/local/ffmpeg-custom`                  | 指定最终安装目录                                                                                                                                                   |
 
 ---
 
-
-
 ## 四、编译与安装
-
-
 
 ### 1. 清理旧缓存（修改配置后必须执行）
 
@@ -215,8 +203,6 @@ make install
 ```
 
 ---
-
-
 
 ## 五、验证裁剪结果
 
@@ -266,11 +252,7 @@ cd /usr/local/ffmpeg-custom/bin
 
 ---
 
-
-
 ## 六、拷贝到 Windows 系统目录
-
-
 
 ### 1. 命令行拷贝
 
@@ -306,11 +288,8 @@ explorer /usr/local/ffmpeg-custom/bin/
 
 ---
 
-
-
 ## 七、补充说明
 
 1. **重新编译**：修改配置后必须先执行 `make distclean` 清理旧产物，再重新 configure 和 make。
 2. **静态编译优势**：最终生成的 `ffmpeg.exe` 是完全独立的程序，不依赖任何 MinGW DLL，可直接拷贝到任意 Windows 电脑运行。
 3. **软件编码器**：H.265（`libx265`）、AV1（`libsvtav1`）、VP9（`libvpx-vp9`）和内置 AAC。不使用 `--enable-nonfree`。macOS 使用同一组编码器，见 [mac-ffmpeg.md](./mac-ffmpeg.md)。macOS 从源码编译 libvpx 时会加上 `--disable-vp8`；Windows 使用 MSYS2 整包，VP8 代码仍在库内，FFmpeg 不打开 VP8 编码器。
-

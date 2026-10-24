@@ -12,9 +12,9 @@ rusqlite = { version = "0.40", features = ["bundled-sqlcipher-vendored-openssl"]
 
 ## 1. 两套目标怎么分工
 
-| 在哪做 | 做什么 |
-| --- | --- |
-| macOS 桌面 | `pnpm app` / `pnpm build:mac`；日常前端与 Rust 桌面联调 |
+| 在哪做                  | 做什么                                                  |
+| ----------------------- | ------------------------------------------------------- |
+| macOS 桌面              | `pnpm app` / `pnpm build:mac`；日常前端与 Rust 桌面联调 |
 | macOS + Android SDK/NDK | `pnpm app:android` / `pnpm build:android`；真机或模拟器 |
 
 桌面端 SQLCipher（Perl / 工具链）见仓库根目录 [README.md](../README.md) 的「数据库 SQLCipher」一节。本文件只讲 **Android 交叉编译**。
@@ -67,10 +67,10 @@ brew install openjdk@21
 brew install perl pkg-config
 ```
 
-| 包 | 为什么要装 |
-| --- | --- |
-| `perl` | OpenSSL 的 `./Configure` 是 Perl 脚本；macOS 系统 Perl 一般可用，Homebrew 版更易与 PATH 对齐 |
-| `pkg-config` | 部分原生 crate 探测头文件 / `.pc` |
+| 包           | 为什么要装                                                                                   |
+| ------------ | -------------------------------------------------------------------------------------------- |
+| `perl`       | OpenSSL 的 `./Configure` 是 Perl 脚本；macOS 系统 Perl 一般可用，Homebrew 版更易与 PATH 对齐 |
+| `pkg-config` | 部分原生 crate 探测头文件 / `.pc`                                                            |
 
 Xcode Command Line Tools（`clang` / `make`）必须已安装：`xcode-select --install`。
 
@@ -86,11 +86,11 @@ rustup target add \
   x86_64-linux-android
 ```
 
-| target | 为什么 |
-| --- | --- |
-| `aarch64-linux-android` | 当前主流手机；`pnpm build:android` 也是这个 |
-| `armv7-linux-androideabi` | 32 位 ARM；`tauri android dev` 默认 universal 会编 |
-| `i686-linux-android` / `x86_64-linux-android` | 模拟器常见 ABI |
+| target                                        | 为什么                                             |
+| --------------------------------------------- | -------------------------------------------------- |
+| `aarch64-linux-android`                       | 当前主流手机；`pnpm build:android` 也是这个        |
+| `armv7-linux-androideabi`                     | 32 位 ARM；`tauri android dev` 默认 universal 会编 |
+| `i686-linux-android` / `x86_64-linux-android` | 模拟器常见 ABI                                     |
 
 ## 4. Node + pnpm
 
@@ -172,12 +172,12 @@ node -v
 pnpm -v
 ```
 
-| 变量 | 为什么 |
-| --- | --- |
-| `JAVA_HOME` | Gradle / AGP 找 JDK；只把 `java` 放进 PATH 不够 |
-| `ANDROID_HOME` / `ANDROID_SDK_ROOT` | Tauri CLI、Gradle 的 SDK 根目录；二者设成同一处 |
-| `NDK_HOME` | 拼 clang 路径；必须是 `.../ndk/<精确版本>`，不要只写到 `ndk/` |
-| `AR_*` / `RANLIB_*` / `CC_*` | 供 `openssl-src` 交叉编译；缺了会在 `make install_dev` 失败 |
+| 变量                                | 为什么                                                        |
+| ----------------------------------- | ------------------------------------------------------------- |
+| `JAVA_HOME`                         | Gradle / AGP 找 JDK；只把 `java` 放进 PATH 不够               |
+| `ANDROID_HOME` / `ANDROID_SDK_ROOT` | Tauri CLI、Gradle 的 SDK 根目录；二者设成同一处               |
+| `NDK_HOME`                          | 拼 clang 路径；必须是 `.../ndk/<精确版本>`，不要只写到 `ndk/` |
+| `AR_*` / `RANLIB_*` / `CC_*`        | 供 `openssl-src` 交叉编译；缺了会在 `make install_dev` 失败   |
 
 ## 7. 日常怎么跑
 
@@ -295,12 +295,12 @@ CI 的 Android 包由 `.github/workflows/build.yml` 里的 `build-android` 签�
 
 点 **New repository secret**，一次加一条。用上一节已经生成的 `$HOME/precession-release.jks`，别名 `precession`。换一把新密钥后，证书指纹会变，已安装的包无法覆盖升级，备案指纹也对不上。
 
-| Name | Secret |
-| --- | --- |
-| `ANDROID_KEY_ALIAS` | `precession` |
-| `ANDROID_KEYSTORE_PASSWORD` | 生成密钥库时设的口令 |
-| `ANDROID_KEY_PASSWORD` | 密钥口令。生成时直接回车的话，与密钥库口令相同 |
-| `ANDROID_KEYSTORE_BASE64` | 密钥库文件的 Base64，一整段，不要换行，不要带 `BEGIN` / `END` |
+| Name                        | Secret                                                        |
+| --------------------------- | ------------------------------------------------------------- |
+| `ANDROID_KEY_ALIAS`         | `precession`                                                  |
+| `ANDROID_KEYSTORE_PASSWORD` | 生成密钥库时设的口令                                          |
+| `ANDROID_KEY_PASSWORD`      | 密钥口令。生成时直接回车的话，与密钥库口令相同                |
+| `ANDROID_KEYSTORE_BASE64`   | 密钥库文件的 Base64，一整段，不要换行，不要带 `BEGIN` / `END` |
 
 macOS 的 `base64` 默认折行，贴进 Secret 前去掉换行：
 
@@ -350,21 +350,21 @@ keytool -list -v -keystore "$HOME/precession-release.jks" -alias precession
 
 ## 8. 常见问题
 
-| 现象 | 原因 / 处理 |
-| --- | --- |
-| `make install_dev` / OpenSSL exit 2 | 未设 `AR_*` / `RANLIB_*` / `CC_*`，或 `NDK_BIN` 指错（应为 `darwin-x86_64`） |
-| `Unsupported class file major version 69` | `JAVA_HOME` 仍指向 Java 25（常见为 Android Studio JBR）；改用 `openjdk@21` |
-| `java.lang.System::load` 的 WARNING | 用错新 JDK 时的附带警告；先换成 JDK 21 即可 |
-| `sdkmanager` / Gradle 找不到 `android-36` | SDK Manager 未装 `platforms;android-36` |
-| `keytool -list -v` 没有 MD5 | JDK 21 不再打印 MD5；按 7.4 用 `openssl` 从证书计算 |
-| Configure / Perl 相关失败 | 确认 `which perl` 可用；必要时 `brew install perl` |
+| 现象                                                                           | 原因 / 处理                                                                                                                                                                                                                                                                           |
+| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `make install_dev` / OpenSSL exit 2                                            | 未设 `AR_*` / `RANLIB_*` / `CC_*`，或 `NDK_BIN` 指错（应为 `darwin-x86_64`）                                                                                                                                                                                                          |
+| `Unsupported class file major version 69`                                      | `JAVA_HOME` 仍指向 Java 25（常见为 Android Studio JBR）；改用 `openjdk@21`                                                                                                                                                                                                            |
+| `java.lang.System::load` 的 WARNING                                            | 用错新 JDK 时的附带警告；先换成 JDK 21 即可                                                                                                                                                                                                                                           |
+| `sdkmanager` / Gradle 找不到 `android-36`                                      | SDK Manager 未装 `platforms;android-36`                                                                                                                                                                                                                                               |
+| `keytool -list -v` 没有 MD5                                                    | JDK 21 不再打印 MD5；按 7.4 用 `openssl` 从证书计算                                                                                                                                                                                                                                   |
+| Configure / Perl 相关失败                                                      | 确认 `which perl` 可用；必要时 `brew install perl`                                                                                                                                                                                                                                    |
 | `:app:rustBuild*Debug`：`A problem occurred starting process 'command 'pnpm''` | Gradle 守护进程仍用**启动时**的 `PATH` 找 `pnpm`。fnm/corepack 的 `pnpm` 是当前 shell 的符号链接，旧守护进程会直接 ENOENT。`gen/android` 里的 `BuildTask.kt` 已改为经 `/bin/sh` 启动。若刚跑过 `tauri android init`（会覆盖该文件），先 `src-tauri/gen/android/gradlew --stop` 再重试 |
 
 ## 与 Windows WSL 文档的差异
 
-| 项 | macOS（本文） | Windows → Android |
-| --- | --- | --- |
-| 编译场所 | 本机 macOS | **必须**在 WSL，见 [wsl-android.md](./wsl-android.md) |
-| NDK 预编译目录 | `darwin-x86_64` | `linux-x86_64` |
-| JDK | `brew install openjdk@21` | WSL 内 `openjdk-21-jdk` |
-| SDK 管理 | Android Studio 即可 | 常用 Linux cmdline-tools |
+| 项             | macOS（本文）             | Windows → Android                                     |
+| -------------- | ------------------------- | ----------------------------------------------------- |
+| 编译场所       | 本机 macOS                | **必须**在 WSL，见 [wsl-android.md](./wsl-android.md) |
+| NDK 预编译目录 | `darwin-x86_64`           | `linux-x86_64`                                        |
+| JDK            | `brew install openjdk@21` | WSL 内 `openjdk-21-jdk`                               |
+| SDK 管理       | Android Studio 即可       | 常用 Linux cmdline-tools                              |

@@ -73,15 +73,15 @@ mkdir -p "$PREFIX" "$HOME/src/ffmpeg-build"
 
 以下版本与 FFmpeg `n9.0.2` 配套。某个发布包地址失效时，换该库的当前稳定版，仍安装到同一个 `$PREFIX`。
 
-| 库 | 版本 | 作用 |
-| --- | --- | --- |
-| zlib / libpng / brotli | 1.3.1 / 1.6.47 / 1.1.0 | freetype 读字体 |
-| freetype | 2.14.1 | `drawtext`、字幕渲染 |
-| fribidi / harfbuzz | 1.0.16 / 10.1.0 | 双向文字与整形；libass 0.17 需要 harfbuzz |
-| libass | 0.17.4 | 字幕烧录。关闭 fontconfig 和 CoreText，字体由 `fontfile=` 传入 |
-| SVT-AV1 | 4.2.0 | AV1 软件编码 |
-| x265 | 4.2 | H.265。同一个静态库包含 8 bit 和 10 bit，不编 12 bit |
-| libvpx | 1.15.2 | 只编 VP9。AAC 用 FFmpeg 内置编码器，不编译 FDK-AAC |
+| 库                     | 版本                   | 作用                                                           |
+| ---------------------- | ---------------------- | -------------------------------------------------------------- |
+| zlib / libpng / brotli | 1.3.1 / 1.6.47 / 1.1.0 | freetype 读字体                                                |
+| freetype               | 2.14.1                 | `drawtext`、字幕渲染                                           |
+| fribidi / harfbuzz     | 1.0.16 / 10.1.0        | 双向文字与整形；libass 0.17 需要 harfbuzz                      |
+| libass                 | 0.17.4                 | 字幕烧录。关闭 fontconfig 和 CoreText，字体由 `fontfile=` 传入 |
+| SVT-AV1                | 4.2.0                  | AV1 软件编码                                                   |
+| x265                   | 4.2                    | H.265。同一个静态库包含 8 bit 和 10 bit，不编 12 bit           |
+| libvpx                 | 1.15.2                 | 只编 VP9。AAC 用 FFmpeg 内置编码器，不编译 FDK-AAC             |
 
 每段命令都假定已经执行过第一节的环境变量，并且从 `~/src/ffmpeg-build` 开始。
 
@@ -350,19 +350,19 @@ cd "$HOME/src/ffmpeg-build/ffmpeg"
 
 ### 3. 与 Windows 配置的对应关系
 
-| 分类 | macOS 参数 | 作用 |
-| --- | --- | --- |
-| 白名单 | `--disable-everything` 后再 `--enable-*` | 与 Windows 相同的封装、编解码、滤镜和协议 |
-| 程序裁剪 | `--disable-ffplay/ffprobe/doc/sdl2` | 不编播放器、分析工具、文档和 SDL |
-| 网络 | `--disable-network` `--disable-securetransport` | 只保留 `file`、`pipe`，并关掉 Apple TLS |
-| 硬件加速 | `--disable-videotoolbox/audiotoolbox/avfoundation/coreimage/appkit/metal/opengl/opencl/vulkan/vaapi` | 对应 Windows 指南里的 DXVA、D3D、NVENC、AMF、VAAPI。产品不再使用 GPU 编码。Intel QSV 需另开 `--enable-libmfx` 或 `--enable-libvpl`，这里不开 |
-| 文字与字幕 | `--enable-libfreetype/libharfbuzz/libfribidi/libass` | `drawtext` 需要 freetype 和 harfbuzz。`subtitles`、`ass` 需要 libass。字体用 `fontfile=` |
-| 软件编码 | `--enable-libx265/libsvtav1/libvpx` `--enable-gpl` | H.265（8 bit 与 10 bit）、AV1、VP9。configure 里写 `libvpx_vp9`、`movtext`。AAC 和 `mov_text` 是内置编码器，不使用 `--enable-nonfree` |
-| 静态链接 | `--enable-static --disable-shared` `--pkg-config-flags="--static"` | 第三方库打进二进制 |
-| C++ 运行库 | `--extra-libs="-lc++"` | 静态链接 x265、harfbuzz 时解析 C++ 符号 |
-| 体积 | `--enable-small` | 缩小二进制，换极少一点速度 |
-| 架构 | `--arch=arm64` | 只生成 Apple Silicon 二进制 |
-| 安装路径 | `--prefix="$HOME/ffmpeg-custom"` | 不写入系统目录 |
+| 分类       | macOS 参数                                                                                           | 作用                                                                                                                                         |
+| ---------- | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| 白名单     | `--disable-everything` 后再 `--enable-*`                                                             | 与 Windows 相同的封装、编解码、滤镜和协议                                                                                                    |
+| 程序裁剪   | `--disable-ffplay/ffprobe/doc/sdl2`                                                                  | 不编播放器、分析工具、文档和 SDL                                                                                                             |
+| 网络       | `--disable-network` `--disable-securetransport`                                                      | 只保留 `file`、`pipe`，并关掉 Apple TLS                                                                                                      |
+| 硬件加速   | `--disable-videotoolbox/audiotoolbox/avfoundation/coreimage/appkit/metal/opengl/opencl/vulkan/vaapi` | 对应 Windows 指南里的 DXVA、D3D、NVENC、AMF、VAAPI。产品不再使用 GPU 编码。Intel QSV 需另开 `--enable-libmfx` 或 `--enable-libvpl`，这里不开 |
+| 文字与字幕 | `--enable-libfreetype/libharfbuzz/libfribidi/libass`                                                 | `drawtext` 需要 freetype 和 harfbuzz。`subtitles`、`ass` 需要 libass。字体用 `fontfile=`                                                     |
+| 软件编码   | `--enable-libx265/libsvtav1/libvpx` `--enable-gpl`                                                   | H.265（8 bit 与 10 bit）、AV1、VP9。configure 里写 `libvpx_vp9`、`movtext`。AAC 和 `mov_text` 是内置编码器，不使用 `--enable-nonfree`        |
+| 静态链接   | `--enable-static --disable-shared` `--pkg-config-flags="--static"`                                   | 第三方库打进二进制                                                                                                                           |
+| C++ 运行库 | `--extra-libs="-lc++"`                                                                               | 静态链接 x265、harfbuzz 时解析 C++ 符号                                                                                                      |
+| 体积       | `--enable-small`                                                                                     | 缩小二进制，换极少一点速度                                                                                                                   |
+| 架构       | `--arch=arm64`                                                                                       | 只生成 Apple Silicon 二进制                                                                                                                  |
+| 安装路径   | `--prefix="$HOME/ffmpeg-custom"`                                                                     | 不写入系统目录                                                                                                                               |
 
 ---
 

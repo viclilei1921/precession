@@ -76,7 +76,7 @@ export function planFinish(plan: Plan): number | null {
     return start;
   }
   const end = startOfLocalDay(plan.dueAt);
-  return end < start ? start : end;
+  return Math.max(end, start);
 }
 
 /** 同一天里的非全天计划 */
@@ -158,8 +158,8 @@ export function layoutBars(days: number[], plans: Plan[], includeTimed = false):
     if (start == null || finish == null || finish < weekStart || start > weekEnd) {
       continue;
     }
-    const segStart = start < weekStart ? weekStart : start;
-    const segEnd = finish > weekEnd ? weekEnd : finish;
+    const segStart = Math.max(start, weekStart);
+    const segEnd = Math.min(finish, weekEnd);
     segments.push({
       plan,
       col: diffLocalDays(weekStart, segStart),

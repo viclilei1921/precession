@@ -90,3 +90,22 @@ pub struct UploadInput {
   /// 是否锁定
   pub locked: bool,
 }
+
+/// 读出的一张正文图片
+///
+/// `data` 是标准 base64，不含 `data:` 前缀。
+///
+/// # 字段
+/// - `mime`: MIME 类型
+/// - `data`: 图片字节的 base64
+///
+/// # 示例
+/// 见 [`upload_image`](super::commands::upload_image)
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UploadImage {
+  /// MIME 类型
+  pub mime: String,
+  /// 图片字节的 base64
+  pub data: String,
+}

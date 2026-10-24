@@ -1,0 +1,341 @@
+.editor {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: var(--markdown-height, 16rem);
+  min-height: 0;
+}
+
+.tools {
+  display: flex;
+  flex: none;
+  gap: 0.25rem;
+  align-items: center;
+  min-width: 0;
+  padding: 0.125rem 0.25rem;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  border-bottom: 1px solid var(--border);
+}
+
+.group {
+  display: flex;
+  flex: none;
+  gap: 0.125rem;
+  align-items: center;
+}
+
+.sep {
+  flex: none;
+  width: 1px;
+  height: 1rem;
+  background: var(--border);
+}
+
+.tools button {
+  color: var(--muted-foreground);
+}
+
+.tools button[data-on="true"] {
+  color: var(--primary);
+}
+
+.body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.scroll {
+  flex: 1 1 auto;
+}
+
+.notice {
+  flex: none;
+  padding: 0.25rem 0.75rem 0.5rem;
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--destructive);
+}
+
+.surface {
+  min-height: 100%;
+}
+
+.source {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0.75rem 0.875rem;
+  overflow: auto;
+  font: inherit;
+  line-height: 1.6;
+  color: var(--foreground);
+  resize: none;
+  background: transparent;
+  border: 0;
+}
+
+.source:focus {
+  outline: none;
+}
+
+.source::placeholder {
+  color: var(--muted-foreground);
+}
+
+.surface :global(.milkdown) {
+  --crepe-color-background: transparent;
+  --crepe-color-error: var(--destructive);
+  --crepe-color-hover: color-mix(in oklch, var(--foreground) 8%, var(--card));
+  --crepe-color-inline-area: color-mix(in oklch, var(--primary) 14%, var(--secondary));
+  --crepe-color-inline-code: var(--foreground);
+  --crepe-color-inverse: var(--foreground);
+  --crepe-color-on-background: var(--foreground);
+  --crepe-color-on-inverse: var(--background);
+  --crepe-color-on-secondary: var(--foreground);
+  --crepe-color-on-surface: var(--foreground);
+  --crepe-color-on-surface-variant: var(--muted-foreground);
+  --crepe-color-outline: color-mix(in oklch, var(--foreground) 46%, var(--background));
+  --crepe-color-primary: var(--primary);
+  --crepe-color-secondary: var(--secondary);
+  --crepe-color-selected: color-mix(in oklch, var(--primary) 18%, var(--secondary));
+  --crepe-color-surface: var(--card);
+  --crepe-color-surface-low: var(--secondary);
+  --crepe-font-code: var(--font-mono);
+  --crepe-font-default: var(--font-sans);
+  --crepe-font-title: var(--font-sans);
+  --crepe-shadow-1: 0 1px 2px color-mix(in oklch, var(--foreground) 12%, transparent), 0 0 0 1px var(--border);
+  --crepe-shadow-2: 0 8px 24px color-mix(in oklch, var(--foreground) 16%, transparent), 0 0 0 1px var(--border);
+  background: transparent;
+}
+
+.surface :global(.milkdown),
+.surface :global(.milkdown .ProseMirror) {
+  min-height: 100%;
+}
+
+.surface :global(.milkdown .ProseMirror) {
+  padding: 0.75rem 0.875rem 1rem;
+}
+
+.surface :global(.milkdown .ProseMirror h1) {
+  font-size: var(--text-3xl);
+  font-weight: 650;
+  line-height: 1.25;
+}
+
+.surface :global(.milkdown .ProseMirror h2) {
+  font-size: var(--text-2xl);
+  font-weight: 640;
+  line-height: 1.3;
+}
+
+.surface :global(.milkdown .ProseMirror h3) {
+  font-size: var(--text-xl);
+  font-weight: 620;
+  line-height: 1.35;
+}
+
+.surface :global(.milkdown .ProseMirror h4) {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.surface :global(.milkdown u) {
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.surface :global(.milkdown mark) {
+  color: inherit;
+  background: color-mix(in oklch, var(--primary) 22%, transparent);
+}
+
+.surface :global(.milkdown img) {
+  max-width: 100%;
+  height: auto;
+}
+
+.surface :global(.milkdown .ProseMirror a) {
+  text-underline-offset: 0.15em;
+}
+
+.surface :global(.milkdown .ProseMirror code) {
+  padding: 0.05em 0.35em;
+  color: var(--foreground);
+  background: color-mix(in oklch, var(--primary) 14%, var(--secondary));
+}
+
+.surface :global(.milkdown .ProseMirror blockquote) {
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.surface :global(.milkdown .ProseMirror blockquote::before) {
+  width: 3px;
+  background: color-mix(in oklch, var(--primary) 62%, var(--border));
+}
+
+.surface :global(.milkdown .ProseMirror hr) {
+  background-color: color-mix(in oklch, var(--foreground) 28%, var(--border));
+}
+
+.surface :global(.milkdown .ProseMirror hr.ProseMirror-selectednode) {
+  background-color: var(--primary);
+}
+
+.surface :global(.milkdown .milkdown-table-block) {
+  margin: 0.35rem 0;
+}
+
+.surface :global(.milkdown .milkdown-table-block table) {
+  overflow: hidden;
+  border-spacing: 0;
+  border-collapse: separate;
+  border-radius: var(--radius-sm);
+}
+
+.surface :global(.milkdown .milkdown-table-block th),
+.surface :global(.milkdown .milkdown-table-block td) {
+  padding: 0.4rem 0.75rem;
+  border: 0;
+  border-right: 1px solid color-mix(in oklch, var(--foreground) 24%, var(--border));
+  border-bottom: 1px solid color-mix(in oklch, var(--foreground) 24%, var(--border));
+}
+
+.surface :global(.milkdown .milkdown-table-block tr > :first-child) {
+  border-left: 1px solid color-mix(in oklch, var(--foreground) 24%, var(--border));
+}
+
+.surface :global(.milkdown .milkdown-table-block tr:first-child > *) {
+  border-top: 1px solid color-mix(in oklch, var(--foreground) 24%, var(--border));
+}
+
+.surface :global(.milkdown .milkdown-table-block th) {
+  font-weight: 600;
+  background: var(--secondary);
+}
+
+.surface :global(.milkdown .milkdown-table-block tr:first-child > :first-child) {
+  border-top-left-radius: var(--radius-sm);
+}
+
+.surface :global(.milkdown .milkdown-table-block tr:first-child > :last-child) {
+  border-top-right-radius: var(--radius-sm);
+}
+
+.surface :global(.milkdown .milkdown-table-block tr:last-child > :first-child) {
+  border-bottom-left-radius: var(--radius-sm);
+}
+
+.surface :global(.milkdown .milkdown-table-block tr:last-child > :last-child) {
+  border-bottom-right-radius: var(--radius-sm);
+}
+
+.surface :global(.milkdown .milkdown-table-block tr:nth-child(odd) td) {
+  background: color-mix(in oklch, var(--foreground) 4%, transparent);
+}
+
+.surface :global(.milkdown .milkdown-table-block .button-group[data-side="below"]) {
+  z-index: 2;
+}
+
+.surface :global(.milkdown .milkdown-table-block .button-group[data-side="below"]::before) {
+  position: absolute;
+  top: -48px;
+  right: -40px;
+  left: -40px;
+  height: 48px;
+  pointer-events: auto;
+  content: "";
+}
+
+.surface :global(.milkdown .milkdown-table-block .selectedCell::after) {
+  background-color: color-mix(in oklch, var(--primary) 28%, transparent);
+  opacity: 1;
+}
+
+.surface :global(.milkdown .milkdown-code-block) {
+  margin: 0.35rem 0;
+  overflow: hidden;
+  color: var(--foreground);
+  background: var(--secondary);
+  border: 1px solid color-mix(in oklch, var(--foreground) 18%, var(--border));
+  border-radius: var(--radius-md);
+}
+
+.surface :global(.milkdown .milkdown-code-block),
+.surface :global(.milkdown .milkdown-code-block .cm-content),
+.surface :global(.milkdown .milkdown-code-block .cm-line) {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.surface :global(.milkdown .milkdown-code-block .cm-editor),
+.surface :global(.milkdown .milkdown-code-block .cm-scroller) {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  color: var(--foreground);
+  background: transparent;
+}
+
+.surface :global(.milkdown .milkdown-code-block .cm-selectionBackground),
+.surface
+  :global(
+    .milkdown .milkdown-code-block .cm-editor.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground
+  ) {
+  background-color: color-mix(in oklch, var(--primary) 42%, var(--card));
+}
+
+.surface :global(.milkdown .milkdown-code-block .cm-gutters) {
+  color: var(--muted-foreground);
+  background: color-mix(in oklch, var(--foreground) 5%, var(--secondary));
+  border-right: 1px solid color-mix(in oklch, var(--foreground) 14%, var(--border));
+}
+
+.surface :global(.milkdown .milkdown-code-block .cm-lineNumbers),
+.surface :global(.milkdown .milkdown-code-block .cm-lineNumbers .cm-gutterElement) {
+  color: var(--muted-foreground);
+}
+
+.surface :global(.milkdown .milkdown-code-block .cm-activeLineGutter) {
+  color: var(--foreground);
+  background: color-mix(in oklch, var(--primary) 12%, var(--secondary));
+}
+
+.surface :global(.milkdown .milkdown-code-block .cm-cursor) {
+  border-left-color: var(--primary);
+}
+
+.surface :global(.milkdown .milkdown-image-block.selected > .image-wrapper::before) {
+  pointer-events: none;
+}
+
+.surface :global(.milkdown .milkdown-image-block .image-wrapper .operation) {
+  z-index: 2;
+}
+
+.surface :global(.milkdown .milkdown-image-block .image-wrapper .operation > .operation-item) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  height: 1.75rem;
+  padding: 0 0.6rem;
+  font-size: var(--text-xs);
+  line-height: 1;
+  color: var(--foreground);
+  background: var(--card);
+  border-radius: var(--radius-pill);
+  opacity: 1;
+}
+
+.surface :global(.milkdown .milkdown-image-block .image-wrapper .operation > .operation-item svg) {
+  display: none;
+}
+
+.surface :global(.milkdown .milkdown-image-block .image-wrapper .operation > .operation-item::after) {
+  content: "说明";
+}

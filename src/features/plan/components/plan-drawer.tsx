@@ -2,18 +2,19 @@ import { CalendarBlankIcon, PlusIcon, TrashIcon } from '@phosphor-icons/react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
 import type { FormEvent, ReactNode } from 'react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { Plan, PlanGroup, PlanInput, PlanPatch, PlanStatus } from '@/bridge/plan';
 import { planComplete, planCreate, planDelete, planUpdate } from '@/bridge/plan';
 import { Button } from '@/components/button';
 import { IconButton } from '@/components/button/icon';
 import { Checkbox } from '@/components/checkbox';
 import { DateField } from '@/components/date-field';
+import type { MarkdownEditorHandle } from '@/components/markdown';
+import { MarkdownField, retainBodyImages } from '@/components/markdown';
 import { rippleHost, useRipple } from '@/components/ripple';
 import { Scroll } from '@/components/scroll';
 import { Select } from '@/components/select';
 import { TextField } from '@/components/text-field';
-import { Textarea } from '@/components/textarea';
 import { refreshPlanViews } from '@/query/plan/query';
 import { formatMonthDay, fromDateInputValue, startOfLocalDay, toDateInputValue } from '@/utils/day';
 import { errorMessage } from '@/utils/error';
@@ -44,6 +45,7 @@ type PlanDrawerProps = {
 /** 新建或编辑计划。平时只写标题、详情和步骤，其余先看结果 */
 export function PlanDrawer({ plan, preset, groups, onClose, onSaved }: PlanDrawerProps) {
   const queryClient = useQueryClient();
+  const markdownRef = useRef<MarkdownEditorHandle>(null);
   const [title, setTitle] = useState(plan?.title ?? '');
   const [body, setBody] = useState(plan?.body ?? '');
   const [groupId, setGroupId] = useState(
@@ -87,6 +89,8 @@ export function PlanDrawer({ plan, preset, groups, onClose, onSaved }: PlanDrawe
         return fields.start;
       }
       await planUpdate(plan.id, fields.patch);
+      await retainBodyImages('plan', plan.id, fields.patch.body ?? '');
+      markdownRef.current?.saved();
       if (done && plan.status !== 'done') {
         await planComplete(plan.id, plan.result);
       }
@@ -147,7 +151,13 @@ export function PlanDrawer({ plan, preset, groups, onClose, onSaved }: PlanDrawe
               </button>
             ) : null}
           </div>
-          <Textarea label="详情" value={body} onChange={(event) => setBody(event.target.value)} />
+          <MarkdownField
+            ref={markdownRef}
+            label="详情"
+            value={body}
+            image={plan ? { owner: 'plan', ownerId: plan.id } : null}
+            onChange={setBody}
+          />
           <div className={styles.steps}>
             {steps.map((step) => (
               <div key={step.key} className={styles.step} data-done={step.done ? 'true' : undefined}>

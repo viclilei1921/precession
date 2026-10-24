@@ -84,8 +84,6 @@ pnpm up:i       # 按 latest 升级依赖
 
 ## 后端
 
-
-
 ### 格式化（rustfmt）
 
 为缩小与前端代码风格的差异，对 rustfmt 做了少量调整，见 [src-tauri/.rustfmt.toml](./src-tauri/.rustfmt.toml)。
@@ -170,12 +168,12 @@ rusqlite = { version = "0.40", features = ["bundled-sqlcipher-vendored-openssl"]
 应用数据目录下大致为：
 
 
-| 文件                         | 作用                              |
-| -------------------------- | ------------------------------- |
-| `data/db/data.sqlite`      | SQLCipher 加密库；没有正确 DEK 时内容不可读   |
-| `data/db/key.header.json`  | 密钥头：盐、Argon2id 参数、被 KEK 包装的 DEK |
-| `data/db/device.wrap`      | 设备槽密文。系统密钥库才能解开；没有它时每次都要输入档案密码 |
-| `data/db/user.lock`        | 用户锁定标记。存在时重启仍停在解锁页            |
+| 文件                      | 作用                                                         |
+| ------------------------- | ------------------------------------------------------------ |
+| `data/db/data.sqlite`     | SQLCipher 加密库；没有正确 DEK 时内容不可读                  |
+| `data/db/key.header.json` | 密钥头：盐、Argon2id 参数、被 KEK 包装的 DEK                 |
+| `data/db/device.wrap`     | 设备槽密文。系统密钥库才能解开；没有它时每次都要输入档案密码 |
+| `data/db/user.lock`       | 用户锁定标记。存在时重启仍停在解锁页                         |
 
 
 流程概要：
@@ -191,14 +189,13 @@ rusqlite = { version = "0.40", features = ["bundled-sqlcipher-vendored-openssl"]
 
 ### 平台一览
 
-
-| 场景                | 做法                                                                            |
-| ----------------- | ----------------------------------------------------------------------------- |
-| Windows 桌面        | 下文「Windows 桌面」                                                                |
-| macOS 桌面          | 下文「macOS 桌面」                                                                  |
-| Linux / WSL 桌面    | 下文「Linux / WSL」；apt 明细可参考 [docs/wsl-android.md](./docs/wsl-android.md) 第 4 节  |
+| 场景              | 做法                                                                                         |
+| ----------------- | -------------------------------------------------------------------------------------------- |
+| Windows 桌面      | 下文「Windows 桌面」                                                                         |
+| macOS 桌面        | 下文「macOS 桌面」                                                                           |
+| Linux / WSL 桌面  | 下文「Linux / WSL」；apt 明细可参考 [docs/wsl-android.md](./docs/wsl-android.md) 第 4 节     |
 | Windows → Android | **不能**在 Windows 本机交叉编译；必须在 WSL，见 [docs/wsl-android.md](./docs/wsl-android.md) |
-| macOS → Android   | 见 [docs/mac-android.md](./docs/mac-android.md)                                |
+| macOS → Android   | 见 [docs/mac-android.md](./docs/mac-android.md)                                              |
 
 
 
@@ -249,4 +246,3 @@ sudo apt install -y build-essential pkg-config perl
 pnpm app:android
 pnpm build:android
 ```
-
