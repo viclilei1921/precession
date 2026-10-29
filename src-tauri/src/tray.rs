@@ -36,6 +36,29 @@ mod imp {
     let _ = window.set_focus();
   }
 
+  /// 显示主窗口并把它放到前台
+  ///
+  /// 找不到名为 `main` 的窗口时不做任何事。窗口隐藏或最小化时先显示并取消最小化。
+  ///
+  /// # 参数
+  /// - `app`: 应用句柄
+  ///
+  /// # 返回值
+  /// 不返回数据
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```ignore
+  /// focus_main_window(app);
+  /// ```
+  pub(crate) fn focus_main_window(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+      focus_window(window);
+    }
+  }
+
   /// 处理托盘菜单点击
   ///
   /// `quit` 以退出码 0 结束进程，`show` 聚焦主窗口，其他标识忽略。
@@ -60,9 +83,7 @@ mod imp {
         app.exit(0);
       }
       "show" => {
-        if let Some(window) = app.get_webview_window("main") {
-          focus_window(window);
-        }
+        focus_main_window(app);
       }
       _ => {}
     }
@@ -104,10 +125,7 @@ mod imp {
       })
       .on_tray_icon_event(|tray, event| {
         if let TrayIconEvent::Click { button: MouseButton::Left, .. } = event {
-          let app = tray.app_handle();
-          if let Some(window) = app.get_webview_window("main") {
-            focus_window(window);
-          }
+          focus_main_window(tray.app_handle());
         }
       })
       .build(app)?;
@@ -142,4 +160,6 @@ mod imp {
   }
 }
 
+#[cfg(desktop)]
+pub(crate) use imp::focus_main_window;
 pub use imp::register_tray_menu;

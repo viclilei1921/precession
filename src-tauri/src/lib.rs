@@ -46,7 +46,15 @@ use platform::Platform;
 /// ```
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-  let builder = tauri::Builder::default().plugin(tauri_plugin_os::init());
+  let builder = tauri::Builder::default();
+
+  // 必须第一个注册。后启动的进程会立刻退出，回调里把已隐藏到托盘的主窗口拉回来。
+  #[cfg(desktop)]
+  let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+    tray::focus_main_window(&app);
+  }));
+
+  let builder = builder.plugin(tauri_plugin_os::init());
 
   // 初始化日志
   let builder = builder.plugin(plugin::log::init_log());
