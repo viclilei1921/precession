@@ -1,0 +1,97 @@
+.panel {
+  display: grid;
+  gap: var(--space-2);
+  width: 100%;
+  min-width: 0;
+}
+
+.fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: start;
+  width: 100%;
+  min-width: 0;
+}
+
+.pair {
+  display: contents;
+}
+
+.fields > :not(.line),
+.pair > * {
+  flex: 0 0 calc((100% - 3 * var(--space-2)) / 4);
+  width: calc((100% - 3 * var(--space-2)) / 4);
+  min-width: 0;
+  max-width: calc((100% - 3 * var(--space-2)) / 4);
+}
+
+.fields select {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.line {
+  display: flex;
+  flex: 1 0 100%;
+  gap: var(--space-2);
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.line > :first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.bar {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  max-width: 100%;
+}
+
+.segments {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  max-width: 100%;
+  padding: 3px;
+  background: var(--muted);
+  border-radius: var(--radius-md);
+}
+
+.tip {
+  /* 和说明浮层右侧内边距一致，滑块落在这条留白里。 */
+  --scroll-edge: 0.75rem;
+  --scroll-hit: 0.75rem;
+  max-height: 18rem;
+}
+
+.tipBody {
+  display: grid;
+  gap: 0.625rem;
+}
+
+.tipItem {
+  margin: 0;
+  text-align: justify;
+  text-justify: inter-character;
+}
+
+.tipName {
+  font-weight: 700;
+}
+
+.tipName::after {
+  content: "：";
+}
+
+.summary {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--muted-foreground);
+}

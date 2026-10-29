@@ -1,0 +1,99 @@
+.sheet {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.head,
+.row {
+  display: grid;
+  grid-template-columns: 2.5rem minmax(6rem, 0.9fr) 4.5rem minmax(0, 1.6fr) 2.75rem;
+  gap: var(--space-2);
+  align-items: center;
+  font-size: var(--text-sm);
+}
+
+.head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 0 var(--space-1) var(--space-2);
+  color: var(--muted-foreground);
+  background: var(--card);
+}
+
+.body {
+  min-height: 0;
+}
+
+.row {
+  min-height: 2.75rem;
+  padding: 0 var(--space-1);
+  border-top: 1px solid var(--border);
+}
+
+.name {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  min-width: 0;
+}
+
+.name svg {
+  flex: none;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  color: var(--muted-foreground);
+}
+
+.label,
+.path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.remove {
+  justify-self: end;
+}
+
+.size,
+.action {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted-foreground);
+  text-align: right;
+}
+
+.path {
+  color: var(--muted-foreground);
+}
+
+.note {
+  margin: var(--space-6) 0;
+  font-size: var(--text-sm);
+  color: var(--muted-foreground);
+  text-align: center;
+}
+
+.foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: space-between;
+  min-height: calc(2.5rem + var(--space-3) + 1px);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.total {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--muted-foreground);
+}

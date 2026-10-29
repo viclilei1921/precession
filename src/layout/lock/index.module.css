@@ -1,0 +1,66 @@
+.gate {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  padding: var(--space-6) var(--space-5);
+  margin: 0;
+  overflow: hidden;
+  color: var(--foreground);
+  text-align: center;
+  background: var(--background);
+}
+
+.muted {
+  max-width: 22rem;
+  margin: 0 0 var(--space-5);
+  color: var(--muted-foreground);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: stretch;
+  width: min(22rem, 100%);
+  text-align: left;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+}
+
+.field label {
+  margin-bottom: var(--space-2);
+}
+
+.form label {
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+.submit {
+  margin-top: var(--space-3);
+}
+
+.error {
+  margin: var(--space-1) 0;
+  color: var(--destructive);
+}
+
+.fieldError {
+  /* 先占住一行，错误出现时不再把下面的内容顶开 */
+  min-height: calc(var(--text-xs) * 1.4);
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-xs);
+  line-height: 1.4;
+  color: var(--destructive);
+}
+
+.form > .fieldError {
+  flex-shrink: 0;
+  margin: 0;
+}

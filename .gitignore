@@ -22,3 +22,10 @@ dist-ssr
 *.sw?
 
 design
+
+# Windows 代码签名私钥与本地 MSIX
+*.pfx
+*.msix
+
+# Development certificate
+devcert.pfx

@@ -1,0 +1,187 @@
+.page {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-4);
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.head {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.segments {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--muted);
+  border-radius: var(--radius-md);
+}
+
+.add {
+  margin-left: auto;
+}
+
+.scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.body {
+  display: grid;
+  gap: var(--space-3);
+  align-content: start;
+}
+
+.list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(22rem, 1fr));
+  gap: var(--space-3);
+  align-content: start;
+  align-items: start;
+}
+
+.card {
+  display: grid;
+  grid-template-columns: 3.25rem minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: start;
+  width: 100%;
+  padding: var(--space-4);
+  color: inherit;
+  text-align: left;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.card:hover {
+  border-color: color-mix(in oklch, var(--foreground) 24%, var(--border));
+}
+
+.card[data-photo="true"] {
+  grid-template-columns: 3.25rem minmax(0, 1fr) 4.5rem;
+}
+
+.thumb {
+  display: block;
+  align-self: start;
+  width: 4.5rem;
+  height: 4.5rem;
+  object-fit: cover;
+  background: var(--muted);
+  border-radius: var(--radius-md);
+}
+
+.date {
+  display: grid;
+  gap: 0.125rem;
+  align-content: start;
+  justify-items: center;
+  padding-top: 0.15rem;
+}
+
+.day {
+  font-size: var(--text-2xl);
+  line-height: 1;
+  color: var(--journal);
+}
+
+.month,
+.week,
+.quiet,
+.words {
+  font-size: var(--text-xs);
+  color: var(--muted-foreground);
+}
+
+.card-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.card-top,
+.card-foot {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.card-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: var(--text-base);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.badges {
+  display: flex;
+  flex: none;
+  gap: var(--space-1);
+}
+
+.badge {
+  padding: 0.125rem 0.5rem;
+  font-size: var(--text-xs);
+  color: var(--muted-foreground);
+  background: var(--muted);
+  border-radius: var(--radius-pill);
+}
+
+.badge[data-tone="highlight"] {
+  color: var(--journal);
+  background: var(--journal-soft);
+}
+
+.excerpt {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  -webkit-line-clamp: 3;
+  font-size: var(--text-sm);
+  line-height: 1.6;
+}
+
+.words {
+  margin-left: auto;
+}
+
+.empty,
+.note,
+.error {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.empty,
+.note {
+  color: var(--muted-foreground);
+}
+
+.error {
+  color: var(--destructive);
+}
+
+:global(html[data-platform="mobile"]) .list {
+  grid-template-columns: 1fr;
+}
+
+:global(html[data-platform="mobile"]) .card[data-photo="true"] {
+  grid-template-columns: 2.75rem minmax(0, 1fr) 3.75rem;
+}
+
+:global(html[data-platform="mobile"]) .thumb {
+  width: 3.75rem;
+  height: 3.75rem;
+}

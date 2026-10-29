@@ -1,0 +1,709 @@
+//! 计划的业务判断。参数整理在 commands，读写在 repository。
+
+use rusqlite::Connection;
+
+use super::constants::STATUS_DONE;
+use super::dto::{Plan, PlanComment, PlanGroup, PlanGroupInput, PlanGroupPatch, PlanInput, PlanPatch, PlanQuery};
+use super::error::PlanError;
+use super::repository;
+use crate::db::state::DbState;
+use crate::utils::time::now_unix_ms;
+
+/// 按条件列出计划
+///
+/// # 参数
+/// - `db`: 数据库状态
+/// - `query`: 时间范围和清单条件
+///
+/// # 返回值
+/// 返回计划列表
+///
+/// # 错误
+/// 连接或查询失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let plans = list(db, query)?;
+/// ```
+pub fn list(db: &DbState, query: &PlanQuery) -> Result<Vec<Plan>, PlanError> {
+  db.with_conn(|conn| repository::list(conn, query))
+}
+
+/// 按主键读取计划
+///
+/// # 参数
+/// - `db`: 数据库状态
+/// - `id`: 计划主键
+///
+/// # 返回值
+/// 返回计划
+///
+/// # 错误
+/// 连接或查询失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let plan = get(db, id)?;
+/// ```
+pub fn get(db: &DbState, id: &str) -> Result<Plan, PlanError> {
+  db.with_conn(|conn| repository::get(conn, id))
+}
+
+/// 校验清单和父计划后创建计划
+///
+/// # 参数
+/// - `db`: 数据库状态
+/// - `input`: 新建计划内容
+///
+/// # 返回值
+/// 返回新建的计划
+///
+/// # 错误
+/// 校验或写入失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let plan = create(db, input)?;
+/// ```
+pub fn create(db: &DbState, input: PlanInput) -> Result<Plan, PlanError> {
+  db.with_conn(|conn| {
+    if let Some(group_id) = &input.group_id {
+      ensure_group(conn, group_id)?;
+    }
+    if let Some(parent_id) = &input.parent_id {
+      ensure_parent(conn, None, parent_id)?;
+    }
+    repository::create(conn, &input)
+  })
+}
+
+/// 补丁为空时直接读取计划，否则校验清单和父计划后更新
+///
+/// # 参数
+/// - `db`: 数据库状态
+/// - `id`: 计划主键
+/// - `patch`: 要改的字段
+///
+/// # 返回值
+/// 返回计划
+///
+/// # 错误
+/// 校验或写入失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let plan = update(db, id, patch)?;
+/// ```
+pub fn update(db: &DbState, id: &str, patch: PlanPatch) -> Result<Plan, PlanError> {
+  db.with_conn(|conn| {
+    if patch.is_empty() {
+      return repository::get(conn, id);
+    }
+    if let Some(group_id) = &patch.group_id {
+      ensure_group(conn, group_id)?;
+    }
+    if let Some(parent_id) = &patch.parent_id {
+      ensure_parent(conn, Some(id), parent_id)?;
+    }
+    repository::update(conn, id, &patch)
+  })
+}
+
+/// 把计划标成已完成并写入结果和当前时间
+///
+/// # 参数
+/// - `db`: 数据库状态
+/// - `id`: 计划主键
+/// - `result`: 完成结果
+///
+/// # 返回值
+/// 返回完成后的计划
+///
+/// # 错误
+/// 连接或写入失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let plan = complete(db, id, result)?;
+/// ```
+pub fn complete(db: &DbState, id: &str, result: &str) -> Result<Plan, PlanError> {
+  let now = now_unix_ms();
+  db.with_conn(|conn| repository::complete(conn, id, STATUS_DONE, result, now))
+}
+
+/// 删除计划，再在后台清理它留下的上传文件
+///
+/// # 参数
+/// - `db`: 数据库状态
+/// - `id`: 计划主键
+///
+/// # 返回值
+/// 成功时返回空
+///
+/// # 错误
+/// 连接或删除失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// delete(db, id)?;
+/// ```
+pub fn delete(db: &DbState, id: &str) -> Result<(), PlanError> {
+  db.with_conn(|conn| repository::delete(conn, id))?;
+  crate::upload::sweep_later(db);
+  Ok(())
+}
+
+/// 列出清单
+///
+/// # 参数
+/// - `db`: 数据库状态
+///
+/// # 返回值
+/// 返回清单列表
+///
+/// # 错误
+/// 连接或查询失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let groups = group_list(db)?;
+/// ```
+pub fn group_list(db: &DbState) -> Result<Vec<PlanGroup>, PlanError> {
+  db.with_conn(repository::group_list)
+}
+
+/// 创建清单
+///
+/// # 参数
+/// - `db`: 数据库状态
+/// - `input`: 新建清单内容
+///
+/// # 返回值
+/// 返回新建的清单
+///
+/// # 错误
+/// 连接或写入失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let group = group_create(db, input)?;
+/// ```
+pub fn group_create(db: &DbState, input: PlanGroupInput) -> Result<PlanGroup, PlanError> {
+  db.with_conn(|conn| repository::group_create(conn, &input))
+}
+
+/// 补丁为空时直接读取清单，否则更新清单
+///
+/// # 参数
+/// - `db`: 数据库状态
+/// - `id`: 清单主键
+/// - `patch`: 要改的字段
+///
+/// # 返回值
+/// 返回清单
+///
+/// # 错误
+/// 连接或写入失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let group = group_update(db, id, patch)?;
+/// ```
+pub fn group_update(db: &DbState, id: &str, patch: PlanGroupPatch) -> Result<PlanGroup, PlanError> {
+  db.with_conn(|conn| {
+    // 如果更新内容为空，则返回当前清单
+    if patch.is_empty() {
+      return repository::group_get(conn, id);
+    }
+
+    // 更新清单
+    repository::group_update(conn, id, &patch)
+  })
+}
+
+/// 拒绝删除系统清单，其余清单执行删除
+///
+/// # 参数
+/// - `db`: 数据库状态
+/// - `id`: 清单主键
+///
+/// # 返回值
+/// 成功时返回空
+///
+/// # 错误
+/// 清单是系统清单时返回 `PlanError::GroupProtected`，其余失败返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// group_delete(db, id)?;
+/// ```
+pub fn group_delete(db: &DbState, id: &str) -> Result<(), PlanError> {
+  db.with_conn(|conn| {
+    // 获取清单
+    let group = repository::group_get(conn, id)?;
+
+    // 如果清单是系统清单，则返回错误
+    if group.system {
+      return Err(PlanError::GroupProtected);
+    }
+
+    // 删除清单
+    repository::group_delete(conn, id)
+  })
+}
+
+/// 确认计划存在后创建评论
+///
+/// # 参数
+/// - `db`: 数据库状态
+/// - `plan_id`: 计划主键
+/// - `body`: 评论正文
+///
+/// # 返回值
+/// 返回新建的评论
+///
+/// # 错误
+/// 计划不存在时返回 `PlanError::NotFound`，其余失败返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let comment = comment_create(db, plan_id, body)?;
+/// ```
+pub fn comment_create(db: &DbState, plan_id: &str, body: &str) -> Result<PlanComment, PlanError> {
+  db.with_conn(|conn| {
+    // 确保计划存在
+    if !repository::plan_exists(conn, plan_id)? {
+      return Err(PlanError::NotFound);
+    }
+
+    // 创建评论
+    repository::comment_create(conn, plan_id, body)
+  })
+}
+
+/// 更新评论正文
+///
+/// # 参数
+/// - `db`: 数据库状态
+/// - `id`: 评论主键
+/// - `body`: 评论正文
+///
+/// # 返回值
+/// 返回更新后的评论
+///
+/// # 错误
+/// 连接或写入失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let comment = comment_update(db, id, body)?;
+/// ```
+pub fn comment_update(db: &DbState, id: &str, body: &str) -> Result<PlanComment, PlanError> {
+  db.with_conn(|conn| repository::comment_update(conn, id, body))
+}
+
+/// 删除评论
+///
+/// # 参数
+/// - `db`: 数据库状态
+/// - `id`: 评论主键
+///
+/// # 返回值
+/// 成功时返回空
+///
+/// # 错误
+/// 连接或删除失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// comment_delete(db, id)?;
+/// ```
+pub fn comment_delete(db: &DbState, id: &str) -> Result<(), PlanError> {
+  db.with_conn(|conn| repository::comment_delete(conn, id))
+}
+
+/// 确认清单存在
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `id`: 清单主键
+///
+/// # 返回值
+/// 存在时返回空
+///
+/// # 错误
+/// 清单不存在时返回 `PlanError::ReferencedMissing`，查询失败时返回对应错误
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// ensure_group(conn, id)?;
+/// ```
+fn ensure_group(conn: &Connection, id: &str) -> Result<(), PlanError> {
+  if repository::group_exists(conn, id)? { Ok(()) } else { Err(PlanError::ReferencedMissing) }
+}
+
+/// 沿父计划向上检查，拒绝指向自己、缺失或超过 64 层
+///
+/// # 参数
+/// - `conn`: 数据库连接
+/// - `plan_id`: 当前计划主键，新建时为空
+/// - `parent_id`: 父计划主键
+///
+/// # 返回值
+/// 父链尽头没有父计划时返回空
+///
+/// # 错误
+/// 指向自己或超过 64 层时返回 `PlanError::ParentInvalid`，计划不存在时返回 `PlanError::ReferencedMissing`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// ensure_parent(conn, plan_id, parent_id)?;
+/// ```
+fn ensure_parent(conn: &Connection, plan_id: Option<&str>, parent_id: &str) -> Result<(), PlanError> {
+  let mut cursor = parent_id.to_string();
+
+  // 循环查找父计划，最多64层，避免无限嵌套
+  for _ in 0..64 {
+    // 如果父计划是自己，则返回错误
+    if plan_id.is_some_and(|id| cursor == id) {
+      return Err(PlanError::ParentInvalid);
+    }
+    // 获取父计划
+    match repository::parent_of(conn, &cursor)? {
+      // 父计划不存在
+      None => return Err(PlanError::ReferencedMissing),
+      // 父计划是空，则返回成功
+      Some(None) => return Ok(()),
+      // 父计划是另一个计划，则继续查找
+      Some(Some(next)) => cursor = next,
+    }
+  }
+
+  // 父计划不存在
+  Err(PlanError::ParentInvalid)
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::db::error::DbError;
+  use crate::owner::Owner;
+  use crate::plan::{
+    constants::{STATUS_DONE, STATUS_DRAFT, STATUS_SCHEDULED},
+    dto::{PlanRepeatInput, PlanStepInput},
+  };
+  use crate::upload::KIND_IMAGE;
+  use crate::upload::dto::UploadInput;
+  use crate::utils::id::new_uuid_v4;
+
+  fn setup() -> (tempfile::TempDir, DbState) {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let db = DbState::new(dir.path().to_path_buf()).with_migrators(vec![
+      crate::member::migrate,
+      crate::tag::migrate,
+      crate::place::migrate,
+      crate::upload::migrate,
+      crate::plan::migrate,
+    ]);
+    db.create("test-password-123", "test-password-123").expect("create db");
+    (dir, db)
+  }
+
+  fn sample() -> PlanInput {
+    PlanInput {
+      title: "晨跑".into(),
+      status: STATUS_SCHEDULED.into(),
+      priority: 1,
+      scheduled_at: Some(10),
+      due_at: Some(10),
+      steps: vec![PlanStepInput { title: "热身".into(), done: false }],
+      ..PlanInput::default()
+    }
+  }
+
+  /// 创建、完成和锁定
+  #[test]
+  fn create_complete_and_lock() {
+    let (_dir, db) = setup();
+    let item = create(&db, sample()).expect("create");
+    assert_eq!(item.steps.len(), 1);
+
+    let done = complete(&db, &item.id, "到了公园").expect("complete");
+    assert_eq!(done.status, STATUS_DONE);
+    assert_eq!(done.result, "到了公园");
+    assert!(done.completed_at.is_some());
+
+    db.lock().expect("lock");
+    assert!(matches!(list(&db, &PlanQuery::default()), Err(PlanError::Locked)));
+  }
+
+  /// 清空安排时间和截止时间
+  #[test]
+  fn clear_schedule_times() {
+    let (_dir, db) = setup();
+    let item = create(&db, sample()).expect("create");
+    let cleared = update(
+      &db,
+      &item.id,
+      PlanPatch {
+        status: Some(STATUS_DRAFT.into()),
+        clear_scheduled_at: true,
+        clear_due_at: true,
+        ..PlanPatch::default()
+      },
+    )
+    .expect("clear");
+    assert_eq!(cleared.status, STATUS_DRAFT);
+    assert!(cleared.scheduled_at.is_none());
+    assert!(cleared.due_at.is_none());
+  }
+
+  /// 关系、更新和清理
+  #[test]
+  fn relations_patch_and_cleanup() {
+    let (_dir, db) = setup();
+    let group = group_create(
+      &db,
+      PlanGroupInput { name: "生活".into(), color: String::new(), system: false, sort: 0 },
+    )
+    .expect("group");
+    assert!(matches!(
+      group_create(
+        &db,
+        PlanGroupInput { name: "生活".into(), color: String::new(), system: false, sort: 1 }
+      ),
+      Err(PlanError::NameTaken)
+    ));
+    let protected = group_create(
+      &db,
+      PlanGroupInput { name: "系统".into(), color: String::new(), system: true, sort: 0 },
+    )
+    .expect("system");
+    assert!(matches!(group_delete(&db, &protected.id), Err(PlanError::GroupProtected)));
+
+    let member_id = new_uuid_v4();
+    db.with_conn(|conn| {
+      conn
+        .execute(
+          "INSERT INTO member (id, name, relation, gender, created_at, updated_at) VALUES (?1, '自己', '', '', 1, 1)",
+          [&member_id],
+        )
+        .expect("member");
+      Ok::<(), DbError>(())
+    })
+    .expect("seed member");
+
+    let mut input = sample();
+    input.group_id = Some(group.id.clone());
+    input.member_ids = vec![member_id.clone()];
+    input.repeat = Some(PlanRepeatInput { kind: "weekly".into(), interval: 1, weekdays: "1,3".into(), until_at: None });
+    input.reminders = vec![crate::plan::dto::PlanReminderInput { remind_at: 20, note: "出门".into() }];
+    let item = create(&db, input).expect("plan");
+    assert_eq!(item.group_id.as_deref(), Some(group.id.as_str()));
+    assert_eq!(item.member_ids, vec![member_id.clone()]);
+    assert_eq!(item.repeat.as_ref().map(|item| item.kind.as_str()), Some("weekly"));
+    assert_eq!(item.reminders.len(), 1);
+
+    let mut child_input = sample();
+    child_input.title = "拉伸".into();
+    child_input.parent_id = Some(item.id.clone());
+    let child = create(&db, child_input).expect("child");
+    assert_eq!(child.parent_id.as_deref(), Some(item.id.as_str()));
+
+    let mut cycle = PlanPatch::default();
+    cycle.parent_id = Some(child.id.clone());
+    assert!(matches!(update(&db, &item.id, cycle), Err(PlanError::ParentInvalid)));
+
+    comment_create(&db, &item.id, "记得带水").expect("comment");
+    let detail = get(&db, &item.id).expect("detail");
+    assert_eq!(detail.comments.len(), 1);
+    let listed = list(&db, &PlanQuery::default()).expect("list");
+    let listed_item = listed.iter().find(|plan| plan.id == item.id).expect("listed");
+    assert!(listed_item.comments.is_empty());
+
+    let upload_id = new_uuid_v4();
+    db.with_conn(|conn| {
+      crate::upload::insert_imported(
+        conn,
+        &upload_id,
+        UploadInput {
+          owner: Owner::Plan.as_str().into(),
+          owner_id: item.id.clone(),
+          kind: KIND_IMAGE.into(),
+          rel_path: "a.jpg".into(),
+          mime: "image/jpeg".into(),
+          name: "a.jpg".into(),
+          size: 0,
+          sort: 0,
+          locked: false,
+        },
+        false,
+      )
+      .expect("upload");
+      Ok::<(), DbError>(())
+    })
+    .expect("seed upload");
+
+    let renamed =
+      update(&db, &item.id, PlanPatch { title: Some("夜跑".into()), ..PlanPatch::default() }).expect("patch");
+    assert_eq!(renamed.title, "夜跑");
+    assert_eq!(renamed.member_ids, vec![member_id]);
+    assert!(renamed.repeat.is_some());
+    assert_eq!(renamed.reminders.len(), 1);
+    assert_eq!(renamed.uploads.len(), 1);
+    assert_eq!(renamed.comments.len(), 1);
+
+    let untouched = update(&db, &item.id, PlanPatch::default()).expect("empty patch");
+    assert_eq!(untouched.updated_at, renamed.updated_at);
+
+    delete(&db, &item.id).expect("delete plan");
+    assert!(matches!(get(&db, &item.id), Err(PlanError::NotFound)));
+    let child = get(&db, &child.id).expect("child remains");
+    assert!(child.parent_id.is_none());
+    db.with_conn(|conn| {
+      let left = crate::upload::list_for(conn, Owner::Plan.as_str(), &item.id).expect("uploads");
+      assert!(left.is_empty());
+      Ok::<(), DbError>(())
+    })
+    .expect("uploads cleared");
+
+    let mut parked = sample();
+    parked.title = "买菜".into();
+    parked.group_id = Some(group.id.clone());
+    let parked = create(&db, parked).expect("parked");
+    group_delete(&db, &group.id).expect("delete group");
+    assert!(matches!(
+      group_list(&db).expect("groups").iter().find(|item| item.id == group.id),
+      None
+    ));
+    assert!(get(&db, &parked.id).expect("parked").group_id.is_none());
+  }
+
+  /// 列表过滤
+  #[test]
+  fn list_filters_by_range_and_group() {
+    let (_dir, db) = setup();
+    let life = group_create(
+      &db,
+      PlanGroupInput { name: "生活".into(), color: String::new(), system: false, sort: 0 },
+    )
+    .expect("life");
+    let work = group_create(
+      &db,
+      PlanGroupInput { name: "工作".into(), color: String::new(), system: false, sort: 1 },
+    )
+    .expect("work");
+
+    let mut morning = sample();
+    morning.scheduled_at = Some(100);
+    morning.group_id = Some(life.id.clone());
+    create(&db, morning).expect("morning");
+
+    let mut noon = sample();
+    noon.title = "午饭".into();
+    noon.scheduled_at = Some(200);
+    noon.group_id = Some(life.id.clone());
+    create(&db, noon).expect("noon");
+
+    let mut meeting = sample();
+    meeting.title = "开会".into();
+    meeting.scheduled_at = Some(150);
+    meeting.group_id = Some(work.id.clone());
+    create(&db, meeting).expect("meeting");
+
+    let mut loose = sample();
+    loose.title = "随手".into();
+    loose.scheduled_at = Some(150);
+    create(&db, loose).expect("loose");
+
+    let mut inbox = sample();
+    inbox.title = "收集".into();
+    inbox.scheduled_at = None;
+    create(&db, inbox).expect("inbox");
+
+    let names = |query: PlanQuery| {
+      let mut titles = list(&db, &query).expect("list").into_iter().map(|plan| plan.title).collect::<Vec<_>>();
+      titles.sort();
+      titles
+    };
+
+    assert_eq!(names(PlanQuery::default()).len(), 5);
+    assert_eq!(
+      names(PlanQuery { from: Some(100), to: Some(200), ..PlanQuery::default() }),
+      ["开会", "晨跑", "随手"]
+    );
+    assert_eq!(
+      names(PlanQuery { from: Some(100), to: Some(200), group_id: Some(life.id.clone()) }),
+      ["晨跑"]
+    );
+    assert_eq!(
+      names(PlanQuery { group_id: Some(life.id), ..PlanQuery::default() }),
+      ["午饭", "晨跑"]
+    );
+    assert_eq!(
+      names(PlanQuery { from: Some(200), to: Some(300), ..PlanQuery::default() }),
+      ["午饭"]
+    );
+  }
+
+  /// 补丁 JSON 空值处理
+  #[test]
+  fn patch_json_treats_null_as_missing() {
+    let patch: PlanPatch =
+      serde_json::from_str(r#"{"title":"夜跑","body":"","scheduledAt":null,"groupId":null,"repeat":null}"#)
+        .expect("patch");
+    assert_eq!(patch.title.as_deref(), Some("夜跑"));
+    assert_eq!(patch.body.as_deref(), Some(""));
+    assert!(patch.scheduled_at.is_none());
+    assert!(patch.group_id.is_none());
+    assert!(patch.repeat.is_none());
+    assert!(patch.due_at.is_none());
+    let title_null: PlanPatch = serde_json::from_str(r#"{"title":null}"#).expect("null title");
+    assert!(title_null.title.is_none());
+  }
+}

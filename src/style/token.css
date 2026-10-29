@@ -1,0 +1,157 @@
+/* 1rem 等于浏览器根字号，默认 16px。下面的 px 按 16px 换算。 */
+:root {
+  /* 表面与文字。晴空：页面 #F6F9FC，侧栏 #E7EEF6，卡片白，主色 #635BFF。 */
+  --background: oklch(98.07% 0.0051 247.9);
+  --foreground: oklch(25.99% 0.0604 251.3);
+  --card: oklch(100% 0 none);
+  --card-foreground: var(--foreground);
+  /* popover、accent、input 分别沿用 card、muted、border。 */
+  --popover: var(--card);
+  --popover-foreground: var(--foreground);
+  --primary: oklch(57.84% 0.2346 278.3);
+  --primary-foreground: oklch(100% 0 none);
+  --secondary: oklch(94.61% 0.0131 251.6);
+  --secondary-foreground: var(--foreground);
+  --muted: oklch(96.18% 0.0086 247.9);
+  --muted-foreground: oklch(43.8% 0.0373 248.7);
+  --accent: var(--muted);
+  --accent-foreground: var(--foreground);
+  --destructive: oklch(58.02% 0.2214 19.4);
+  --destructive-foreground: var(--primary-foreground);
+  --border: oklch(92.89% 0.0097 252.8);
+  --input: var(--border);
+  --ring: oklch(from var(--primary) l c h / 45%);
+  --sidebar: var(--secondary);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--card);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+  --overlay: oklch(from var(--foreground) l c h / 42%);
+
+  /* 业务色。实色用于文字和图标；浅底用于标签；前景色用于实色按钮上的字。 */
+  --plan: oklch(46% 0.11 175);
+  --plan-soft: oklch(95.5% 0.028 175);
+  --plan-foreground: var(--primary-foreground);
+  --journal: oklch(46% 0.11 78);
+  --journal-soft: oklch(95.5% 0.028 78);
+  --journal-foreground: var(--primary-foreground);
+  --growth: oklch(46% 0.11 42);
+  --growth-soft: oklch(95.5% 0.028 42);
+  --growth-foreground: var(--primary-foreground);
+  --library: oklch(46% 0.11 250);
+  --library-soft: oklch(95.5% 0.028 250);
+  --library-foreground: var(--primary-foreground);
+  --toolbox: oklch(46% 0.11 305);
+  --toolbox-soft: oklch(95.5% 0.028 305);
+  --toolbox-foreground: var(--primary-foreground);
+
+  /* 圆角：6 / 8 / 10 / 14 px */
+  --radius: 0.625rem;
+  --radius-sm: calc(var(--radius) - 0.25rem);
+  --radius-md: calc(var(--radius) - 0.125rem);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 0.25rem);
+  --radius-pill: 999px;
+
+  --font-sans: "LXGW WenKai Lite", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-mono: "LXGW WenKai Mono Lite", ui-monospace, monospace;
+
+  /* 字号：10 / 12 / 14 / 16 / 18 / 20 / 24 / 30 / 36 px */
+  --font-size-base: 1rem;
+  --text-2xs: calc(var(--font-size-base) * 0.625);
+  --text-xs: calc(var(--font-size-base) * 0.75);
+  --text-sm: calc(var(--font-size-base) * 0.875);
+  --text-base: var(--font-size-base);
+  --text-lg: calc(var(--font-size-base) * 1.125);
+  --text-xl: calc(var(--font-size-base) * 1.25);
+  --text-2xl: calc(var(--font-size-base) * 1.5);
+  --text-3xl: calc(var(--font-size-base) * 1.875);
+  --text-4xl: calc(var(--font-size-base) * 2.25);
+
+  /* 间距基准 4px。序号不是倍数：5=24px，6=32px，8=48px，10=64px，12=80px。 */
+  --space: 0.25rem;
+  --space-1: var(--space);
+  --space-2: calc(var(--space) * 2);
+  --space-3: calc(var(--space) * 3);
+  --space-4: calc(var(--space) * 4);
+  --space-5: calc(var(--space) * 6);
+  --space-6: calc(var(--space) * 8);
+  --space-8: calc(var(--space) * 12);
+  --space-10: calc(var(--space) * 16);
+  --space-12: calc(var(--space) * 20);
+
+  /* 布局。measure 672px、site-width 1088px、header-h 56px、bar-h 72px、shell-pad 24px 未使用。 */
+  --measure: 42rem;
+  --site-width: 68rem;
+  --header-h: 3.5rem;
+  /* 桌面标题栏 36px。全屏或移动端会在运行时改掉。拖放遮罩从这条线下面开始。 */
+  --titlebar-h: 2.25rem;
+  --sidebar-w: 11.2rem;
+  --dock-h: 4rem;
+  --bar-h: 4.5rem;
+  --shell-pad: 1.5rem;
+  --tap: 2.75rem;
+  /* 图标：10 / 12 / 16 / 18 / 20 px。侧栏导航用 icon-lg。 */
+  --icon-2xs: 0.625rem;
+  --icon-xs: 0.75rem;
+  --icon-sm: 1rem;
+  --icon-md: 1.125rem;
+  --icon-lg: 1.25rem;
+  --transition: 140ms ease;
+
+  --inset-top: env(safe-area-inset-top, 0px);
+  --inset-right: env(safe-area-inset-right, 0px);
+  --inset-bottom: env(safe-area-inset-bottom, 0px);
+  --inset-left: env(safe-area-inset-left, 0px);
+
+  --z-sidebar: 15;
+  --z-header: 20;
+  --z-dock: 25;
+  --z-drawer: 40;
+  --z-drawer-panel: 50;
+  --z-popover: 60;
+  --z-modal: 70;
+  --z-toast: 80;
+
+  --scrollbar-size: 6px;
+  --scrollbar-thumb: color-mix(in oklch, var(--foreground) 28%, transparent);
+  --scrollbar-thumb-hover: color-mix(in oklch, var(--foreground) 48%, transparent);
+
+  color-scheme: light;
+}
+
+html.dark {
+  --background: oklch(25.99% 0.0604 251.3);
+  --foreground: oklch(96.78% 0.0086 247.9);
+  --card: oklch(30.92% 0.0644 248.7);
+  --primary: oklch(67.85% 0.1754 282.9);
+  --primary-foreground: oklch(25.99% 0.0604 251.3);
+  --secondary: oklch(19.19% 0.039 251.1);
+  --muted: oklch(32.22% 0.0666 250.6);
+  --muted-foreground: oklch(67.52% 0.0318 248.3);
+  --destructive: oklch(69.68% 0.1978 12.9);
+  --destructive-foreground: oklch(25.99% 0.0604 251.3);
+  --border: oklch(40.37% 0.0704 254.5);
+  --overlay: oklch(0% 0 none / 58%);
+
+  --plan: oklch(78% 0.1 175);
+  --plan-soft: oklch(32% 0.03 175);
+  --plan-foreground: oklch(22% 0.03 175);
+  --journal: oklch(78% 0.1 78);
+  --journal-soft: oklch(32% 0.03 78);
+  --journal-foreground: oklch(22% 0.03 78);
+  --growth: oklch(78% 0.1 42);
+  --growth-soft: oklch(32% 0.03 42);
+  --growth-foreground: oklch(22% 0.03 42);
+  --library: oklch(78% 0.1 250);
+  --library-soft: oklch(32% 0.03 250);
+  --library-foreground: oklch(22% 0.03 250);
+  --toolbox: oklch(78% 0.1 305);
+  --toolbox-soft: oklch(32% 0.03 305);
+  --toolbox-foreground: oklch(22% 0.03 305);
+
+  color-scheme: dark;
+}

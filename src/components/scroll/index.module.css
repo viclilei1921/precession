@@ -1,0 +1,160 @@
+.root {
+  --scroll-gap: 2px;
+  --scroll-hit: 14px;
+  --scroll-thumb-min: 28px;
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.viewport {
+  position: relative;
+  z-index: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* 比内容区的 overscroll-behavior: auto 更具体。滚到头后停在这一层，不把回弹交给窗口。 */
+.root .viewport {
+  overscroll-behavior: none;
+}
+
+.root[data-chain="true"] .viewport {
+  overscroll-behavior: auto;
+}
+
+.viewport[data-axis="vertical"] {
+  overflow: hidden auto;
+}
+
+.viewport[data-axis="horizontal"] {
+  overflow: auto hidden;
+}
+
+.viewport[data-axis="both"] {
+  overflow: auto;
+}
+
+.viewport::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.bar-y,
+.bar-x {
+  position: absolute;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.bar-y {
+  top: var(--scroll-gap);
+  right: var(--scroll-gap);
+  bottom: var(--scroll-gap);
+  width: var(--scroll-hit);
+}
+
+.bar-x {
+  right: var(--scroll-gap);
+  bottom: var(--scroll-gap);
+  left: var(--scroll-gap);
+  height: var(--scroll-hit);
+}
+
+/* 两条都在时，角上互相让开，和 measureAxis 的轨道长度一致。 */
+.root[data-overflow-x="true"] .bar-y {
+  bottom: calc(var(--scroll-gap) + var(--scroll-hit));
+}
+
+.root[data-overflow-y="true"] .bar-x {
+  right: calc(var(--scroll-gap) + var(--scroll-hit));
+}
+
+.root[data-show-y="true"] .bar-y,
+.root[data-show-x="true"] .bar-x {
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.thumb-y,
+.thumb-x {
+  position: absolute;
+  background: var(--scrollbar-thumb);
+  border-radius: var(--radius-pill);
+  opacity: 0;
+  transition:
+    opacity 180ms ease,
+    background-color var(--transition);
+}
+
+.thumb-y {
+  top: 0;
+  right: 0;
+  left: 0;
+  width: var(--scrollbar-size);
+  margin-inline: auto;
+  cursor: grab;
+}
+
+.thumb-x {
+  top: 0;
+  bottom: 0;
+  left: 0;
+  height: var(--scrollbar-size);
+  margin-block: auto;
+  cursor: grab;
+}
+
+.root[data-show-y="true"] .thumb-y,
+.root[data-show-x="true"] .thumb-x {
+  opacity: 1;
+}
+
+.thumb-y:hover,
+.thumb-x:hover,
+.root[data-dragging-y="true"] .thumb-y,
+.root[data-dragging-x="true"] .thumb-x {
+  background: var(--scrollbar-thumb-hover);
+}
+
+.root[data-dragging-y="true"] .thumb-y,
+.root[data-dragging-x="true"] .thumb-x {
+  cursor: grabbing;
+}
+
+/* 伸进内容区右侧留白，滑块贴外缘，留白仍把内容让开。 */
+.root[data-edge="true"] {
+  --scroll-gap: 0px;
+  --scroll-edge: var(--space-2);
+  margin-right: calc(var(--scroll-edge) * -1);
+}
+
+.root[data-edge="true"] .viewport {
+  padding-right: var(--scroll-edge);
+}
+
+.root[data-edge="true"] .thumb-y {
+  right: 0;
+  left: auto;
+  margin-inline: 0;
+}
+
+/* 滑块仍贴在右缘。留白一直在，列表变长时卡片和按钮不会被挤一下，也不会被盖住。 */
+.root[data-gutter="true"] .viewport {
+  padding-right: calc(var(--scroll-gap) + var(--scroll-hit));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thumb-y,
+  .thumb-x {
+    transition: none;
+  }
+}

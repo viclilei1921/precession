@@ -1,0 +1,110 @@
+.stage {
+  --frame: 1.777778;
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(100%, calc(70cqh * var(--frame)));
+  max-width: 100%;
+  max-height: 70cqh;
+  aspect-ratio: var(--frame);
+  overflow: hidden;
+  color: var(--foreground);
+  background: var(--muted);
+  border-radius: var(--radius-md);
+}
+
+.view {
+  display: grid;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.view > * {
+  grid-area: 1 / 1;
+}
+
+.media {
+  align-self: stretch;
+  justify-self: stretch;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  min-height: 0;
+  pointer-events: none;
+  object-fit: contain;
+}
+
+.plate {
+  display: grid;
+  gap: var(--space-2);
+  place-self: center;
+  justify-items: center;
+  padding: var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--muted-foreground);
+}
+
+.glyph {
+  width: var(--icon-lg);
+  height: var(--icon-lg);
+}
+
+.bookMark {
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: var(--library);
+  letter-spacing: 0.08em;
+}
+
+.gate {
+  z-index: 1;
+  place-self: center;
+}
+
+.stage .peek {
+  z-index: 2;
+  place-self: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  color: var(--primary);
+  background: oklch(100% 0 0 / 94%);
+  border: 1px solid oklch(100% 0 0 / 80%);
+  box-shadow: 0 8px 22px oklch(from var(--foreground) l c h / 22%);
+  transition:
+    transform var(--transition),
+    background var(--transition);
+}
+
+.stage .peek:hover:not(:disabled) {
+  background: oklch(100% 0 0);
+  transform: scale(1.06);
+}
+
+.stage .peek svg {
+  width: var(--icon-md);
+  height: var(--icon-md);
+  margin-left: 2px;
+}
+
+.miniBar {
+  z-index: 2;
+  place-self: end stretch;
+  padding: var(--space-1) var(--space-3);
+  margin: var(--space-2);
+  background: oklch(100% 0 0 / 92%);
+  border-radius: var(--radius-pill);
+  box-shadow: 0 6px 16px oklch(from var(--foreground) l c h / 14%);
+}
+
+:global(html[data-touch-ui="true"]) .stage .peek:not(:disabled) {
+  width: 2.75rem;
+  height: 2.75rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stage .peek {
+    transition: none;
+  }
+}

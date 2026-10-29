@@ -1,0 +1,18 @@
+.clip {
+  display: inline-flex;
+  gap: var(--space-1);
+  align-items: center;
+}
+
+.time {
+  width: 7.5rem;
+}
+
+.time input {
+  padding-inline: 0.625rem;
+}
+
+.dash {
+  font-size: var(--text-xs);
+  color: var(--muted-foreground);
+}

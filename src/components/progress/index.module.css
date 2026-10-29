@@ -1,0 +1,41 @@
+.track {
+  height: 0.25rem;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+}
+
+.fill {
+  height: 100%;
+  border-radius: inherit;
+  transition: width 0.4s linear;
+}
+
+.track[data-tone="plan"] {
+  background: var(--plan-soft);
+}
+
+.track[data-tone="plan"] .fill {
+  background: var(--plan);
+}
+
+.track[data-tone="library"] {
+  background: var(--library-soft);
+}
+
+.track[data-tone="library"] .fill {
+  background: var(--library);
+}
+
+.track[data-tone="toolbox"] {
+  background: var(--toolbox-soft);
+}
+
+.track[data-tone="toolbox"] .fill {
+  background: var(--toolbox);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fill {
+    transition: none;
+  }
+}

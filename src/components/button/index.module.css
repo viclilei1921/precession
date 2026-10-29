@@ -1,0 +1,101 @@
+.button {
+  display: inline-flex;
+  gap: var(--space-1);
+  align-items: center;
+  justify-content: center;
+  height: 2.5rem;
+  padding: 0 var(--space-5);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+  border-radius: var(--radius-pill);
+}
+
+.button svg {
+  flex: none;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+
+.filled {
+  color: var(--primary-foreground);
+  background: var(--primary);
+}
+
+.outlined {
+  color: var(--primary);
+  background: transparent;
+  border: 1px solid var(--border);
+}
+
+.text {
+  padding: 0 var(--space-3);
+  color: var(--primary);
+  background: transparent;
+}
+
+.filled:hover:not(:disabled) {
+  background: color-mix(in oklch, var(--primary-foreground) 8%, var(--primary));
+}
+
+.outlined:hover:not(:disabled),
+.text:hover:not(:disabled) {
+  background: color-mix(in oklch, var(--primary) 8%, transparent);
+}
+
+.filled:active:not(:disabled) {
+  background: color-mix(in oklch, var(--primary-foreground) 12%, var(--primary));
+}
+
+.outlined:active:not(:disabled),
+.text:active:not(:disabled) {
+  background: color-mix(in oklch, var(--primary) 12%, transparent);
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.button[data-tone="destructive"].outlined,
+.button[data-tone="destructive"].text {
+  color: var(--destructive);
+}
+
+.button[data-tone="destructive"].outlined {
+  border-color: color-mix(in oklch, var(--destructive) 40%, var(--border));
+}
+
+.button[data-tone="destructive"].filled {
+  color: var(--destructive-foreground);
+  background: var(--destructive);
+}
+
+.button[data-tone="destructive"].outlined:hover:not(:disabled),
+.button[data-tone="destructive"].text:hover:not(:disabled) {
+  background: color-mix(in oklch, var(--destructive) 8%, transparent);
+}
+
+.button[data-tone="destructive"].outlined:active:not(:disabled),
+.button[data-tone="destructive"].text:active:not(:disabled) {
+  background: color-mix(in oklch, var(--destructive) 12%, transparent);
+}
+
+.button[data-tone="destructive"].filled:hover:not(:disabled) {
+  background: color-mix(in oklch, var(--destructive-foreground) 8%, var(--destructive));
+}
+
+.button[data-tone="destructive"].filled:active:not(:disabled) {
+  background: color-mix(in oklch, var(--destructive-foreground) 12%, var(--destructive));
+}
+
+.button:disabled {
+  cursor: default;
+  opacity: 0.38;
+}
+
+:global(html[data-touch-ui="true"]) .button {
+  min-height: var(--tap);
+}

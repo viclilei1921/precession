@@ -1,0 +1,83 @@
+.trigger {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  color: var(--muted-foreground);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-pill);
+}
+
+.trigger:hover,
+.trigger:focus-visible {
+  color: var(--foreground);
+  background: var(--muted);
+}
+
+.trigger:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.icon {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+
+.bubble {
+  position: fixed;
+  /* 说明要从弹层里露出来，并留在 toast 下面。 */
+  z-index: calc(var(--z-modal) + 2);
+  max-width: 18.75rem;
+  padding: 0.5rem 0.75rem;
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  color: var(--popover-foreground);
+  pointer-events: none;
+  background: var(--popover);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow:
+    0 1px 2px oklch(from var(--foreground) l c h / 8%),
+    0 8px 24px oklch(from var(--foreground) l c h / 12%);
+  opacity: 0;
+  transform: scale(0);
+  transition:
+    opacity 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    transform 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.bubble[data-open="true"] {
+  pointer-events: auto;
+  opacity: 1;
+  transform: scale(1);
+}
+
+.arrow {
+  position: absolute;
+  width: 0.5rem;
+  height: 0.5rem;
+  background: var(--popover);
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.bubble[data-placement="top"] .arrow {
+  bottom: -0.25rem;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.bubble[data-placement="bottom"] .arrow {
+  top: -0.25rem;
+  border-top: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bubble {
+    transition: none;
+  }
+}

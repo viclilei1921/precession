@@ -1,0 +1,17 @@
+.form {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: center;
+  width: min(18rem, calc(100% - var(--space-6)));
+  color: var(--muted-foreground);
+}
+
+.lock {
+  width: var(--icon-lg);
+  height: var(--icon-lg);
+}
+
+.fail {
+  font-size: var(--text-sm);
+  color: var(--destructive);
+}

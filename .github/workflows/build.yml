@@ -1,0 +1,452 @@
+# =============================================================================
+# Precession 跨平台构建 — GitHub Actions
+# =============================================================================
+# 触发条件：推送 tag（v*）时自动构建，也可手动触发。
+# 构建矩阵：Windows (NSIS + MSIX)、macOS Apple Silicon (DMG)、Android arm64 (APK)。
+# 产物：每个平台的安装包上传为 Artifacts，tag 推送时额外创建 GitHub Release 草稿。
+# Windows MSIX 在 NSIS 构建之后，用已经编好的 exe 和去掉架构后缀的侧车组装。
+# Android 不走 tauri-action：在 Ubuntu 上装 SDK/NDK 后执行 `tauri android build`。
+#
+# 侧车（ffmpeg / cjxl / avifenc）提交在 Git LFS，以仓库中的裁剪静态构建为准。
+# 检出后若文件缺失、或仍是 LFS 指针，构建直接失败，不下载兜底。
+# =============================================================================
+
+name: Cross-Platform Build
+
+on:
+  # 推送 v 开头的 tag 时触发（如 v0.1.0）
+  push:
+    tags:
+      - "v*"
+
+  # 支持手动触发，方便调试
+  workflow_dispatch:
+
+# 整个工作流级别的环境变量
+env:
+  CARGO_INCREMENTAL: 0 # CI 中关闭增量编译，避免缓存膨胀
+  RUST_BACKTRACE: short # 出错时打印简短的堆栈信息
+
+# 同一分支 / tag 只保留最新的运行，节省 CI 资源
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    # GITHUB_TOKEN 默认只读，创建 Release 和上传产物需要 contents 写权限
+    permissions:
+      contents: write
+
+    strategy:
+      # 即使某平台失败，其余平台继续构建
+      fail-fast: false
+      matrix:
+        include:
+          # ---- Windows x86_64 ----
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            bundle: nsis # Windows 使用 NSIS 安装包，随后另打 MSIX
+
+          # ---- macOS Apple Silicon (aarch64) ----
+          - os: macos-latest # macos-latest = ARM runner
+            target: aarch64-apple-darwin
+            bundle: dmg
+
+          # ---- Linux x86_64 ----
+          # - os: ubuntu-22.04
+          #   target: x86_64-unknown-linux-gnu
+          #   bundle: deb,appimage
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      # =====================================================================
+      # 1. 检出代码（含 Git LFS 侧车）
+      # =====================================================================
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          lfs: true
+
+      # =====================================================================
+      # 2. 安装系统级依赖（仅 Linux 需要）
+      # =====================================================================
+      # Tauri 在 Linux 上需要 GTK3、WebKit2GTK 等系统库
+      # - name: Install Linux dependencies
+      #   if: runner.os == 'Linux'
+      #   run: |
+      #     sudo apt-get update
+      #     sudo apt-get install -y \
+      #       libwebkit2gtk-4.1-dev \
+      #       libappindicator3-dev \
+      #       librsvg2-dev \
+      #       patchelf \
+      #       libgtk-3-dev \
+      #       libsoup-3.0-dev \
+      #       libjavascriptcoregtk-4.1-dev
+
+      # =====================================================================
+      # 3. 安装 Rust 工具链并添加对应 target
+      # =====================================================================
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      # =====================================================================
+      # 4. 缓存 Rust 编译产物，显著加快后续构建
+      # =====================================================================
+      - name: Cache Rust
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target # 指定 Cargo 工作目录
+          shared-key: ${{ matrix.target }} # 按 target 区分缓存
+
+      # =====================================================================
+      # 5. 安装 pnpm / Node.js 并缓存依赖
+      # =====================================================================
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+
+      # =====================================================================
+      # 6. 安装前端依赖
+      # =====================================================================
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # =====================================================================
+      # 7. 确认侧车二进制已随仓库检出
+      # =====================================================================
+      # Tauri externalBin 按 target triple 查找：
+      #   src-tauri/binaries/{ffmpeg,cjxl,avifenc}-{target_triple}[.exe]
+      # 这些文件提交在 Git LFS。缺失或仍是 LFS 指针时直接失败，不下载兜底。
+      - name: Verify sidecars
+        shell: bash
+        run: |
+          EXT=""
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            EXT=".exe"
+          fi
+          MISSING=0
+          for NAME in ffmpeg cjxl avifenc; do
+            BINARY_PATH="src-tauri/binaries/${NAME}-${{ matrix.target }}${EXT}"
+            if [ ! -f "${BINARY_PATH}" ]; then
+              echo "❌ 缺少侧车: ${BINARY_PATH}"
+              MISSING=1
+              continue
+            fi
+            HEADER="$(head -c 80 "${BINARY_PATH}" 2>/dev/null || true)"
+            case "${HEADER}" in
+              "version https://git-lfs.github.com/spec/v1"*)
+                echo "❌ 侧车仍是 Git LFS 指针，未被检出: ${BINARY_PATH}"
+                MISSING=1
+                continue
+                ;;
+            esac
+            chmod +x "${BINARY_PATH}" 2>/dev/null || true
+            echo "✅ 侧车就绪: ${BINARY_PATH}"
+          done
+          if [ "${MISSING}" -ne 0 ]; then
+            echo "侧车必须随仓库（Git LFS）提交，构建不会下载兜底版本。"
+            exit 1
+          fi
+
+      # =====================================================================
+      # 8. 使用 tauri-action 构建 + 打包
+      # =====================================================================
+      # tauri-action 会自动执行 beforeBuildCommand（pnpm build）并调用 cargo build
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # macOS 签名（可选，不签名也能构建）
+          # APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          # APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          # APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          # APPLE_ID: ${{ secrets.APPLE_ID }}
+          # APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          # APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          #
+          # Windows 签名（可选）
+          # TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          # TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          # 仅推送 tag 时创建 Release。手动触发只构建并上传 Artifact，
+          # 避免把分支名（如 main）当成 tag 去建一个发布。
+          tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+          releaseName: ${{ github.ref_type == 'tag' && format('Precession {0}', github.ref_name) || '' }}
+          releaseBody: ${{ github.ref_type == 'tag' && format('Precession {0} 安装包（Windows NSIS、Windows MSIX、macOS、Android）。', github.ref_name) || '' }}
+          releaseDraft: true # 先创建为草稿，确认后手动发布
+          prerelease: false
+          args: --target ${{ matrix.target }} --bundles ${{ matrix.bundle }}
+
+      # =====================================================================
+      # 9. Windows：用本次 release 目录里的 exe 打 MSIX
+      # =====================================================================
+      # 侧车必须是 tauri-build 去掉架构后缀后的 ffmpeg.exe / cjxl.exe / avifenc.exe。
+      # 包内清单必须叫 AppxManifest.xml。版本沿用 Package.appxmanifest，发版前用 pnpm version:set 改高。
+      # 正式证书配置仓库 Secrets（不要把 pfx 提交进仓库）：
+      #   WINDOWS_CERTIFICATE_BASE64   devcert.pfx 的 Base64
+      #   WINDOWS_CERTIFICATE_PASSWORD 该 pfx 的密码
+      # 两个 Secret 缺一不可，未配置时这一步直接失败。
+      - name: Pack MSIX
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not $env:WINDOWS_CERTIFICATE_BASE64 -or -not $env:WINDOWS_CERTIFICATE_PASSWORD) {
+            throw "缺少 WINDOWS_CERTIFICATE_BASE64 或 WINDOWS_CERTIFICATE_PASSWORD。在仓库 Secrets 中配置 devcert.pfx 的 Base64 和密码后再构建。"
+          }
+          $release = "src-tauri/target/${{ matrix.target }}/release"
+          $layout = "src-tauri/target/msix-layout"
+          New-Item -ItemType Directory -Force "$layout/src-tauri/icons" | Out-Null
+          foreach ($name in @('precession.exe', 'ffmpeg.exe', 'cjxl.exe', 'avifenc.exe')) {
+            $src = Join-Path $release $name
+            if (-not (Test-Path $src)) { throw "缺少 $src" }
+            Copy-Item $src $layout -Force
+          }
+          Copy-Item src-tauri/icons/StoreLogo.png, src-tauri/icons/Square44x44Logo.png, src-tauri/icons/Square150x150Logo.png "$layout/src-tauri/icons/" -Force
+          Copy-Item Package.appxmanifest "$layout/AppxManifest.xml" -Force
+
+          $pfx = Join-Path $env:RUNNER_TEMP "devcert.pfx"
+          $bytes = [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE_BASE64.Trim())
+          [IO.File]::WriteAllBytes($pfx, $bytes)
+          $pass = $env:WINDOWS_CERTIFICATE_PASSWORD
+
+          $makeappx = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin" -Recurse -Filter makeappx.exe |
+            Where-Object { $_.DirectoryName -match '\\x64$' } |
+            Sort-Object { [version]($_.Directory.Parent.Name) } -Descending |
+            Select-Object -First 1
+          if (-not $makeappx) { throw "找不到 makeappx.exe" }
+          $signtool = Join-Path $makeappx.DirectoryName "signtool.exe"
+          & $makeappx.FullName pack /d $layout /p precession.msix /o
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $signtool sign /fd SHA256 /f $pfx /p $pass precession.msix
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Attach MSIX to release
+        if: runner.os == 'Windows' && github.ref_type == 'tag'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ github.ref_name }}" precession.msix --clobber
+
+      # =====================================================================
+      # 10. 上传构建产物为 Artifact（即使不是 tag 触发也能下载）
+      # =====================================================================
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: precession-${{ matrix.target }}
+          path: |
+            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.exe
+            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.msi
+            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.nsis*
+            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.dmg
+            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.deb
+            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.AppImage
+            precession.msix
+          if-no-files-found: warn # 找不到文件时发出警告而非失败
+          retention-days: 30 # 产物保留 30 天
+
+  # Android 与桌面 bundle 不是同一条构建链：需要 JDK、SDK、NDK，
+  # 以及 openssl-src 交叉编译用的 AR / RANLIB / CC。侧车不参与
+  # （tauri.android.conf.json 把 externalBin 置空）。
+  build-android:
+    permissions:
+      contents: write
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install host build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config perl python3 unzip zip
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+
+      # 版本与 docs/wsl-android.md 对齐：compileSdk 36、NDK 29、minSdk 24。
+      - name: Install Android SDK packages
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager --install \
+            "platforms;android-36" \
+            "build-tools;36.1.0" \
+            "ndk;29.0.13846066"
+          NDK_HOME="${ANDROID_HOME}/ndk/29.0.13846066"
+          NDK_BIN="${NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          test -x "${NDK_BIN}/aarch64-linux-android24-clang"
+          test -x "${NDK_BIN}/llvm-ar"
+          test -x "${NDK_BIN}/llvm-ranlib"
+          {
+            echo "NDK_HOME=${NDK_HOME}"
+            echo "ANDROID_NDK_HOME=${NDK_HOME}"
+            echo "ANDROID_NDK_ROOT=${NDK_HOME}"
+            # NDK 23+ 没有 aarch64-linux-android-ranlib，openssl-src 必须指向 llvm-*
+            echo "AR_aarch64_linux_android=${NDK_BIN}/llvm-ar"
+            echo "RANLIB_aarch64_linux_android=${NDK_BIN}/llvm-ranlib"
+            echo "CC_aarch64_linux_android=${NDK_BIN}/aarch64-linux-android24-clang"
+          } >> "${GITHUB_ENV}"
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+
+      - name: Cache Rust
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+          shared-key: aarch64-linux-android
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('src-tauri/gen/android/**/*.gradle*', 'src-tauri/gen/android/**/*.kts', 'src-tauri/gen/android/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # 本机文档把 Gradle 指到腾讯云镜像。GitHub 托管 runner 走官方分发更稳。
+      - name: Use Gradle upstream distribution
+        run: |
+          sed -i 's#https\\://mirrors.cloud.tencent.com/gradle/#https\\://services.gradle.org/distributions/#' \
+            src-tauri/gen/android/gradle/wrapper/gradle-wrapper.properties
+
+      # tauri android build 在 CI 上会读这个占位文件；文件不存在时直接失败。
+      - name: Create tauri server addr placeholder
+        run: |
+          touch "/tmp/com.viclilei.precession-server-addr"
+          touch "/tmp/precession-server-addr"
+
+      - name: Build Android APK
+        run: pnpm exec tauri android build --target aarch64 --apk
+
+      # 未配置密钥时用本次任务临时生成的 keystore，APK 可以安装，但每次签名不同，不能覆盖升级。
+      # 正式签名配置仓库 Secrets：
+      #   ANDROID_KEYSTORE_BASE64、ANDROID_KEYSTORE_PASSWORD、ANDROID_KEY_ALIAS、ANDROID_KEY_PASSWORD
+      - name: Sign APK
+        id: sign
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          UNSIGNED="$(find src-tauri/gen/android/app/build/outputs/apk -name '*release*unsigned*.apk' -type f -print -quit)"
+          if [ -z "${UNSIGNED}" ]; then
+            UNSIGNED="$(find src-tauri/gen/android/app/build/outputs/apk -name '*release*.apk' -type f -print -quit)"
+          fi
+          if [ -z "${UNSIGNED}" ]; then
+            echo "未找到 release APK"
+            find src-tauri/gen/android/app/build/outputs -name '*.apk' -type f || true
+            exit 1
+          fi
+          KS="${RUNNER_TEMP}/precession-release.keystore"
+          if [ -n "${ANDROID_KEYSTORE_BASE64}" ]; then
+            if [ -z "${ANDROID_KEYSTORE_PASSWORD}" ] || [ -z "${ANDROID_KEY_ALIAS}" ] || [ -z "${ANDROID_KEY_PASSWORD}" ]; then
+              echo "已提供 ANDROID_KEYSTORE_BASE64，但密码或别名为空"
+              exit 1
+            fi
+            printf '%s' "${ANDROID_KEYSTORE_BASE64}" | base64 -d > "${KS}"
+            KS_PASS="${ANDROID_KEYSTORE_PASSWORD}"
+            ALIAS="${ANDROID_KEY_ALIAS}"
+            KEY_PASS="${ANDROID_KEY_PASSWORD}"
+            echo "使用仓库密钥签名"
+          else
+            KS_PASS="android"
+            ALIAS="precession"
+            KEY_PASS="android"
+            keytool -genkeypair -v \
+              -keystore "${KS}" \
+              -alias "${ALIAS}" \
+              -keyalg RSA -keysize 4096 -validity 10000 \
+              -storepass "${KS_PASS}" -keypass "${KEY_PASS}" \
+              -dname "CN=Precession CI, OU=CI, O=Precession, L=NA, ST=NA, C=US"
+            echo "未配置 Android 签名密钥，本次使用临时 keystore。同一设备上的后续版本无法覆盖安装。"
+          fi
+          APKSIGNER="$(find "${ANDROID_HOME}/build-tools" -name apksigner | sort | tail -1)"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            VERSION="${GITHUB_REF_NAME}"
+          else
+            VERSION="0.1.0-${GITHUB_SHA::7}"
+          fi
+          OUT="precession-${VERSION}-aarch64.apk"
+          "${APKSIGNER}" sign \
+            --ks "${KS}" \
+            --ks-pass "pass:${KS_PASS}" \
+            --ks-key-alias "${ALIAS}" \
+            --key-pass "pass:${KEY_PASS}" \
+            --out "${OUT}" \
+            "${UNSIGNED}"
+          "${APKSIGNER}" verify "${OUT}"
+          echo "apk=${OUT}" >> "${GITHUB_OUTPUT}"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: precession-aarch64-linux-android
+          path: ${{ steps.sign.outputs.apk }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Attach APK to release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APK: ${{ steps.sign.outputs.apk }}
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          for _ in 1 2 3 4 5 6 7 8 9 10; do
+            if gh release view "${TAG}" >/dev/null 2>&1; then
+              gh release upload "${TAG}" "${APK}" --clobber
+              exit 0
+            fi
+            sleep 30
+          done
+          gh release create "${TAG}" "${APK}" \
+            --draft \
+            --title "Precession ${TAG}" \
+            --notes "Precession ${TAG} 安装包（Windows NSIS、Windows MSIX、macOS、Android）。"

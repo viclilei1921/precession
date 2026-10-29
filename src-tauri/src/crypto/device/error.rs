@@ -1,4 +1,12 @@
-/// 设备槽失败原因。`db` 把它翻译成给界面看的 `DbError`。
+/// 设备槽失败原因。
+///
+/// `db` 把它翻译成给界面看的 `DbError`。
+///
+/// # 变体
+/// - `Unavailable`: 本机没有可用的系统密钥库或用户验证
+/// - `Cancelled`: 用户取消了系统验证
+/// - `Invalid`: 密文损坏、平台不符，或系统里的设备密钥已经没了
+/// - `Internal`: 系统调用失败
 #[derive(Debug, thiserror::Error)]
 pub enum DeviceError {
   /// 本机没有可用的系统密钥库或用户验证

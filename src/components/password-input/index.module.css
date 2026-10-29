@@ -1,0 +1,52 @@
+.input {
+  padding-inline-end: calc(var(--icon-md) + var(--space-2) + var(--space-3));
+}
+
+/* Windows WebView 会在密码框里再画一只眼睛，和组件按钮叠在一起。 */
+.input::-ms-reveal,
+.input::-ms-clear {
+  display: none;
+}
+
+.toggle {
+  position: absolute;
+  top: 50%;
+  right: var(--space-2);
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  padding: var(--space-1);
+  overflow: hidden;
+  color: var(--muted-foreground);
+  touch-action: none;
+  cursor: pointer;
+  user-select: none;
+  background: none;
+  border: 0;
+  border-radius: var(--radius-pill);
+  isolation: isolate;
+  transform: translateY(-50%);
+}
+
+.toggle svg {
+  width: var(--icon-md);
+  height: var(--icon-md);
+}
+
+.toggle:hover:not(:disabled) {
+  background: color-mix(in oklch, var(--foreground) 8%, transparent);
+}
+
+.toggle:active:not(:disabled) {
+  background: color-mix(in oklch, var(--foreground) 12%, transparent);
+}
+
+.toggle:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+}

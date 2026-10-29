@@ -1,0 +1,127 @@
+.page {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-4);
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.head {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.segments {
+  display: inline-flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 3px;
+  background: var(--muted);
+  border-radius: var(--radius-md);
+}
+
+.add {
+  flex: none;
+  margin-left: auto;
+}
+
+.search {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  min-width: 0;
+  height: var(--tap);
+  padding: 0 var(--space-3);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.search input {
+  width: 100%;
+  outline: 0;
+  background: transparent;
+  border: 0;
+}
+
+.head[data-mobile="true"] .search,
+.head[data-mobile="true"] .add {
+  order: 1;
+}
+
+.head[data-mobile="true"] .segments {
+  order: 2;
+}
+
+.scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.body {
+  display: grid;
+  gap: var(--space-5);
+  align-content: start;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(8.25rem, 1fr));
+  gap: var(--space-5) var(--space-4);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.cardOpen {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 0;
+  text-align: left;
+  background: transparent;
+  border: 0;
+}
+
+.detail {
+  align-self: flex-start;
+  margin-top: var(--space-1);
+  color: var(--library);
+}
+
+.cardTitle {
+  margin-top: var(--space-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.cardMeta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: var(--text-xs);
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+
+.empty {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--muted-foreground);
+}
+
+:global(html[data-platform="mobile"]) .grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}

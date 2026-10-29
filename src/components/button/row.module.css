@@ -1,0 +1,42 @@
+.list,
+.feed {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: var(--space-2) 0;
+  text-align: left;
+  border-bottom: 1px dashed var(--border);
+}
+
+.list {
+  gap: var(--space-3);
+}
+
+.feed {
+  gap: var(--space-2);
+}
+
+.list:last-child,
+.feed:last-child {
+  border-bottom: 0;
+}
+
+.card {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-4);
+  text-align: left;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.title,
+.trigger {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  text-align: left;
+  background: transparent;
+  border: 0;
+}

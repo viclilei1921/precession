@@ -1,0 +1,144 @@
+.title-bar {
+  position: relative;
+  z-index: var(--z-header);
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: var(--titlebar-h);
+  background: var(--background);
+  border-bottom: 1px solid var(--border);
+}
+
+.title-bar-mobile {
+  display: flex;
+  width: 100%;
+  height: var(--inset-top);
+}
+
+.macos[data-fullscreen="true"] {
+  height: 0;
+  overflow: hidden;
+  border-bottom: 0;
+}
+
+.leading {
+  display: flex;
+  flex: none;
+  gap: var(--space-2);
+  align-items: center;
+  height: 100%;
+  padding-left: var(--space-5);
+}
+
+.macos .leading {
+  padding-left: 5rem;
+}
+
+.brand-icon {
+  display: block;
+  flex: none;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+
+.nav-buttons {
+  display: flex;
+  flex: none;
+  gap: var(--space-2);
+  align-items: center;
+  app-region: no-drag;
+  margin: 0 var(--space-2);
+}
+
+.toolbar {
+  display: flex;
+  flex: 1;
+  gap: var(--space-3);
+  align-items: center;
+  min-width: 0;
+  height: 100%;
+  padding-right: var(--space-3);
+}
+
+.history {
+  display: flex;
+  flex: none;
+  gap: var(--space-1);
+}
+
+.macos .toolbar {
+  padding-right: var(--space-5);
+}
+
+.search {
+  display: inline-flex;
+  flex: 1 1 auto;
+  gap: var(--space-2);
+  align-items: center;
+  width: 16rem;
+  min-width: 0;
+  max-width: 16rem;
+  height: 1.8rem;
+  padding: 0 var(--space-3);
+  font-size: var(--text-sm);
+  app-region: no-drag;
+  color: var(--muted-foreground);
+  background: var(--muted);
+  border-radius: var(--radius-md);
+}
+
+.search-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  color: var(--foreground);
+  outline: none;
+  background: transparent;
+  border: 0;
+}
+
+.search-input:focus {
+  outline: none;
+}
+
+.search-input::placeholder {
+  color: var(--muted-foreground);
+}
+
+.capture {
+  margin-left: auto;
+  font-weight: 600;
+  color: var(--primary-foreground);
+  background: var(--primary);
+  border-radius: var(--radius-md);
+}
+
+.traffic[data-tauri-drag-region] {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 5rem;
+  height: 100%;
+  app-region: no-drag;
+}
+
+.controls {
+  display: flex;
+  flex: none;
+  gap: var(--space-3);
+  align-items: center;
+  height: 100%;
+  padding-right: var(--space-3);
+  app-region: no-drag;
+}
+
+.icon {
+  display: block;
+  flex: none;
+  width: var(--icon-xs);
+  height: var(--icon-xs);
+}
+
+:global([data-tauri-drag-region]) {
+  app-region: drag;
+}

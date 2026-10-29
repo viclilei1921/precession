@@ -1,0 +1,205 @@
+.field {
+  display: grid;
+  gap: var(--space-1);
+  align-content: start;
+  min-width: 0;
+  font-size: var(--text-sm);
+}
+
+.outline {
+  position: relative;
+  border-radius: var(--radius-md);
+}
+
+.control {
+  width: 100%;
+  height: 2.75rem;
+  padding: 0 0.875rem;
+  line-height: 2.75rem;
+  color: var(--foreground);
+  background: transparent;
+  border: 0;
+  border-radius: inherit;
+}
+
+.control:focus {
+  outline: none;
+}
+
+.floatLabel {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  z-index: 1;
+  line-height: 1;
+  color: var(--muted-foreground);
+  pointer-events: none;
+  transform: translate(0.875rem, -50%);
+  transform-origin: left center;
+  transition:
+    top 200ms cubic-bezier(0, 0, 0.2, 1),
+    color 200ms cubic-bezier(0, 0, 0.2, 1),
+    transform 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.notch {
+  position: absolute;
+  inset: -5px 0 0;
+  z-index: 0;
+  min-width: 0;
+  padding: 0 0.5rem;
+  margin: 0;
+  overflow: hidden;
+  pointer-events: none;
+  border: 1px solid var(--border);
+  border-radius: inherit;
+  transition: border-color 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.legend {
+  float: unset;
+  display: block;
+  visibility: hidden;
+  width: auto;
+  max-width: 0.01px;
+  height: 11px;
+  padding: 0;
+  overflow: hidden;
+  font-size: 0.75em;
+  white-space: nowrap;
+  transition: max-width 50ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.textarea {
+  height: auto;
+  min-height: 6.5rem;
+  padding-block: 0.75rem;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.blankable {
+  color: var(--foreground);
+}
+
+.hint,
+.error {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: 1.4;
+}
+
+.hint {
+  color: var(--muted-foreground);
+}
+
+.error {
+  color: var(--destructive);
+}
+
+.control::placeholder {
+  color: var(--muted-foreground);
+  opacity: 0;
+  transition: opacity 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.legend span {
+  display: inline-block;
+  visibility: visible;
+  padding: 0 5px;
+  opacity: 0;
+}
+
+.outline:hover .notch {
+  border-color: var(--foreground);
+}
+
+.outline:focus-within .floatLabel {
+  top: 0;
+  color: var(--primary);
+  pointer-events: auto;
+  transform: translate(0.875rem, -50%) scale(0.75);
+}
+
+.outline:focus-within .notch {
+  border-color: var(--primary);
+  border-width: 2px;
+}
+
+.outline:focus-within .legend {
+  max-width: 100%;
+  transition-delay: 50ms;
+  transition-duration: 100ms;
+}
+
+.outline:focus-within .control::placeholder {
+  opacity: 1;
+}
+
+.field[data-filled="true"] .floatLabel {
+  top: 0;
+  pointer-events: auto;
+  transform: translate(0.875rem, -50%) scale(0.75);
+}
+
+.field[data-filled="true"] .legend {
+  max-width: 100%;
+  transition-delay: 50ms;
+  transition-duration: 100ms;
+}
+
+.field[data-invalid="true"] .floatLabel {
+  color: var(--destructive);
+}
+
+.field[data-invalid="true"] .notch {
+  border-color: var(--destructive);
+}
+
+.field[data-disabled="true"] .floatLabel,
+.field[data-disabled="true"] .control {
+  color: color-mix(in oklch, var(--foreground) 38%, transparent);
+}
+
+.field[data-disabled="true"] .notch,
+.field[data-disabled="true"] .outline:hover .notch,
+.field[data-disabled="true"] .outline:focus-within .notch {
+  border-color: color-mix(in oklch, var(--foreground) 23%, transparent);
+  border-width: 1px;
+}
+
+.field:not([data-filled="true"]):not(:focus-within) .blankable {
+  color: transparent;
+}
+
+.outline:has(input.control:not(:placeholder-shown)) .floatLabel,
+.outline:has(textarea.control:not(:placeholder-shown)) .floatLabel {
+  top: 0;
+  pointer-events: auto;
+  transform: translate(0.875rem, -50%) scale(0.75);
+}
+
+.outline:has(input.control:not(:placeholder-shown)) .legend,
+.outline:has(textarea.control:not(:placeholder-shown)) .legend {
+  max-width: 100%;
+  transition-delay: 50ms;
+  transition-duration: 100ms;
+}
+
+.field[data-invalid="true"] .outline:focus-within .notch {
+  border-color: var(--destructive);
+}
+
+.outline:has(textarea.control:placeholder-shown):not(:focus-within) .floatLabel {
+  top: 0.75rem;
+  transform: translate(0.875rem, 0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .floatLabel,
+  .legend,
+  .notch,
+  .control::placeholder {
+    transition: none;
+  }
+}

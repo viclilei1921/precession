@@ -1,0 +1,65 @@
+.queue {
+  display: grid;
+  gap: var(--space-3);
+  align-content: start;
+}
+
+.head {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.heading {
+  flex: 1;
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.note,
+.message,
+.meta,
+.path {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--muted-foreground);
+}
+
+.meta,
+.path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+.message {
+  display: flex;
+  gap: var(--space-3);
+  align-items: baseline;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.detail {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.remain {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  color: var(--toolbox);
+}
+
+.error {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--destructive);
+}

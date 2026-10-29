@@ -22,18 +22,99 @@ pub(crate) use error::DeviceError;
 #[cfg(test)]
 pub(crate) use memory::MemorySlot;
 
-/// 用系统密钥库包住 DEK。返回值是 `device.wrap` 的全部字节。
+/// 用系统密钥库包住 DEK。
+///
+/// 返回值是 `device.wrap` 的全部字节。实现者必须是 `Send` + `Sync`，才能放进跨线程共享的槽。`confirm` 的默认实现直接成功。
 pub(crate) trait DeviceSlot: Send + Sync {
+  /// 把 DEK 交给系统密钥库并返回 `device.wrap` 的全部字节
+  ///
+  /// # 参数
+  /// - `dek`: 32 字节 DEK
+  ///
+  /// # 返回值
+  /// 成功时返回可写入 `device.wrap` 的字节
+  ///
+  /// # 错误
+  /// 登记失败时返回 `Err(DeviceError)`，具体变体由实现决定
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```ignore
+  /// let blob = slot.enroll(dek)?;
+  /// ```
   fn enroll(&self, dek: &[u8; 32]) -> Result<Vec<u8>, DeviceError>;
+  /// 用 `device.wrap` 的字节解开 DEK
+  ///
+  /// # 参数
+  /// - `blob`: `device.wrap` 的全部字节
+  ///
+  /// # 返回值
+  /// 成功时返回会在丢弃时清零的 DEK
+  ///
+  /// # 错误
+  /// 打开失败时返回 `Err(DeviceError)`，具体变体由实现决定
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```ignore
+  /// let dek = slot.open(blob)?;
+  /// ```
   fn open(&self, blob: &[u8]) -> Result<Zeroizing<[u8; 32]>, DeviceError>;
+  /// 删除系统密钥库里的设备密钥
+  ///
+  /// # 返回值
+  /// 成功时不返回数据
+  ///
+  /// # 错误
+  /// 删除失败时返回 `Err(DeviceError)`，具体变体由实现决定
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```ignore
+  /// slot.forget()?;
+  /// ```
   fn forget(&self) -> Result<(), DeviceError>;
 
-  /// 用户锁定之后再解锁时，先通过系统验证。默认直接通过，测试用假槽走这里。
+  /// 默认直接通过系统验证
+  ///
+  /// # 返回值
+  /// 成功时不返回数据
+  ///
+  /// # 错误
+  /// 默认实现不会返回 `Err`
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```ignore
+  /// slot.confirm()?;
+  /// ```
   fn confirm(&self) -> Result<(), DeviceError> {
     Ok(())
   }
 }
 
+/// 返回当前平台的设备槽
+///
+/// Windows 使用 `WindowsDevice`，macOS 使用 `MacosDevice`，其余目标使用 `UnsupportedDevice`。
+///
+/// # 返回值
+/// 包在 `Arc` 里的设备槽
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let slot = platform_slot();
+/// ```
 pub(crate) fn platform_slot() -> Arc<dyn DeviceSlot> {
   #[cfg(target_os = "windows")]
   {

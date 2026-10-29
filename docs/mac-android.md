@@ -12,9 +12,9 @@ rusqlite = { version = "0.40", features = ["bundled-sqlcipher-vendored-openssl"]
 
 ## 1. 两套目标怎么分工
 
-| 在哪做 | 做什么 |
-| --- | --- |
-| macOS 桌面 | `pnpm app` / `pnpm build:mac`；日常前端与 Rust 桌面联调 |
+| 在哪做                  | 做什么                                                  |
+| ----------------------- | ------------------------------------------------------- |
+| macOS 桌面              | `pnpm app` / `pnpm build:mac`；日常前端与 Rust 桌面联调 |
 | macOS + Android SDK/NDK | `pnpm app:android` / `pnpm build:android`；真机或模拟器 |
 
 桌面端 SQLCipher（Perl / 工具链）见仓库根目录 [README.md](../README.md) 的「数据库 SQLCipher」一节。本文件只讲 **Android 交叉编译**。
@@ -67,10 +67,10 @@ brew install openjdk@21
 brew install perl pkg-config
 ```
 
-| 包 | 为什么要装 |
-| --- | --- |
-| `perl` | OpenSSL 的 `./Configure` 是 Perl 脚本；macOS 系统 Perl 一般可用，Homebrew 版更易与 PATH 对齐 |
-| `pkg-config` | 部分原生 crate 探测头文件 / `.pc` |
+| 包           | 为什么要装                                                                                   |
+| ------------ | -------------------------------------------------------------------------------------------- |
+| `perl`       | OpenSSL 的 `./Configure` 是 Perl 脚本；macOS 系统 Perl 一般可用，Homebrew 版更易与 PATH 对齐 |
+| `pkg-config` | 部分原生 crate 探测头文件 / `.pc`                                                            |
 
 Xcode Command Line Tools（`clang` / `make`）必须已安装：`xcode-select --install`。
 
@@ -86,11 +86,11 @@ rustup target add \
   x86_64-linux-android
 ```
 
-| target | 为什么 |
-| --- | --- |
-| `aarch64-linux-android` | 当前主流手机；`pnpm build:android` 也是这个 |
-| `armv7-linux-androideabi` | 32 位 ARM；`tauri android dev` 默认 universal 会编 |
-| `i686-linux-android` / `x86_64-linux-android` | 模拟器常见 ABI |
+| target                                        | 为什么                                             |
+| --------------------------------------------- | -------------------------------------------------- |
+| `aarch64-linux-android`                       | 当前主流手机；`pnpm build:android` 也是这个        |
+| `armv7-linux-androideabi`                     | 32 位 ARM；`tauri android dev` 默认 universal 会编 |
+| `i686-linux-android` / `x86_64-linux-android` | 模拟器常见 ABI                                     |
 
 ## 4. Node + pnpm
 
@@ -172,12 +172,12 @@ node -v
 pnpm -v
 ```
 
-| 变量 | 为什么 |
-| --- | --- |
-| `JAVA_HOME` | Gradle / AGP 找 JDK；只把 `java` 放进 PATH 不够 |
-| `ANDROID_HOME` / `ANDROID_SDK_ROOT` | Tauri CLI、Gradle 的 SDK 根目录；二者设成同一处 |
-| `NDK_HOME` | 拼 clang 路径；必须是 `.../ndk/<精确版本>`，不要只写到 `ndk/` |
-| `AR_*` / `RANLIB_*` / `CC_*` | 供 `openssl-src` 交叉编译；缺了会在 `make install_dev` 失败 |
+| 变量                                | 为什么                                                        |
+| ----------------------------------- | ------------------------------------------------------------- |
+| `JAVA_HOME`                         | Gradle / AGP 找 JDK；只把 `java` 放进 PATH 不够               |
+| `ANDROID_HOME` / `ANDROID_SDK_ROOT` | Tauri CLI、Gradle 的 SDK 根目录；二者设成同一处               |
+| `NDK_HOME`                          | 拼 clang 路径；必须是 `.../ndk/<精确版本>`，不要只写到 `ndk/` |
+| `AR_*` / `RANLIB_*` / `CC_*`        | 供 `openssl-src` 交叉编译；缺了会在 `make install_dev` 失败   |
 
 ## 7. 日常怎么跑
 
@@ -231,22 +231,140 @@ UNSIGNED=src-tauri/gen/android/app/build/outputs/apk/universal/release/app-unive
 adb install -r ~/app-universal-release.apk
 ```
 
+上面的 `debug.keystore` 只用于本机安装。备案和对外发布用下面这把正式密钥，两套证书的 MD5 不同。
+
+### 7.4 发布密钥与备案指纹
+
+备案要填包名、签名证书的 MD5 指纹和公钥。包名是 `com.viclilei.precession`。指纹和公钥都从正式密钥库导出。
+
+密钥库存到仓库外面。密钥库文件、密钥库口令、密钥口令、别名 `precession` 四样一起备份。`precession.cer` 只是导出的公钥证书，可以随时再导。不要把 `.jks` 提交进 git。
+
+生成密钥（RSA 2048，有效期约 27 年）：
+
+```bash
+keytool -genkeypair -v \
+  -keystore "$HOME/precession-release.jks" \
+  -alias precession \
+  -keyalg RSA \
+  -keysize 2048 \
+  -validity 10000
+```
+
+密钥库口令自己设定，输入时不回显，随后再确认一次。姓名和组织填自己的名字即可。城市和省份用拼音（例如 `Shenzhen`、`Guangdong`），国家代码填 `CN`。问到 `<precession>` 的密钥口令时直接回车，即与密钥库口令相同。
+
+确认行应类似：
+
+```text
+CN=viclilei, OU=viclilei, O=viclilei, L=Shenzhen, ST=Guangdong, C=CN是否正确?
+```
+
+此时输入 `y`。城市或省份若显示成 `????`，直接回车（默认否），改用拼音重新执行上面的命令。
+
+JDK 21 的 `keytool -list -v` 只打印 SHA1 和 SHA256。MD5 从导出的证书计算。导出时不要加 `-rfc`，否则哈希对不上证书指纹。
+
+```bash
+keytool -exportcert -alias precession \
+  -keystore "$HOME/precession-release.jks" \
+  -file "$HOME/precession.cer"
+
+openssl x509 -inform DER -in "$HOME/precession.cer" -fingerprint -md5 -noout
+openssl x509 -inform DER -in "$HOME/precession.cer" -pubkey -noout
+```
+
+`MD5 Fingerprint=` 后面去掉冒号，得到 32 位十六进制，填备案的证书 MD5。公钥先整段粘贴（含 `BEGIN PUBLIC KEY` / `END PUBLIC KEY`）。页面若提示格式不对，再去掉首尾两行和换行，只留中间的 Base64。
+
+用这把密钥签名正式包：
+
+```bash
+UNSIGNED=src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
+
+"$ANDROID_HOME/build-tools/36.1.0/apksigner" sign \
+  --ks "$HOME/precession-release.jks" \
+  --ks-pass pass:你的密钥库口令 \
+  --key-pass pass:你的密钥口令 \
+  --ks-key-alias precession \
+  --out ~/app-universal-release.apk \
+  "$UNSIGNED"
+```
+
+### 7.5 GitHub Actions 正式签名
+
+CI 的 Android 包由 `.github/workflows/build.yml` 里的 `build-android` 签名。密钥写在 GitHub 仓库的 Actions secrets 里，不进 git。Windows 侧的同一套说明见 [wsl-android.md](./wsl-android.md) 第 9.5 节。
+
+配置页：<https://github.com/viclilei1921/precession/settings/secrets/actions>
+
+点 **New repository secret**，一次加一条。用上一节已经生成的 `$HOME/precession-release.jks`，别名 `precession`。换一把新密钥后，证书指纹会变，已安装的包无法覆盖升级，备案指纹也对不上。
+
+| Name                        | Secret                                                        |
+| --------------------------- | ------------------------------------------------------------- |
+| `ANDROID_KEY_ALIAS`         | `precession`                                                  |
+| `ANDROID_KEYSTORE_PASSWORD` | 生成密钥库时设的口令                                          |
+| `ANDROID_KEY_PASSWORD`      | 密钥口令。生成时直接回车的话，与密钥库口令相同                |
+| `ANDROID_KEYSTORE_BASE64`   | 密钥库文件的 Base64，一整段，不要换行，不要带 `BEGIN` / `END` |
+
+macOS 的 `base64` 默认折行，贴进 Secret 前去掉换行：
+
+```bash
+base64 -i "$HOME/precession-release.jks" | tr -d '\n'
+```
+
+记不清口令时，能列出证书即说明口令正确。把刚输入的那串分别填进两个口令 Secret：
+
+```bash
+keytool -list -keystore "$HOME/precession-release.jks" -alias precession
+```
+
+四条要一起配。只配了 `ANDROID_KEYSTORE_BASE64`、口令或别名缺了，签名步骤会失败，日志是「已提供 ANDROID_KEYSTORE_BASE64，但密码或别名为空」。四条都空时，CI 会临时生成密钥，APK 能装，后续版本无法覆盖安装。`GITHUB_TOKEN` 由 Actions 自动注入，不用建。工作流里的 macOS、Windows 签名目前是注释，不用配。
+
+手动确认：Actions → **Cross-Platform Build** → **Run workflow**。打开 `build-android` 的 **Sign APK**。成功时这一步是绿的，日志里有：
+
+```text
+使用仓库密钥签名
+```
+
+产物在该次运行 Summary 底部，名字是 `precession-aarch64-linux-android`。口令错误、别名不存在，或 Base64 不是这把 `.jks` 时，`apksigner` 会报密钥库密码错误或格式不对。
+
+### 7.6 从 APK 核对包结构
+
+下载的 Artifact 是 zip，先解压得到里面的 `.apk`。手动触发时文件名类似 `precession-0.1.0-<7位提交号>-aarch64.apk`。推送 `v*` tag 时，版本段是 tag 名，例如 `precession-v0.1.0-aarch64.apk`。
+
+这次 CI 执行的是 `tauri android build --target aarch64 --apk`。正确的包同时满足：
+
+- 包名 `com.viclilei.precession`，`minSdk` 24，`targetSdk` 36
+- 原生代码只有 `arm64-v8a`
+- 存在 `lib/arm64-v8a/libprecession_lib.so`。`tauri.android.conf.json` 把 `externalBin` 置空，包里没有 `ffmpeg`、`cjxl`、`avifenc`
+- 签名证书的 SHA-256 与 `$HOME/precession-release.jks` 里别名 `precession` 的证书一致
+
+```bash
+APK=~/precession-0.1.0-xxxxxxx-aarch64.apk
+
+"$ANDROID_HOME/build-tools/36.1.0/aapt" dump badging "$APK" | grep -E "package:|sdkVersion:|targetSdkVersion:|native-code:"
+unzip -l "$APK" | grep -E "lib/|AndroidManifest.xml|classes.*dex"
+"$ANDROID_HOME/build-tools/36.1.0/apksigner" verify --print-certs "$APK"
+keytool -list -v -keystore "$HOME/precession-release.jks" -alias precession
+```
+
+`aapt` 里应看到包名和 `native-code: 'arm64-v8a'`。`apksigner` 打印 `Verifies`，并且证书 SHA-256 与 `keytool` 那一行相同，说明包结构和正式签名都对。能否在手机上打开，仍要安装后看。
+
+本机 `pnpm build:android` 打的是 universal 包（见 7.3），可以带多个 ABI。上面的「只有 arm64-v8a」针对这次 CI 产物。
+
 ## 8. 常见问题
 
-| 现象 | 原因 / 处理 |
-| --- | --- |
-| `make install_dev` / OpenSSL exit 2 | 未设 `AR_*` / `RANLIB_*` / `CC_*`，或 `NDK_BIN` 指错（应为 `darwin-x86_64`） |
-| `Unsupported class file major version 69` | `JAVA_HOME` 仍指向 Java 25（常见为 Android Studio JBR）；改用 `openjdk@21` |
-| `java.lang.System::load` 的 WARNING | 用错新 JDK 时的附带警告；先换成 JDK 21 即可 |
-| `sdkmanager` / Gradle 找不到 `android-36` | SDK Manager 未装 `platforms;android-36` |
-| Configure / Perl 相关失败 | 确认 `which perl` 可用；必要时 `brew install perl` |
+| 现象                                                                           | 原因 / 处理                                                                                                                                                                                                                                                                           |
+| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `make install_dev` / OpenSSL exit 2                                            | 未设 `AR_*` / `RANLIB_*` / `CC_*`，或 `NDK_BIN` 指错（应为 `darwin-x86_64`）                                                                                                                                                                                                          |
+| `Unsupported class file major version 69`                                      | `JAVA_HOME` 仍指向 Java 25（常见为 Android Studio JBR）；改用 `openjdk@21`                                                                                                                                                                                                            |
+| `java.lang.System::load` 的 WARNING                                            | 用错新 JDK 时的附带警告；先换成 JDK 21 即可                                                                                                                                                                                                                                           |
+| `sdkmanager` / Gradle 找不到 `android-36`                                      | SDK Manager 未装 `platforms;android-36`                                                                                                                                                                                                                                               |
+| `keytool -list -v` 没有 MD5                                                    | JDK 21 不再打印 MD5；按 7.4 用 `openssl` 从证书计算                                                                                                                                                                                                                                   |
+| Configure / Perl 相关失败                                                      | 确认 `which perl` 可用；必要时 `brew install perl`                                                                                                                                                                                                                                    |
 | `:app:rustBuild*Debug`：`A problem occurred starting process 'command 'pnpm''` | Gradle 守护进程仍用**启动时**的 `PATH` 找 `pnpm`。fnm/corepack 的 `pnpm` 是当前 shell 的符号链接，旧守护进程会直接 ENOENT。`gen/android` 里的 `BuildTask.kt` 已改为经 `/bin/sh` 启动。若刚跑过 `tauri android init`（会覆盖该文件），先 `src-tauri/gen/android/gradlew --stop` 再重试 |
 
 ## 与 Windows WSL 文档的差异
 
-| 项 | macOS（本文） | Windows → Android |
-| --- | --- | --- |
-| 编译场所 | 本机 macOS | **必须**在 WSL，见 [wsl-android.md](./wsl-android.md) |
-| NDK 预编译目录 | `darwin-x86_64` | `linux-x86_64` |
-| JDK | `brew install openjdk@21` | WSL 内 `openjdk-21-jdk` |
-| SDK 管理 | Android Studio 即可 | 常用 Linux cmdline-tools |
+| 项             | macOS（本文）             | Windows → Android                                     |
+| -------------- | ------------------------- | ----------------------------------------------------- |
+| 编译场所       | 本机 macOS                | **必须**在 WSL，见 [wsl-android.md](./wsl-android.md) |
+| NDK 预编译目录 | `darwin-x86_64`           | `linux-x86_64`                                        |
+| JDK            | `brew install openjdk@21` | WSL 内 `openjdk-21-jdk`                               |
+| SDK 管理       | Android Studio 即可       | 常用 Linux cmdline-tools                              |

@@ -1,0 +1,28 @@
+/* 定位宿主：相对定位，溢出裁切，和内部内容分层 */
+.host {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.ripple {
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  background: currentColor;
+  border-radius: var(--radius-pill);
+  transform: scale(0);
+  animation: ripple 560ms ease-out forwards;
+}
+
+@keyframes ripple {
+  0% {
+    opacity: 0.32;
+    transform: scale(0);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}

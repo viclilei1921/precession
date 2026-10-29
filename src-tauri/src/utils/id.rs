@@ -1,6 +1,19 @@
 use rand::Rng;
 
-/// RFC 4122 UUID v4，给业务表主键用。
+/// 生成 RFC 4122 UUID v4 字符串
+///
+/// 随机 16 字节后写入版本号 4 和 RFC 变体位，再格式化成带连字符的十六进制。
+///
+/// # 返回值
+/// `8-4-4-4-12` 形式的字符串
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let id = new_uuid_v4();
+/// ```
 pub fn new_uuid_v4() -> String {
   let mut bytes = [0u8; 16];
   rand::rng().fill_bytes(&mut bytes);

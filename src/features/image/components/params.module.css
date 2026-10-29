@@ -1,0 +1,72 @@
+.panel {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: start;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+}
+
+.bar {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.segments {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 3px;
+  background: var(--muted);
+  border-radius: var(--radius-md);
+}
+
+.tip {
+  /* 和说明浮层右侧内边距一致，滑块落在这条留白里。 */
+  --scroll-edge: 0.75rem;
+  --scroll-hit: 0.75rem;
+  max-height: 18rem;
+}
+
+.tipBody {
+  display: grid;
+  gap: 0.625rem;
+}
+
+.tipItem {
+  margin: 0;
+  text-align: justify;
+  text-justify: inter-character;
+}
+
+.tipName {
+  font-weight: 700;
+}
+
+.tipName::after {
+  content: "：";
+}
+
+.row {
+  display: flex;
+  flex-flow: row wrap;
+  gap: var(--space-3) var(--space-4);
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.num {
+  width: 5.5rem;
+}
+
+.numShort {
+  width: 4.75rem;
+}
+
+.choice {
+  width: 5.75rem;
+}
+
+.choiceWide {
+  width: 7.75rem;
+}

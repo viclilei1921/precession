@@ -1,6 +1,6 @@
 [package]
 name = "precession"
-version = "0.1.0"
+version = "0.1.1"
 description = "Precession App"
 authors = ["viclilei1921"]
 edition = "2024"
@@ -14,16 +14,23 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2.11", features = ["tray-icon"] }
-tauri-plugin-log = "2.9.2"
+tauri = { version = "2.12", features = ["tray-icon"] }
+tauri-plugin-log = "2.10"
+tauri-plugin-shell = "2"
+tauri-plugin-os = "2"
+tauri-plugin-dialog = "2"
 
 # --- 序列化 / JSON ---
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
+# --- 日历/时间 ---
+chrono = { version = "0.4.45", default-features = false, features = ["std"] }
+
 # --- 档案加密库 ---
 rusqlite = { version = "0.40", features = ["bundled-sqlcipher-vendored-openssl"] }
 argon2 = "0.6"
+chacha20 = "0.10"
 chacha20poly1305 = "0.11"
 rand = "0.10"
 zeroize = "1"
@@ -31,24 +38,49 @@ hex = "0.4"
 base64 = "0.23"
 thiserror = "2"
 
+# --- 本地电子书解析 ---
+encoding_rs = "0.8"
+mime_guess = "2"
+regex = "1"
+roxmltree = "0.21"
+zip = { version = "9", default-features = false, features = ["deflate"] }
+
+# --- 视频 / 图片转码（侧车：ffmpeg、avifenc、cjxl）---
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp", "bmp", "tiff"] }
+tokio = { version = "1", features = ["macros", "time"] }
+
+# --- windows Hello 设备密钥 ---
 [target.'cfg(target_os = "windows")'.dependencies]
-windows = { version = "0.61", features = [
+windows = { version = "0.62", features = [
   "Win32_Foundation",
   "Win32_Security_Cryptography",
+  "Win32_System_Com",
   "Win32_System_WinRT",
   "Win32_UI_WindowsAndMessaging",
   "Security_Credentials_UI",
 ] }
-windows-future = "0.2.1"
+# windows 0.62版本对应的只能是0.3版本
+windows-future = "0.3"
 
+# --- mac 钥匙串 ---
 [target.'cfg(target_os = "macos")'.dependencies]
 security-framework = { version = "3", features = ["OSX_10_15"] }
 objc2 = "0.6"
+objc2-app-kit = { version = "0.3.2", features = [
+  "NSButton",
+  "NSControl",
+  "NSResponder",
+  "NSScrollView",
+  "NSView",
+  "NSWindow",
+] }
 objc2-foundation = { version = "0.3.2", features = ["NSError", "NSString"] }
+objc2-web-kit = { version = "0.3.2", features = ["WKWebView", "objc2-app-kit"] }
 objc2-local-authentication = "0.3.2"
 objc2-security = "0.3.2"
 block2 = "0.6"
 
+# --- 设备槽/密钥 ---
 [target.'cfg(target_os = "android")'.dependencies]
 precession-device-slot = { path = "device-slot" }
 

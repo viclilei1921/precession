@@ -1,0 +1,26 @@
+.wrap {
+  position: relative;
+  min-width: 0;
+}
+
+.select {
+  padding-inline-end: var(--space-6);
+  appearance: none;
+  cursor: pointer;
+}
+
+.select option {
+  color: var(--foreground);
+}
+
+.caret {
+  position: absolute;
+  top: 50%;
+  right: var(--space-3);
+  z-index: 2;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  color: var(--muted-foreground);
+  pointer-events: none;
+  transform: translateY(-50%);
+}

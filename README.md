@@ -35,6 +35,11 @@ pnpm build:win
 pnpm build:mac
 pnpm build:android
 
+# 改版本。三段写成商店清单 x.y.z.0；同一版本重交商店时带上更高的第四位
+pnpm version:set 0.1.1
+
+# Windows 商店 MSIX 见 docs/windows-publish.md
+
 # 前后端格式化并修复
 pnpm format
 
@@ -42,11 +47,7 @@ pnpm format
 pnpm tauri icon ./app-icon.png
 ```
 
-
-
 ## 前端
-
-
 
 ### 格式化（Biome）
 
@@ -58,8 +59,6 @@ pnpm lint       # 检查
 pnpm lint:fix  # 检查并写入修复
 ```
 
-
-
 ### 依赖
 
 ```bash
@@ -70,8 +69,6 @@ pnpm up:i       # 按 latest 升级依赖
 # pnpm-workspace.yaml 中的 minimumReleaseAge 控制「多久之前发布的包才视为可用」；0 表示不限制
 ```
 
-
-
 ### React
 
 使用 React 开发，参考 [React 文档](https://zh-hans.react.dev/)。
@@ -81,8 +78,6 @@ pnpm up:i       # 按 latest 升级依赖
 使用原生 CSS Modules。样式文件中可用 kebab-case 类名，在 React 中以小驼峰引用；Vite 中已做相应配置。
 
 ## 后端
-
-
 
 ### 格式化（rustfmt）
 
@@ -96,8 +91,6 @@ cargo fmt
 pnpm fmt
 pnpm fmt:fix
 ```
-
-
 
 ### 依赖（Cargo）
 
@@ -124,8 +117,6 @@ cargo update -p some_crate
 cargo check
 ```
 
-
-
 ### 编译缓存
 
 Rust 编译缓存体积较大，可按需清理：
@@ -140,8 +131,6 @@ cargo clean --profile release
 cargo cache
 cargo cache --autoclean
 ```
-
-
 
 ## 数据库 SQLCipher
 
@@ -167,36 +156,31 @@ rusqlite = { version = "0.40", features = ["bundled-sqlcipher-vendored-openssl"]
 
 应用数据目录下大致为：
 
-
-| 文件                | 作用                              |
-| ----------------- | ------------------------------- |
-| `data.sqlite`     | SQLCipher 加密库；没有正确 DEK 时内容不可读   |
-| `key.header.json` | 密钥头：盐、Argon2id 参数、被 KEK 包装的 DEK |
-| `device.wrap`     | 设备槽密文。系统密钥库才能解开；没有它时每次都要输入档案密码 |
-
+| 文件                      | 作用                                                         |
+| ------------------------- | ------------------------------------------------------------ |
+| `data/db/data.sqlite`     | SQLCipher 加密库；没有正确 DEK 时内容不可读                  |
+| `data/db/key.header.json` | 密钥头：盐、Argon2id 参数、被 KEK 包装的 DEK                 |
+| `data/db/device.wrap`     | 设备槽密文。系统密钥库才能解开；没有它时每次都要输入档案密码 |
+| `data/db/user.lock`       | 用户锁定标记。存在时重启仍停在解锁页                         |
 
 流程概要：
 
 1. 用户密码经 **Argon2id** 派生 **KEK**，用 **XChaCha20-Poly1305** 包装随机 **DEK**（32 字节），写入 `key.header.json`。
 2. 开库时解开 DEK，执行 `PRAGMA key = "x'<64 hex>'"`（原始密钥，不再让 SQLCipher 做口令派生）。
-3. 启用设备槽后，同一把 DEK 再由本机系统密钥库包一份，写入 `device.wrap`。未锁定时打开应用会直接进入。点锁定后写入 `user.lock`，重启仍保持锁定，解锁需要 Windows Hello、Touch ID 或生物识别。拷走数据库目录仍然无法解密。见 [docs/device-unlock.md](./docs/device-unlock.md)。
-4. 业务表通过 `DbState::with_conn` 访问；如何新增业务模块见 [docs/db-feature.md](./docs/db-feature.md)。
+3. 启用设备槽后，同一把 DEK 再由本机系统密钥库包一份，写入 `device.wrap`。未锁定时打开应用会直接进入。点锁定后写入 `user.lock`，重启仍保持锁定，解锁需要 Windows Hello、Touch ID 或生物识别。拷走数据库目录仍然无法解密。
+4. 业务表通过 `DbState::with_conn` 访问。
 
-
+表结构在初始架构阶段全部重建，旧的开发库不会迁移。升级后需要手动删除本地 `data/db`。
 
 ### 平台一览
 
-
-| 场景                | 做法                                                                            |
-| ----------------- | ----------------------------------------------------------------------------- |
-| Windows 桌面        | 下文「Windows 桌面」                                                                |
-| macOS 桌面          | 下文「macOS 桌面」                                                                  |
-| Linux / WSL 桌面    | 下文「Linux / WSL」；apt 明细可参考 [docs/wsl-android.md](./docs/wsl-android.md) 第 4 节  |
+| 场景              | 做法                                                                                         |
+| ----------------- | -------------------------------------------------------------------------------------------- |
+| Windows 桌面      | 下文「Windows 桌面」                                                                         |
+| macOS 桌面        | 下文「macOS 桌面」                                                                           |
+| Linux / WSL 桌面  | 下文「Linux / WSL」；apt 明细可参考 [docs/wsl-android.md](./docs/wsl-android.md) 第 4 节     |
 | Windows → Android | **不能**在 Windows 本机交叉编译；必须在 WSL，见 [docs/wsl-android.md](./docs/wsl-android.md) |
-| macOS → Android   | 见 [docs/mac-android.md](./docs/mac-android.md)                                |
-
-
-
+| macOS → Android   | 见 [docs/mac-android.md](./docs/mac-android.md)                                              |
 
 ### Windows 桌面
 
@@ -244,4 +228,3 @@ sudo apt install -y build-essential pkg-config perl
 pnpm app:android
 pnpm build:android
 ```
-
