@@ -197,22 +197,19 @@ export function GrowthEditor({ entry, ownerId, kind, onClose, onSaved, onDeleted
         <IconButton label="返回" disabled={busy} onClick={onClose}>
           <CaretLeftIcon weight="regular" />
         </IconButton>
-        {entry == null ? (
-          <Button
-            type="submit"
-            className={styles.push}
-            disabled={busy || memberId === ''}
-            onClick={() => {
-              if (title.trim() === '') {
-                closeSettings();
-              }
-            }}
-          >
-            保存
-          </Button>
-        ) : null}
+        <Button
+          type="submit"
+          className={styles.push}
+          disabled={busy || memberId === ''}
+          onClick={() => {
+            if (title.trim() === '') {
+              closeSettings();
+            }
+          }}
+        >
+          保存
+        </Button>
         <IconButton
-          className={entry == null ? undefined : styles.push}
           label={settingsOpen ? '收起设置' : '打开设置'}
           expanded={settingsOpen}
           disabled={busy}

@@ -98,6 +98,7 @@
     "codegen",
     "commandlinetools",
     "Condvar",
+    "contenteditable",
     "coreimage",
     "coretext",
     "cuda",
