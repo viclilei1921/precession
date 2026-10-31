@@ -234,6 +234,49 @@ impl<R: Runtime> DeviceApi<R> {
       Err(map_code(response.code.as_deref()))
     }
   }
+
+  /// 把缓存里的压缩包交给系统分享
+  ///
+  /// # 参数
+  /// - `path`: 应用缓存目录里的文件路径
+  ///
+  /// # 返回值
+  /// 系统分享面板打开后不返回数据
+  ///
+  /// # 错误
+  /// 插件调用失败时返回 `Internal`；`ok` 为假时按 `code` 调用 `map_code`
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```ignore
+  /// api.share(path)?;
+  /// ```
+  pub fn share(&self, path: &str) -> Result<(), SlotError> {
+    let response: SlotResponse = self
+      .handle
+      .run_mobile_plugin("share", ShareRequest { path: path.to_string() })
+      .map_err(|_| SlotError::Internal)?;
+    if response.ok {
+      Ok(())
+    } else {
+      Err(map_code(response.code.as_deref()))
+    }
+  }
+}
+
+/// 交给移动端 `share` 的请求
+///
+/// # 字段
+/// - `path`: 要分享的文件路径
+///
+/// # 示例
+/// 见 [`DeviceApi::share`]
+#[derive(Serialize)]
+struct ShareRequest {
+  /// 要分享的文件路径
+  path: String,
 }
 
 /// 把插件返回的代码字符串映射成 `SlotError`

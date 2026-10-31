@@ -22,12 +22,31 @@ function SystemTheme() {
   return null;
 }
 
+/** 移动端打开已经写好的触摸和单列样式。平台在启动时就定了。 */
+function MobilePlatform() {
+  const mobile = useAppStore((state) => state.isMobile());
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (!mobile) {
+      delete root.dataset.platform;
+      delete root.dataset.touchUi;
+      return;
+    }
+    root.dataset.platform = 'mobile';
+    root.dataset.touchUi = 'true';
+  }, [mobile]);
+
+  return null;
+}
+
 export default function App() {
   const unlockedDb = useAppStore((state) => state.dbStatus?.unlocked);
 
   return (
     <div className={styles.app}>
       <SystemTheme />
+      <MobilePlatform />
       <TitleBar />
       {unlockedDb ? <ContentView /> : <LockView />}
     </div>

@@ -1,0 +1,24 @@
+.fab {
+  position: fixed;
+  right: 16px;
+  bottom: calc(var(--dock-h) + var(--inset-bottom) + 16px);
+  z-index: var(--z-dock);
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  height: 48px;
+  padding: 0 var(--space-4);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--primary-foreground);
+  background: var(--primary);
+  border: 0;
+  border-radius: 999px;
+  box-shadow: 0 8px 20px oklch(from var(--primary) l c h / 35%);
+}
+
+.fab svg {
+  width: var(--icon-md);
+  height: var(--icon-md);
+}

@@ -8,11 +8,14 @@ import { SegmentButton } from '@/components/button/segment';
 import { firstImageId, UploadThumb } from '@/components/markdown';
 import { Scroll } from '@/components/scroll';
 import { usePageSearch } from '@/hooks/search';
+import { Fab } from '@/layout/mobile/fab';
 import { journalListQuery } from '@/query/journal/query';
 import { PATH } from '@/router/path';
+import { useAppStore } from '@/store/app';
 import { errorMessage } from '@/utils/error';
 import { matchesQuery } from '@/utils/search';
 import { JournalEditor } from './components/editor';
+import { MobileJournalEditor } from './mobile/editor';
 import { useJournalNames } from './names';
 import styles from './page.module.css';
 import { journalDate, journalExcerpt, journalWords, lookupNames } from './text';
@@ -27,11 +30,14 @@ const kinds: { kind: JournalKind; label: string; Icon: typeof NotebookIcon }[] =
 export function JournalPage() {
   const navigate = useNavigate();
   const search = useSearch({ from: '/journal' });
+  const mobile = useAppStore((state) => state.isMobile());
   const [kind, setKind] = useState<JournalKind>(search.kind ?? 'diary');
   const [creating, setCreating] = useState(false);
+  const [localQuery, setLocalQuery] = useState('');
   const listQuery = useQuery(journalListQuery(kind));
   const names = useJournalNames();
-  const query = usePageSearch('搜索手记');
+  const pageQuery = usePageSearch('搜索手记');
+  const query = mobile ? localQuery : pageQuery;
   const entries = [...(listQuery.data ?? [])]
     .filter((entry) => matchesQuery(query, entry.title, entry.body))
     .sort((left, right) => right.occurredAt - left.occurredAt);
@@ -40,13 +46,35 @@ export function JournalPage() {
     if (search.kind) {
       setKind(search.kind);
     }
+    if (mobile) {
+      if (search.kind) {
+        void navigate({
+          to: PATH.journal,
+          search: search.create ? { create: true } : {},
+          replace: true
+        });
+      }
+      return;
+    }
     if (search.create) {
       setCreating(true);
     }
     if (search.create || search.kind) {
       void navigate({ to: PATH.journal, search: {}, replace: true });
     }
-  }, [navigate, search.create, search.kind]);
+  }, [mobile, navigate, search.create, search.kind]);
+
+  if (mobile && search.create) {
+    return (
+      <MobileJournalEditor
+        kind={kind}
+        onClose={() => void navigate({ to: PATH.journal, search: {} })}
+        onSaved={(entry) => {
+          void navigate({ to: PATH.journalEntry, params: { entryId: entry.id } });
+        }}
+      />
+    );
+  }
 
   if (creating) {
     return (
@@ -73,11 +101,30 @@ export function JournalPage() {
             </SegmentButton>
           ))}
         </div>
-        <Button className={styles.add} onClick={() => setCreating(true)}>
+        <Button
+          className={styles.add}
+          onClick={() => (mobile ? void navigate({ to: PATH.journal, search: { create: true } }) : setCreating(true))}
+        >
           <PlusIcon weight="regular" />
           新建
         </Button>
       </header>
+      {mobile ? (
+        <form
+          className={styles.search}
+          onSubmit={(event) => {
+            event.preventDefault();
+          }}
+        >
+          <input
+            type="search"
+            value={localQuery}
+            placeholder="搜索标题或正文"
+            aria-label="搜索手记"
+            onChange={(event) => setLocalQuery(event.target.value)}
+          />
+        </form>
+      ) : null}
       <Scroll className={styles.scroll}>
         <div className={styles.body}>
           {listQuery.isPending ? <p className={styles.note}>正在读取…</p> : null}
@@ -140,6 +187,9 @@ export function JournalPage() {
           ) : null}
         </div>
       </Scroll>
+      {mobile ? (
+        <Fab label="写一条" onClick={() => void navigate({ to: PATH.journal, search: { create: true } })} />
+      ) : null}
     </section>
   );
 }

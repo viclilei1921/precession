@@ -1,6 +1,8 @@
 package com.viclilei.precession.device
 
 import android.app.Activity
+import android.content.ClipData
+import android.content.Intent
 import android.os.Build
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyPermanentlyInvalidatedException
@@ -9,6 +11,7 @@ import android.util.Base64
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.fragment.app.FragmentActivity
 import app.tauri.annotation.Command
 import app.tauri.annotation.InvokeArg
@@ -16,6 +19,7 @@ import app.tauri.annotation.TauriPlugin
 import app.tauri.plugin.Invoke
 import app.tauri.plugin.JSObject
 import app.tauri.plugin.Plugin
+import java.io.File
 import java.nio.ByteBuffer
 import java.security.KeyStore
 import javax.crypto.Cipher
@@ -36,6 +40,11 @@ class EnrollArgs {
 @InvokeArg
 class OpenArgs {
     lateinit var ctB64: String
+}
+
+@InvokeArg
+class ShareArgs {
+    lateinit var path: String
 }
 
 @TauriPlugin
@@ -142,6 +151,34 @@ class DeviceSlotPlugin(private val activity: Activity) : Plugin(activity) {
             },
         )
         prompt.authenticate(promptInfo())
+    }
+
+    @Command
+    fun share(invoke: Invoke) {
+        val args = invoke.parseArgs(ShareArgs::class.java)
+        val file = File(args.path)
+        if (!file.isFile) {
+            finish(invoke, false, "invalid")
+            return
+        }
+        val uri = try {
+            FileProvider.getUriForFile(activity, "${activity.packageName}.fileprovider", file)
+        } catch (_: IllegalArgumentException) {
+            finish(invoke, false, "invalid")
+            return
+        }
+        val send = Intent(Intent.ACTION_SEND).apply {
+            type = "application/zip"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            clipData = ClipData.newRawUri("", uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        try {
+            activity.startActivity(Intent.createChooser(send, "导出档案"))
+            finish(invoke, true)
+        } catch (_: Exception) {
+            finish(invoke, false, "unavailable")
+        }
     }
 
     @Command

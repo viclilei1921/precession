@@ -17,7 +17,8 @@ export type ArchiveExport = {
 
 const ARCHIVE_FILTER = [{ name: 'Precession 档案', extensions: ['zip'] }];
 
-function todayName() {
+/** 当天的档案文件名，例如 precession-2026-10-31.zip */
+export function todayArchiveName() {
   const now = new Date();
   const month = String(now.getMonth() + 1).padStart(2, '0');
   const day = String(now.getDate()).padStart(2, '0');
@@ -34,6 +35,11 @@ export function archiveExport(path: string) {
   return invokeCommand<ArchiveExport>('archive_export', { path });
 }
 
+/** 写到应用缓存并打开系统分享。name 只是文件名 */
+export function archiveExportShare(name: string) {
+  return invokeCommand<ArchiveExport>('archive_export_share', { name });
+}
+
 /** 用压缩包替换当前数据库和上传文件。成功后会话已关闭 */
 export function archiveImport(path: string) {
   return invokeCommand<void>('archive_import', { path });
@@ -42,7 +48,7 @@ export function archiveImport(path: string) {
 /** 让用户选择压缩包的保存位置。取消时返回空字符串 */
 export async function pickArchiveSave() {
   const selected = await save({
-    defaultPath: todayName(),
+    defaultPath: todayArchiveName(),
     filters: ARCHIVE_FILTER
   });
   return selected ?? '';

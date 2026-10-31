@@ -22,6 +22,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Syn
     crate::db::commands::db_disable_device_unlock,
     crate::archive::commands::archive_info,
     crate::archive::commands::archive_export,
+    crate::archive::commands::archive_export_share,
     crate::archive::commands::archive_import,
     crate::member::commands::member_list,
     crate::member::commands::member_get,

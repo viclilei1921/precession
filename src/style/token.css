@@ -155,3 +155,7 @@ html.dark {
 
   color-scheme: dark;
 }
+
+html[data-platform="mobile"] {
+  --dock-h: 62px;
+}

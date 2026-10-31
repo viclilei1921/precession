@@ -1,0 +1,183 @@
+.page {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  margin: calc(var(--space-4) * -1) calc(var(--space-5) * -1);
+}
+
+.search {
+  display: flex;
+  flex: none;
+  gap: var(--space-2);
+  align-items: center;
+  padding: var(--space-3) 16px 0;
+}
+
+.search input {
+  flex: 1;
+  min-width: 0;
+  height: var(--tap);
+  padding: 0 var(--space-3);
+  font: inherit;
+  color: var(--foreground);
+  background: var(--muted);
+  border: 0;
+  border-radius: var(--radius-md);
+}
+
+.search button {
+  flex: none;
+  min-height: var(--tap);
+  padding: 0 var(--space-2);
+  font: inherit;
+  color: var(--primary);
+  background: transparent;
+  border: 0;
+}
+
+.body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 0;
+  padding: var(--space-4) 16px calc(var(--dock-h) + 72px);
+  overflow: auto;
+}
+
+.week {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.weekHead {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  font-size: var(--text-sm);
+}
+
+.weekHead > span {
+  flex: 1;
+  min-width: 0;
+}
+
+.today,
+.filters button {
+  min-height: var(--tap);
+  padding: 0 var(--space-3);
+  font: inherit;
+  font-size: var(--text-sm);
+  color: var(--foreground);
+  background: var(--muted);
+  border: 0;
+  border-radius: 999px;
+}
+
+.weekNav {
+  display: flex;
+  flex: none;
+}
+
+.days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: var(--space-1);
+}
+
+.day {
+  display: grid;
+  gap: 2px;
+  justify-items: center;
+  min-height: var(--tap);
+  padding: var(--space-1) 0;
+  font: inherit;
+  color: var(--foreground);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-md);
+}
+
+.day span {
+  font-size: var(--text-xs);
+  color: var(--muted-foreground);
+}
+
+.day strong {
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.day i {
+  width: 4px;
+  height: 4px;
+  background: transparent;
+  border-radius: 999px;
+}
+
+.day i[data-busy="true"] {
+  background: var(--plan);
+}
+
+.day[data-on="true"] {
+  color: var(--primary-foreground);
+  background: var(--plan);
+}
+
+.weekLine {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--muted-foreground);
+}
+
+.filters {
+  display: flex;
+  gap: var(--space-2);
+  overflow-x: auto;
+}
+
+.filters button {
+  flex: none;
+}
+
+.filters button[data-on="true"] {
+  color: var(--plan);
+  background: var(--plan-soft);
+}
+
+.dayHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.dayHead strong {
+  font-size: var(--text-base);
+}
+
+.dayHead span,
+.empty,
+.error {
+  font-size: var(--text-sm);
+  color: var(--muted-foreground);
+}
+
+.error {
+  color: var(--destructive);
+}
+
+.day[data-on="true"] span,
+.day[data-on="true"] i[data-busy="true"] {
+  color: inherit;
+  background: var(--primary-foreground);
+}
+
+.list {
+  display: grid;
+  gap: var(--space-2);
+}

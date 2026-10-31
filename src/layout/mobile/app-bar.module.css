@@ -1,0 +1,36 @@
+.bar {
+  display: flex;
+  flex: none;
+  gap: var(--space-3);
+  align-items: center;
+  min-height: var(--header-h);
+  padding: var(--space-3) 16px 0;
+}
+
+.copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.copy h1 {
+  margin: 0;
+  font-size: var(--text-xl);
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.copy p {
+  margin: 2px 0 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: var(--text-sm);
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+
+.actions {
+  display: flex;
+  flex: none;
+  gap: var(--space-1);
+  align-items: center;
+}

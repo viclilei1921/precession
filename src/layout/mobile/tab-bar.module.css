@@ -1,0 +1,53 @@
+.tabbar {
+  position: sticky;
+  bottom: 0;
+  z-index: var(--z-dock);
+  display: grid;
+  flex: none;
+  grid-template-columns: repeat(5, 1fr);
+  align-items: center;
+  height: calc(var(--dock-h) + var(--inset-bottom));
+  padding-bottom: var(--inset-bottom);
+  background: var(--card);
+  border-top: 1px solid var(--border);
+}
+
+.tab {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  align-items: center;
+  justify-content: center;
+  min-height: var(--tap);
+  font-size: var(--text-xs);
+  color: var(--muted-foreground);
+  text-align: center;
+  text-decoration: none;
+}
+
+.icon {
+  flex: none;
+  width: var(--icon-md);
+  height: var(--icon-md);
+}
+
+.tab[data-status="active"] {
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.tab[data-tone="plan"][data-status="active"] {
+  color: var(--plan);
+}
+
+.tab[data-tone="journal"][data-status="active"] {
+  color: var(--journal);
+}
+
+.tab[data-tone="growth"][data-status="active"] {
+  color: var(--growth);
+}
+
+.tab[data-tone="library"][data-status="active"] {
+  color: var(--library);
+}

@@ -2,15 +2,15 @@ import { createHashHistory, createRootRoute, createRoute, createRouter, redirect
 import { CipherPage } from '@/features/cipher/page';
 import { FilesPage } from '@/features/files/page';
 import { GrowthEntryPage } from '@/features/growth/entry-page';
-import { GrowthPage } from '@/features/growth/page';
+import { GrowthRoute } from '@/features/growth/route';
 import { ImagePage } from '@/features/image/page';
 import { JournalEntryPage } from '@/features/journal/entry-page';
 import { JournalPage } from '@/features/journal/page';
 import { LibraryPage } from '@/features/library/page';
 import { ReadPage } from '@/features/library/read-page';
 import { ReaderPage } from '@/features/library/reader-page';
-import { PlanPage } from '@/features/plan/page';
-import { SettingsPage } from '@/features/settings/page';
+import { PlanRoute } from '@/features/plan/route';
+import { SettingsRoute } from '@/features/settings/route';
 import { TodayPage } from '@/features/today/page';
 import { VideoPage } from '@/features/video/page';
 import { ContentLayout } from '@/layout/content';
@@ -55,7 +55,7 @@ const planRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: PATH.plan,
   validateSearch: validatePlanSearch,
-  component: PlanPage
+  component: PlanRoute
 });
 
 type JournalSearch = {
@@ -92,6 +92,7 @@ type GrowthSearch = {
   kind?: 'milestone' | 'moment';
   id?: string;
   member?: string;
+  sheet?: 'family' | 'measure';
 };
 
 function validateGrowthSearch(search: Record<string, unknown>): GrowthSearch {
@@ -108,6 +109,9 @@ function validateGrowthSearch(search: Record<string, unknown>): GrowthSearch {
   if (typeof search.member === 'string' && search.member.length > 0) {
     next.member = search.member;
   }
+  if (search.sheet === 'family' || search.sheet === 'measure') {
+    next.sheet = search.sheet;
+  }
   return next;
 }
 
@@ -115,7 +119,7 @@ const growthRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: PATH.growth,
   validateSearch: validateGrowthSearch,
-  component: GrowthPage
+  component: GrowthRoute
 });
 
 const growthEntryRoute = createRoute({
@@ -227,10 +231,25 @@ const filesRoute = createRoute({
   component: FilesPage
 });
 
+const SETTINGS_SHEETS = ['theme', 'reading', 'versions', 'archive', 'device', 'lockconfirm'] as const;
+
+type SettingsSearch = {
+  sheet?: (typeof SETTINGS_SHEETS)[number];
+};
+
+function validateSettingsSearch(search: Record<string, unknown>): SettingsSearch {
+  const sheet = search.sheet;
+  if (typeof sheet === 'string' && (SETTINGS_SHEETS as readonly string[]).includes(sheet)) {
+    return { sheet: sheet as SettingsSearch['sheet'] };
+  }
+  return {};
+}
+
 const settingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: PATH.settings,
-  component: SettingsPage
+  validateSearch: validateSettingsSearch,
+  component: SettingsRoute
 });
 
 const routeTree = rootRoute.addChildren([

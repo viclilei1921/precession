@@ -1,3 +1,5 @@
+import { useAppStore } from '@/store/app';
+
 const STORAGE_KEY = 'precession-reading-settings';
 
 export type ReaderTheme = 'system' | 'paper' | 'sepia' | 'night' | 'eye_green';
@@ -67,18 +69,24 @@ function nearestWidth(raw: number): ReaderWidth {
   return WIDTHS.reduce((best, value) => (Math.abs(value - raw) < Math.abs(best - raw) ? value : best));
 }
 
+function fallbackSettings(): ReadingSettings {
+  const platform = useAppStore.getState().platform;
+  const mobile = platform === 'android' || platform === 'ios';
+  return mobile ? { ...DEFAULTS, fontSize: 19 } : { ...DEFAULTS };
+}
+
 export function loadReadingSettings(): ReadingSettings {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
-      return { ...DEFAULTS };
+      return fallbackSettings();
     }
     const parsed = JSON.parse(raw) as Partial<ReadingSettings>;
     return {
       fontSize:
         typeof parsed.fontSize === 'number' && parsed.fontSize >= 16 && parsed.fontSize <= 40
           ? parsed.fontSize
-          : DEFAULTS.fontSize,
+          : fallbackSettings().fontSize,
       lineHeight: DEFAULTS.lineHeight,
       pageMaxWidth: typeof parsed.pageMaxWidth === 'number' ? nearestWidth(parsed.pageMaxWidth) : DEFAULTS.pageMaxWidth,
       fontFamily: FONTS.includes(parsed.fontFamily as ReaderFont)
@@ -92,7 +100,7 @@ export function loadReadingSettings(): ReadingSettings {
         : DEFAULTS.paragraphGap
     };
   } catch {
-    return { ...DEFAULTS };
+    return fallbackSettings();
   }
 }
 

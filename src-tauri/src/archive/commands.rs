@@ -1,6 +1,10 @@
 use std::path::Path;
+#[cfg(target_os = "android")]
+use std::path::PathBuf;
 
-use tauri::State;
+#[cfg(target_os = "android")]
+use tauri::Manager;
+use tauri::{AppHandle, State};
 
 use super::dto::{ArchiveExport, ArchiveInfo};
 use super::error::ArchiveError;
@@ -59,6 +63,119 @@ pub fn archive_export(
   path: String,
 ) -> Result<ArchiveExport, ArchiveError> {
   export_archive(&db, &queue, Path::new(&path))
+}
+
+/// 把档案写进应用缓存，并打开系统分享
+///
+/// 只在 Android 上分享。桌面端仍走 `archive_export` 和保存对话框。
+///
+/// # 参数
+/// - `app`: 用来取缓存目录和设备槽
+/// - `db`: 进程内数据库句柄
+/// - `queue`: 任务队列
+/// - `name`: 压缩包文件名，不能带目录
+///
+/// # 返回值
+/// 成功时返回缓存路径、文件个数和字节数
+///
+/// # 错误
+/// 文件名不合法、缓存目录不可用、打包失败或分享打不开时返回对应的 `ArchiveError`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let packed = archive_export_share(app, db, queue, name)?;
+/// ```
+#[tauri::command]
+pub fn archive_export_share(
+  app: AppHandle,
+  db: State<'_, DbState>,
+  queue: State<'_, TaskQueue>,
+  name: String,
+) -> Result<ArchiveExport, ArchiveError> {
+  export_then_share(app, db, queue, name)
+}
+
+/// Android 上写入缓存并分享。其他平台拒绝
+#[cfg(target_os = "android")]
+fn export_then_share(
+  app: AppHandle,
+  db: State<'_, DbState>,
+  queue: State<'_, TaskQueue>,
+  name: String,
+) -> Result<ArchiveExport, ArchiveError> {
+  let dest = cache_dest(&app, &name)?;
+  let packed = export_archive(&db, &queue, &dest)?;
+  present_share(&app, &packed.path)?;
+  Ok(packed)
+}
+
+/// 桌面端不从这里分享
+#[cfg(not(target_os = "android"))]
+fn export_then_share(
+  app: AppHandle,
+  db: State<'_, DbState>,
+  queue: State<'_, TaskQueue>,
+  name: String,
+) -> Result<ArchiveExport, ArchiveError> {
+  let _ = (app, db, queue, name);
+  Err(ArchiveError::Share)
+}
+
+/// 把压缩包文件名拼到应用缓存目录
+///
+/// # 参数
+/// - `app`: 用来取缓存目录
+/// - `name`: 文件名
+///
+/// # 返回值
+/// 缓存目录下的绝对路径
+///
+/// # 错误
+/// 文件名含目录、缓存目录取不到或建不出来时返回 `PathInvalid` 或 `Io`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let dest = cache_dest(&app, "precession.zip")?;
+/// ```
+#[cfg(target_os = "android")]
+fn cache_dest(app: &AppHandle, name: &str) -> Result<PathBuf, ArchiveError> {
+  if name.is_empty() || name.contains('/') || name.contains('\\') || name.contains("..") {
+    return Err(ArchiveError::PathInvalid);
+  }
+  let cache = app.path().app_cache_dir().map_err(|_| ArchiveError::Io)?;
+  std::fs::create_dir_all(&cache).map_err(|_| ArchiveError::Io)?;
+  Ok(cache.join(name))
+}
+
+/// 打开系统分享。非 Android 直接拒绝
+///
+/// # 参数
+/// - `app`: 已挂上设备槽的应用
+/// - `path`: 缓存里的压缩包
+///
+/// # 返回值
+/// 分享面板打开后不返回数据
+///
+/// # 错误
+/// 非 Android，或设备槽分享失败时返回 `Share`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// present_share(&app, &packed.path)?;
+/// ```
+#[cfg(target_os = "android")]
+fn present_share(app: &AppHandle, path: &str) -> Result<(), ArchiveError> {
+  let api = app.state::<precession_device_slot::DeviceApi<tauri::Wry>>();
+  api.share(path).map_err(|_| ArchiveError::Share)
 }
 
 /// 用压缩包替换当前数据库和上传文件
