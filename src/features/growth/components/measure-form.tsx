@@ -1,10 +1,10 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { GrowthMeasure, GrowthMeasureInput } from '@/bridge/growth';
 import { growthMeasureCreate, growthMeasureDelete, growthMeasureUpdate } from '@/bridge/growth';
 import { Button } from '@/components/button';
 import { DateField } from '@/components/date-field';
-import { Modal } from '@/components/modal';
+import { Modal, ModalCloseRef } from '@/components/modal';
 import { TextField } from '@/components/text-field';
 import { refreshGrowth } from '@/query/growth/query';
 import { fromDateInputValue, startOfLocalDay, toDateInputValue } from '@/utils/day';
@@ -21,6 +21,7 @@ type MeasureFormProps = {
 /** 记一次身高体重。界面用厘米和千克，各保留一位。 */
 export function MeasureForm({ memberId, measure, onClose }: MeasureFormProps) {
   const queryClient = useQueryClient();
+  const closeRef = useRef(onClose);
   const [occurredAt, setOccurredAt] = useState(toDateInputValue(measure?.occurredAt ?? startOfLocalDay()));
   const [height, setHeight] = useState(measure ? cmText(measure.heightMm) : '');
   const [weight, setWeight] = useState(measure ? kgText(measure.weightG) : '');
@@ -47,7 +48,7 @@ export function MeasureForm({ memberId, measure, onClose }: MeasureFormProps) {
     },
     onSuccess: async () => {
       await refreshGrowth(queryClient);
-      onClose();
+      closeRef.current();
     }
   });
   const remove = useMutation({
@@ -59,7 +60,7 @@ export function MeasureForm({ memberId, measure, onClose }: MeasureFormProps) {
     },
     onSuccess: async () => {
       await refreshGrowth(queryClient);
-      onClose();
+      closeRef.current();
     }
   });
   const busy = save.isPending || remove.isPending;
@@ -68,6 +69,7 @@ export function MeasureForm({ memberId, measure, onClose }: MeasureFormProps) {
 
   return (
     <Modal title={measure ? '修改生长' : '记一次'} onClose={onClose}>
+      <ModalCloseRef target={closeRef} />
       <form
         className={styles.stack}
         onSubmit={(event) => {
@@ -117,7 +119,7 @@ export function MeasureForm({ memberId, measure, onClose }: MeasureFormProps) {
             </Button>
           ) : null}
           <span className={styles.spacer} />
-          <Button variant="outlined" disabled={busy} onClick={onClose}>
+          <Button variant="outlined" disabled={busy} onClick={() => closeRef.current()}>
             取消
           </Button>
           <Button type="submit" disabled={busy}>

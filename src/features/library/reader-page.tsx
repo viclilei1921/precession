@@ -14,7 +14,7 @@ import { bookNoteListQuery, bookQuery, refreshLibrary } from '@/query/library/qu
 import { PATH } from '@/router/path';
 import { formatMonthDay } from '@/utils/day';
 import { errorMessage } from '@/utils/error';
-import { bookEncrypted, bookFile, bookStatusLabel, toInput } from './book';
+import { bookEncrypted, bookFile, bookStatusLabel, displayTitle, toInput } from './book';
 import styles from './book.module.css';
 import { Cover } from './components/cover';
 import { NoteForm, noteBody } from './components/note-form';
@@ -154,7 +154,7 @@ export function ReaderPage() {
           <div className={styles.layout}>
             <div className={styles.dossier}>
               <Cover book={book} />
-              <h1>{book.title}</h1>
+              <h1>{displayTitle(book.title)}</h1>
               <p className={styles.meta}>{book.author || '佚名'}</p>
               <div className={styles.segments}>
                 {STATUSES.map((status) => (

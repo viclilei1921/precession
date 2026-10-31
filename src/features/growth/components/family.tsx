@@ -6,7 +6,7 @@ import { Button } from '@/components/button';
 import { IconButton } from '@/components/button/icon';
 import { DateField } from '@/components/date-field';
 import { discardImages, importImagePath, looseImageOwner } from '@/components/markdown';
-import { Modal } from '@/components/modal';
+import { Modal, ModalCloseRef } from '@/components/modal';
 import { Scroll } from '@/components/scroll';
 import { TextField } from '@/components/text-field';
 import { useMembers } from '@/query/member/use-members';
@@ -114,6 +114,7 @@ function MemberForm({
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState('');
   const session = useRef(new Set<string>());
+  const closeRef = useRef(onClose);
   const faceOwner = avatarLoose || member == null ? looseImageOwner : { owner: 'member' as const, ownerId: member.id };
   const busy = pending || importing;
 
@@ -123,12 +124,14 @@ function MemberForm({
     await discardImages(drop);
   }
 
-  function close() {
-    if (busy) {
-      return;
-    }
+  function finish() {
     void dropSession('');
     onClose();
+    onSaved();
+  }
+
+  function close() {
+    closeRef.current();
   }
 
   async function pickAvatar() {
@@ -163,7 +166,7 @@ function MemberForm({
         avatar
       });
       await dropSession(avatar);
-      onSaved();
+      closeRef.current();
     } catch (err) {
       setError(errorMessage(err));
       setPending(false);
@@ -179,7 +182,7 @@ function MemberForm({
     try {
       await onDelete(member.id);
       await dropSession('');
-      onClose();
+      closeRef.current();
     } catch (err) {
       setError(errorMessage(err));
       setPending(false);
@@ -187,7 +190,8 @@ function MemberForm({
   }
 
   return (
-    <Modal title={member ? '编辑家人' : '添加家人'} onClose={close}>
+    <Modal title={member ? '编辑家人' : '添加家人'} onClose={finish}>
+      <ModalCloseRef target={closeRef} />
       <form
         className={styles.stack}
         onSubmit={(event) => {

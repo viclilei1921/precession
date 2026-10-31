@@ -66,6 +66,11 @@
   overflow: auto;
 }
 
+.body[data-flush="true"] {
+  padding: 0;
+  overflow: visible;
+}
+
 .list {
   display: flex;
   flex-direction: column;

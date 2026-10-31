@@ -27,7 +27,7 @@ body {
   overflow: hidden;
   overscroll-behavior: none;
   font-family: var(--font-sans);
-  background: var(--background);
+  background: var(--shell-bg, var(--background));
 }
 
 body * {

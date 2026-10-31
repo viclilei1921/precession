@@ -122,12 +122,16 @@ export function FileDrop({ accept = [], multiple = true, className, onFiles }: F
           disabled={pending}
           onClick={() => {
             setNotice('');
-            void pickFiles({ multiple, extensions: accept }).then((paths) => {
-              const next = takePaths(paths, accept, multiple);
-              if (next.length > 0) {
-                onFiles(next);
-              }
-            });
+            void pickFiles({ multiple, extensions: accept })
+              .then((paths) => {
+                const next = takePaths(paths, accept, multiple);
+                if (next.length > 0) {
+                  onFiles(next);
+                }
+              })
+              .catch((error: unknown) => {
+                setNotice(errorMessage(error));
+              });
           }}
         >
           <FileIcon weight="regular" />

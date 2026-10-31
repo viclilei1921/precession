@@ -24,10 +24,14 @@
   display: grid;
   gap: var(--space-3);
   justify-items: start;
+  width: 100%;
+  min-width: 0;
 }
 
 .dossier h1 {
+  max-width: 100%;
   margin: 0;
+  overflow-wrap: anywhere;
   font-size: var(--text-xl);
   font-weight: 400;
 }
@@ -96,6 +100,7 @@
 .notes {
   display: flex;
   flex-direction: column;
+  min-width: 0;
   min-height: 100%;
   padding: var(--space-4);
   background: var(--card);

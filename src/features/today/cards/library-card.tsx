@@ -1,6 +1,7 @@
 import { BookOpenIcon } from '@phosphor-icons/react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
+import { displayTitle } from '@/features/library/book';
 import { noteBody } from '@/features/library/components/note-form';
 import { useCardLayout } from '@/features/today/board/board';
 import { bookListQuery } from '@/query/library/query';
@@ -30,7 +31,7 @@ export function LibraryCard() {
       {error ? <p className={styles.error}>{errorMessage(error)}</p> : null}
       {reading ? (
         <>
-          <p className={styles.lead}>在读《{reading.title}》</p>
+          <p className={styles.lead}>在读《{displayTitle(reading.title)}》</p>
           <div className={styles.bar} role="img" aria-label={`已读 ${percent}%`}>
             <span data-tone="library" style={{ width: `${percent}%` }} />
           </div>

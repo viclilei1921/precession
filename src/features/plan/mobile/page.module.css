@@ -62,9 +62,36 @@
   font-size: var(--text-sm);
 }
 
-.weekHead > span {
+.range {
+  display: inline-flex;
   flex: 1;
+  gap: 2px;
+  align-items: center;
   min-width: 0;
+  min-height: var(--tap);
+  padding: 0;
+  font: inherit;
+  font-size: var(--text-sm);
+  color: var(--foreground);
+  background: transparent;
+  border: 0;
+}
+
+.range span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.range svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  transition: transform 180ms ease;
+}
+
+.range[aria-expanded="true"] svg {
+  transform: rotate(180deg);
 }
 
 .today,
@@ -84,10 +111,44 @@
   flex: none;
 }
 
-.days {
+.dayNames {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  font-size: var(--text-xs);
+  color: var(--muted-foreground);
+  text-align: center;
+}
+
+.weeks {
+  display: grid;
+}
+
+.weekClip {
+  display: grid;
+  grid-template-rows: 0fr;
+  min-height: 0;
+  overflow: hidden;
+  transition: grid-template-rows 240ms ease;
+}
+
+.weekClip[data-show="true"] {
+  grid-template-rows: 1fr;
+}
+
+.weekRow {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: var(--space-1);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.weekClip[data-show="true"] .weekRow {
+  padding-bottom: var(--space-1);
+}
+
+.weekClip[data-show="true"]:last-child .weekRow {
+  padding-bottom: 0;
 }
 
 .day {
@@ -98,19 +159,39 @@
   padding: var(--space-1) 0;
   font: inherit;
   color: var(--foreground);
+  touch-action: manipulation;
+  user-select: none;
   background: transparent;
   border: 0;
   border-radius: var(--radius-md);
-}
-
-.day span {
-  font-size: var(--text-xs);
-  color: var(--muted-foreground);
+  -webkit-touch-callout: none;
 }
 
 .day strong {
   font-size: var(--text-sm);
   font-weight: 600;
+}
+
+.lunar {
+  max-width: 100%;
+  min-height: 1.2em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: var(--text-2xs);
+  font-weight: 400;
+  line-height: 1.2;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+
+.lunar[data-kind="holiday"],
+.lunar[data-kind="term"] {
+  color: var(--growth);
+}
+
+.day[data-on="true"] .lunar,
+.day[data-out="true"] .lunar {
+  color: inherit;
 }
 
 .day i {
@@ -121,11 +202,6 @@
 }
 
 .day i[data-busy="true"] {
-  background: var(--plan);
-}
-
-.day[data-on="true"] {
-  color: var(--primary-foreground);
   background: var(--plan);
 }
 
@@ -171,10 +247,28 @@
   color: var(--destructive);
 }
 
-.day[data-on="true"] span,
+.day[data-out="true"] {
+  color: var(--muted-foreground);
+}
+
+.day[data-on="true"] {
+  color: var(--primary-foreground);
+  background: var(--plan);
+}
+
+.day[data-today="true"]:not([data-on="true"]) strong {
+  color: var(--plan);
+}
+
 .day[data-on="true"] i[data-busy="true"] {
-  color: inherit;
   background: var(--primary-foreground);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .weekClip,
+  .range svg {
+    transition: none;
+  }
 }
 
 .list {

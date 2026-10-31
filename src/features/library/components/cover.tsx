@@ -1,5 +1,5 @@
 import type { Book } from '@/bridge/library';
-import { bookFormat } from '../book';
+import { bookFormat, displayTitle } from '../book';
 import styles from './cover.module.css';
 
 const SPINES = [
@@ -30,7 +30,7 @@ export function Cover({ book, compact }: { book: Book; compact?: boolean }) {
       className={compact ? styles.compact : styles.cover}
       style={{ background: color.paper, color: color.ink, ['--spine' as string]: color.spine }}
     >
-      <span className={styles.name}>{book.title}</span>
+      <span className={styles.name}>{displayTitle(book.title)}</span>
       {format ? <span className={styles.format}>{format}</span> : null}
       {reading ? (
         <span className={styles.progress} role="img" aria-label={`已读 ${Math.round(book.progress * 100)}%`}>

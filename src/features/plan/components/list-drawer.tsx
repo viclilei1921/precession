@@ -21,10 +21,21 @@ type ListDrawerProps = {
   onPick: (id: string) => void;
   onCreated: () => void;
   onDeleted: (id: string) => void;
+  /** 放进底部面板时去掉自带内边距 */
+  flush?: boolean;
 };
 
 /** 清单。点一次过滤，再点一次看全部。默认清单不能删 */
-export function ListDrawer({ groups, plans, systemId, selectedId, onPick, onCreated, onDeleted }: ListDrawerProps) {
+export function ListDrawer({
+  groups,
+  plans,
+  systemId,
+  selectedId,
+  onPick,
+  onCreated,
+  onDeleted,
+  flush
+}: ListDrawerProps) {
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState('');
   const [confirmId, setConfirmId] = useState<string | null>(null);
@@ -52,7 +63,7 @@ export function ListDrawer({ groups, plans, systemId, selectedId, onPick, onCrea
   }
 
   return (
-    <div className={styles.body}>
+    <div className={styles.body} data-flush={flush ? 'true' : undefined}>
       <div className={styles.list}>
         {groups.map((group) => {
           const locked = group.system || group.id === systemId;

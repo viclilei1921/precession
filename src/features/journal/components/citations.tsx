@@ -4,6 +4,7 @@ import { journalCitationCreate, journalCitationDelete } from '@/bridge/journal';
 import { Button } from '@/components/button';
 import styles from '@/components/record.module.css';
 import { Select } from '@/components/select';
+import { displayTitle } from '@/features/library/book';
 import { noteBody } from '@/features/library/components/note-form';
 import { journalCitationListQuery, refreshJournalCitations } from '@/query/journal/query';
 import { bookListQuery, bookNoteListQuery, bookNoteQuery } from '@/query/library/query';
@@ -63,7 +64,7 @@ export function Citations({ entryId, adding, onAdded }: CitationsProps) {
             <option value="">选择一本书</option>
             {books.map((book) => (
               <option key={book.id} value={book.id}>
-                {book.title}
+                {displayTitle(book.title)}
               </option>
             ))}
           </Select>

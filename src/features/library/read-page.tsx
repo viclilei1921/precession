@@ -78,6 +78,17 @@ function chapterMarkup(title: string, content: string, html: boolean) {
   return heading + paragraphs;
 }
 
+function isDarkBackground(color: string) {
+  const match = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+  if (!match) {
+    return false;
+  }
+  const red = Number(match[1]);
+  const green = Number(match[2]);
+  const blue = Number(match[3]);
+  return (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255 < 0.45;
+}
+
 function formatPercent(ratio: number) {
   return `${Number((Math.min(1, Math.max(0, ratio)) * 100).toFixed(1))}%`;
 }
@@ -428,6 +439,21 @@ export function ReadPage() {
     }
     setChrome((open) => !open);
   }
+
+  useLayoutEffect(() => {
+    const node = readerRef.current;
+    if (!node) {
+      return;
+    }
+    const root = document.documentElement;
+    const background = getComputedStyle(node).backgroundColor;
+    root.style.setProperty('--shell-bg', background);
+    root.style.colorScheme = isDarkBackground(background) ? 'dark' : 'light';
+    return () => {
+      root.style.removeProperty('--shell-bg');
+      root.style.colorScheme = '';
+    };
+  }, [settings.readerTheme]);
 
   const readerStyle = {
     '--reader-font-size': `${settings.fontSize}px`,

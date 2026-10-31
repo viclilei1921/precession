@@ -1,9 +1,10 @@
-import { LightningIcon, NotebookIcon, PencilLineIcon, PlusIcon } from '@phosphor-icons/react';
+import { LightningIcon, MagnifyingGlassIcon, NotebookIcon, PencilLineIcon, PlusIcon } from '@phosphor-icons/react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import type { JournalKind } from '@/bridge/journal';
 import { Button } from '@/components/button';
+import { IconButton } from '@/components/button/icon';
 import { SegmentButton } from '@/components/button/segment';
 import { firstImageId, UploadThumb } from '@/components/markdown';
 import { Scroll } from '@/components/scroll';
@@ -33,6 +34,7 @@ export function JournalPage() {
   const mobile = useAppStore((state) => state.isMobile());
   const [kind, setKind] = useState<JournalKind>(search.kind ?? 'diary');
   const [creating, setCreating] = useState(false);
+  const [finding, setFinding] = useState(false);
   const [localQuery, setLocalQuery] = useState('');
   const listQuery = useQuery(journalListQuery(kind));
   const names = useJournalNames();
@@ -101,15 +103,29 @@ export function JournalPage() {
             </SegmentButton>
           ))}
         </div>
-        <Button
-          className={styles.add}
-          onClick={() => (mobile ? void navigate({ to: PATH.journal, search: { create: true } }) : setCreating(true))}
-        >
-          <PlusIcon weight="regular" />
-          新建
-        </Button>
+        {mobile ? (
+          <IconButton
+            className={styles.add}
+            label="搜索手记"
+            onClick={() =>
+              setFinding((current) => {
+                if (current) {
+                  setLocalQuery('');
+                }
+                return !current;
+              })
+            }
+          >
+            <MagnifyingGlassIcon weight="regular" />
+          </IconButton>
+        ) : (
+          <Button className={styles.add} onClick={() => setCreating(true)}>
+            <PlusIcon weight="regular" />
+            新建
+          </Button>
+        )}
       </header>
-      {mobile ? (
+      {mobile && finding ? (
         <form
           className={styles.search}
           onSubmit={(event) => {
@@ -123,6 +139,15 @@ export function JournalPage() {
             aria-label="搜索手记"
             onChange={(event) => setLocalQuery(event.target.value)}
           />
+          <button
+            type="button"
+            onClick={() => {
+              setLocalQuery('');
+              setFinding(false);
+            }}
+          >
+            取消
+          </button>
         </form>
       ) : null}
       <Scroll className={styles.scroll}>

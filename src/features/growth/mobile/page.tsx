@@ -1,4 +1,4 @@
-import { PlusIcon } from '@phosphor-icons/react';
+import { MagnifyingGlassIcon } from '@phosphor-icons/react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
@@ -12,6 +12,7 @@ import { MobileGrowthEditor } from '@/features/growth/mobile/editor';
 import { cmText, kgText } from '@/features/growth/text';
 import { journalExcerpt } from '@/features/journal/text';
 import { AppBar } from '@/layout/mobile/app-bar';
+import { Fab } from '@/layout/mobile/fab';
 import { growthListQuery, growthMeasureListQuery } from '@/query/growth/query';
 import { useMembers } from '@/query/member/use-members';
 import { PATH } from '@/router/path';
@@ -28,6 +29,7 @@ export function MobileGrowthPage() {
   const members = membersState.members;
   const member = members.find((item) => item.id === search.member) ?? members[0] ?? null;
   const [kind, setKind] = useState<GrowthKind | 'all'>('all');
+  const [finding, setFinding] = useState(false);
   const [query, setQuery] = useState('');
   const listQuery = useQuery(growthListQuery(member?.id));
   const measuresQuery = useQuery({
@@ -109,26 +111,44 @@ export function MobileGrowthPage() {
     <section className={styles.page}>
       <AppBar title="成长" subtitle={subtitle}>
         <IconButton
-          label="记一笔"
-          onClick={() => stay({ create: true, kind: kind === 'moment' ? 'moment' : 'milestone' })}
+          label="搜索成长记录"
+          onClick={() =>
+            setFinding((current) => {
+              if (current) {
+                setQuery('');
+              }
+              return !current;
+            })
+          }
         >
-          <PlusIcon weight="regular" />
+          <MagnifyingGlassIcon weight="regular" />
         </IconButton>
       </AppBar>
-      <form
-        className={styles.search}
-        onSubmit={(event) => {
-          event.preventDefault();
-        }}
-      >
-        <input
-          type="search"
-          value={query}
-          placeholder="搜索成长记录"
-          aria-label="搜索成长记录"
-          onChange={(event) => setQuery(event.target.value)}
-        />
-      </form>
+      {finding ? (
+        <form
+          className={styles.search}
+          onSubmit={(event) => {
+            event.preventDefault();
+          }}
+        >
+          <input
+            type="search"
+            value={query}
+            placeholder="搜索成长记录"
+            aria-label="搜索成长记录"
+            onChange={(event) => setQuery(event.target.value)}
+          />
+          <button
+            type="button"
+            onClick={() => {
+              setQuery('');
+              setFinding(false);
+            }}
+          >
+            取消
+          </button>
+        </form>
+      ) : null}
       <div className={styles.body}>
         {membersState.error || listQuery.error ? (
           <p className={styles.error}>{errorMessage(membersState.error ?? listQuery.error)}</p>
@@ -216,6 +236,9 @@ export function MobileGrowthPage() {
       {search.sheet === 'measure' && member ? (
         <MeasureForm memberId={member.id} measure={null} onClose={closeSheet} />
       ) : null}
+      {search.sheet === 'measure' ? null : (
+        <Fab label="记一笔" onClick={() => stay({ create: true, kind: kind === 'moment' ? 'moment' : 'milestone' })} />
+      )}
     </section>
   );
 }

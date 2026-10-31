@@ -4,9 +4,33 @@
   z-index: var(--z-modal);
   display: flex;
   align-items: flex-end;
+  overflow: hidden;
+}
+
+.shade {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: oklch(from var(--foreground) l c h / 32%);
+  opacity: 0;
+  transition: opacity 200ms ease-out;
+}
+
+.backdrop[data-phase="open"] .shade {
+  pointer-events: auto;
+  opacity: 1;
+}
+
+.backdrop[data-phase="out"] .shade {
+  pointer-events: none;
+  opacity: 0;
+  transition-timing-function: ease-in;
+  transition-duration: 180ms;
 }
 
 .panel {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -14,6 +38,18 @@
   background: var(--card);
   border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   box-shadow: 0 -12px 32px oklch(from var(--foreground) l c h / 12%);
+  transform: translateY(100%);
+  transition: transform 340ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.backdrop[data-phase="open"] .panel {
+  transform: translateY(0);
+}
+
+.backdrop[data-phase="out"] .panel {
+  transform: translateY(100%);
+  transition-timing-function: ease-in;
+  transition-duration: 220ms;
 }
 
 .panel[data-tall="true"] {
@@ -71,4 +107,13 @@
 .foot + .body,
 .body:has(+ .foot) {
   padding-bottom: var(--space-3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shade,
+  .panel,
+  .backdrop[data-phase="out"] .shade,
+  .backdrop[data-phase="out"] .panel {
+    transition: none;
+  }
 }

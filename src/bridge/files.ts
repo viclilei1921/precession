@@ -44,7 +44,16 @@ export async function pickFiles(options: { multiple?: boolean; extensions?: stri
   if (selected == null) {
     return [];
   }
-  return Array.isArray(selected) ? selected : [selected];
+  const picked = Array.isArray(selected) ? selected : [selected];
+  if (!picked.some(needsMaterialize)) {
+    return picked;
+  }
+  return invokeCommand<string[]>('materialize_picked', { paths: picked });
+}
+
+/** Android 选择器会返回 content 或 file 地址，要先收成本地文件。 */
+function needsMaterialize(path: string) {
+  return /^content:/i.test(path) || /^file:/i.test(path);
 }
 
 /** 用系统对话框选择一个文件夹。取消时返回空字符串。 */

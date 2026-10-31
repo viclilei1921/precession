@@ -31,10 +31,13 @@
 .search {
   display: flex;
   flex: none;
+  gap: var(--space-2);
+  align-items: center;
 }
 
 .search input {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   height: var(--tap);
   padding: 0 var(--space-3);
   font: inherit;
@@ -42,6 +45,16 @@
   background: var(--muted);
   border: 0;
   border-radius: var(--radius-md);
+}
+
+.search button {
+  flex: none;
+  min-height: var(--tap);
+  padding: 0 var(--space-2);
+  font: inherit;
+  color: var(--primary);
+  background: transparent;
+  border: 0;
 }
 
 .scroll {

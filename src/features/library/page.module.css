@@ -33,30 +33,31 @@
 
 .search {
   display: flex;
-  flex: 1;
+  flex: none;
+  gap: var(--space-2);
   align-items: center;
-  min-width: 0;
-  height: var(--tap);
-  padding: 0 var(--space-3);
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
 }
 
 .search input {
-  width: 100%;
-  outline: 0;
+  flex: 1;
+  min-width: 0;
+  height: var(--tap);
+  padding: 0 var(--space-3);
+  font: inherit;
+  color: var(--foreground);
+  background: var(--muted);
+  border: 0;
+  border-radius: var(--radius-md);
+}
+
+.search button {
+  flex: none;
+  min-height: var(--tap);
+  padding: 0 var(--space-2);
+  font: inherit;
+  color: var(--primary);
   background: transparent;
   border: 0;
-}
-
-.head[data-mobile="true"] .search,
-.head[data-mobile="true"] .add {
-  order: 1;
-}
-
-.head[data-mobile="true"] .segments {
-  order: 2;
 }
 
 .scroll {
@@ -120,6 +121,10 @@
   margin: 0;
   font-size: var(--text-sm);
   color: var(--muted-foreground);
+}
+
+:global(html[data-platform="mobile"]) .body {
+  padding-bottom: 72px;
 }
 
 :global(html[data-platform="mobile"]) .grid {

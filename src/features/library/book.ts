@@ -7,6 +7,33 @@ export const bookStatusLabel: Record<BookStatus, string> = {
   finished: '读完'
 };
 
+/** 从本地路径或 Android 编码地址里取出文件名，去掉电子书扩展名 */
+export function fileTitle(path: string) {
+  const raw = path.trim();
+  if (!raw) {
+    return raw;
+  }
+  let text = raw;
+  if (raw.includes('%')) {
+    try {
+      text = decodeURIComponent(raw);
+    } catch {
+      text = raw;
+    }
+  }
+  const name = text.split(/[/\\]/).filter(Boolean).pop() ?? text;
+  const tail = name.includes(':') ? (name.split(':').pop() ?? name) : name;
+  return tail.replace(/\.(epub|mobi|txt|azw3|azw)$/i, '') || tail || raw;
+}
+
+/** 书架上的书名。只有选文件时存进去的编码地址才还原成文件名 */
+export function displayTitle(title: string) {
+  if (!title.includes('%') && !/^raw:/i.test(title)) {
+    return title;
+  }
+  return fileTitle(title);
+}
+
 /** 用现有字段拼出更新入参，读完日期原样带回 */
 export function toInput(book: Book, patch: Partial<BookInput> = {}): BookInput {
   return {

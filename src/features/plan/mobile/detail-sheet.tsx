@@ -1,7 +1,7 @@
 import type { Plan, PlanGroup } from '@/bridge/plan';
 import { PlanDrawer } from '@/features/plan/components/plan-drawer';
 import type { PlanPreset } from '@/features/plan/layout';
-import { Sheet } from '@/layout/mobile/sheet';
+import { Sheet, useSheetClose } from '@/layout/mobile/sheet';
 import styles from './detail-sheet.module.css';
 
 type PlanDetailSheetProps = {
@@ -16,16 +16,35 @@ type PlanDetailSheetProps = {
 export function PlanDetailSheet({ plan, preset, groups, onClose, onSaved }: PlanDetailSheetProps) {
   return (
     <Sheet tall title={plan ? '计划详情' : '新建计划'} onClose={onClose}>
-      <div className={styles.host}>
-        <PlanDrawer
-          key={plan?.id ?? `${preset.date}-${preset.time}-${preset.timeEnd}`}
-          plan={plan}
-          preset={preset}
-          groups={groups}
-          onClose={onClose}
-          onSaved={onSaved}
-        />
-      </div>
+      <PlanDetailBody plan={plan} preset={preset} groups={groups} onClose={onClose} onSaved={onSaved} />
     </Sheet>
+  );
+}
+
+function PlanDetailBody({ plan, preset, groups, onClose, onSaved }: PlanDetailSheetProps) {
+  const requestClose = useSheetClose();
+
+  function close() {
+    if (requestClose) {
+      requestClose();
+      return;
+    }
+    onClose();
+  }
+
+  return (
+    <div className={styles.host}>
+      <PlanDrawer
+        key={plan?.id ?? `${preset.date}-${preset.time}-${preset.timeEnd}`}
+        plan={plan}
+        preset={preset}
+        groups={groups}
+        onClose={close}
+        onSaved={(start) => {
+          onSaved(start);
+          close();
+        }}
+      />
+    </div>
   );
 }

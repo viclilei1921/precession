@@ -1,4 +1,4 @@
-.fab {
+button.fab {
   position: fixed;
   right: 16px;
   bottom: calc(var(--dock-h) + var(--inset-bottom) + 16px);

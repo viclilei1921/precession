@@ -101,6 +101,7 @@ struct OpenRequest {
 /// - `code`: 失败代码，可以没有
 /// - `ct_b64`: `enroll` 返回的密文 Base64，可以没有
 /// - `dek_b64`: `open` 返回的 DEK Base64，可以没有
+/// - `path`: `copyPicked` 返回的缓存路径，可以没有
 ///
 /// # 示例
 /// 见 [`DeviceApi::enroll`]
@@ -115,6 +116,8 @@ struct SlotResponse {
   ct_b64: Option<String>,
   /// `open` 返回的 DEK Base64，可以没有
   dek_b64: Option<String>,
+  /// `copyPicked` 返回的缓存路径，可以没有
+  path: Option<String>,
 }
 
 impl<R: Runtime> DeviceApi<R> {
@@ -264,6 +267,35 @@ impl<R: Runtime> DeviceApi<R> {
       Err(map_code(response.code.as_deref()))
     }
   }
+
+  /// 把系统选择器返回的 content 地址复制进应用缓存
+  ///
+  /// # 参数
+  /// - `uri`: `content://` 地址
+  ///
+  /// # 返回值
+  /// 缓存里的本地文件路径。文件名用选择器给出的显示名
+  ///
+  /// # 错误
+  /// 插件调用失败、没有路径或 `ok` 为假时返回对应的 `SlotError`
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```ignore
+  /// let path = api.copy_picked(uri)?;
+  /// ```
+  pub fn copy_picked(&self, uri: &str) -> Result<String, SlotError> {
+    let response: SlotResponse = self
+      .handle
+      .run_mobile_plugin("copyPicked", CopyPickedRequest { uri: uri.to_string() })
+      .map_err(|_| SlotError::Internal)?;
+    if !response.ok {
+      return Err(map_code(response.code.as_deref()));
+    }
+    response.path.filter(|path| !path.is_empty()).ok_or(SlotError::Internal)
+  }
 }
 
 /// 交给移动端 `share` 的请求
@@ -277,6 +309,19 @@ impl<R: Runtime> DeviceApi<R> {
 struct ShareRequest {
   /// 要分享的文件路径
   path: String,
+}
+
+/// 交给移动端 `copyPicked` 的请求
+///
+/// # 字段
+/// - `uri`: 系统选择器返回的 content 地址
+///
+/// # 示例
+/// 见 [`DeviceApi::copy_picked`]
+#[derive(Serialize)]
+struct CopyPickedRequest {
+  /// 系统选择器返回的 content 地址
+  uri: String,
 }
 
 /// 把插件返回的代码字符串映射成 `SlotError`

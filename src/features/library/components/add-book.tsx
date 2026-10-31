@@ -15,14 +15,9 @@ import drawerStyles from '@/features/plan/drawer.module.css';
 import { refreshLibrary } from '@/query/library/query';
 import { PATH } from '@/router/path';
 import { errorMessage } from '@/utils/error';
-import { bookStatusLabel } from '../book';
+import { bookStatusLabel, fileTitle } from '../book';
 
 const EXTENSIONS = ['epub', 'mobi', 'txt', 'azw', 'azw3'];
-
-function titleFromPath(path: string) {
-  const name = path.split(/[/\\]/).pop() ?? path;
-  return name.replace(/\.(epub|mobi|txt|azw3|azw)$/i, '') || name;
-}
 
 /** 从文件导入，或只建一本还没有正文的档案 */
 export function AddBook({ onClose }: { onClose: () => void }) {
@@ -30,6 +25,8 @@ export function AddBook({ onClose }: { onClose: () => void }) {
   const queryClient = useQueryClient();
   const [mode, setMode] = useState<'file' | 'manual'>('file');
   const [path, setPath] = useState('');
+  const [pickedTitle, setPickedTitle] = useState('');
+  const [pickError, setPickError] = useState('');
   const [title, setTitle] = useState('');
   const [author, setAuthor] = useState('');
   const [status, setStatus] = useState<BookStatus>('want');
@@ -39,7 +36,7 @@ export function AddBook({ onClose }: { onClose: () => void }) {
         if (!path) {
           throw new Error('先选择一个文件');
         }
-        let nextTitle = titleFromPath(path);
+        let nextTitle = fileTitle(path);
         let nextAuthor = '';
         try {
           const meta = await bookPeek(path);
@@ -48,7 +45,7 @@ export function AddBook({ onClose }: { onClose: () => void }) {
           }
           nextAuthor = meta.author.trim();
         } catch {
-          nextTitle = titleFromPath(path);
+          nextTitle = fileTitle(path);
         }
         const book = await bookCreate({
           title: nextTitle,
@@ -121,15 +118,37 @@ export function AddBook({ onClose }: { onClose: () => void }) {
                 type="button"
                 variant="outlined"
                 onClick={() => {
-                  void pickFiles({ multiple: false, extensions: EXTENSIONS }).then((files) => {
-                    setPath(files[0] ?? '');
-                  });
+                  setPickError('');
+                  void pickFiles({ multiple: false, extensions: EXTENSIONS })
+                    .then(async (files) => {
+                      const next = files[0] ?? '';
+                      setPath(next);
+                      if (!next) {
+                        setPickedTitle('');
+                        return;
+                      }
+                      const fallback = fileTitle(next);
+                      setPickedTitle(fallback);
+                      try {
+                        const meta = await bookPeek(next);
+                        if (meta.title.trim()) {
+                          setPickedTitle(meta.title.trim());
+                        }
+                      } catch {
+                        setPickedTitle(fallback);
+                      }
+                    })
+                    .catch((error: unknown) => {
+                      setPath('');
+                      setPickedTitle('');
+                      setPickError(errorMessage(error));
+                    });
                 }}
               >
                 选择 EPUB、MOBI 或 TXT
               </Button>
               <p className={recordStyles.note}>
-                {path ? titleFromPath(path) : '还没有选择文件。书名会先用文件里的，读不到再用文件名。'}
+                {pickedTitle || '还没有选择文件。书名会先用文件里的，读不到再用文件名。'}
               </p>
             </>
           ) : (
@@ -145,6 +164,7 @@ export function AddBook({ onClose }: { onClose: () => void }) {
               </Select>
             </>
           )}
+          {pickError ? <p className={recordStyles.error}>{pickError}</p> : null}
           {save.error ? <p className={recordStyles.error}>{errorMessage(save.error)}</p> : null}
         </div>
       </Scroll>
