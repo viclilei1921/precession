@@ -71,22 +71,22 @@
   max-height: 18rem;
 }
 
-.tipBody {
+.tip-body {
   display: grid;
   gap: 0.625rem;
 }
 
-.tipItem {
+.tip-item {
   margin: 0;
   text-align: justify;
   text-justify: inter-character;
 }
 
-.tipName {
+.tip-name {
   font-weight: 700;
 }
 
-.tipName::after {
+.tip-name::after {
   content: "：";
 }
 

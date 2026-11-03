@@ -1,0 +1,58 @@
+{
+  "app": {
+    "title": "人生档案",
+    "loading": "加载中…"
+  },
+  "unlock": {
+    "title": "解锁档案",
+    "subtitlePassword": "输入密码以打开人生档案。",
+    "subtitleDevice": "可以输入档案密码，也可以直接解锁。",
+    "subtitleDeviceLocked": "可以输入档案密码，也可以再试一次系统验证。",
+    "subtitleLocked": "已锁定。点解锁后需要通过系统验证。",
+    "subtitleOpening": "正在打开档案…",
+    "unlocking": "正在解锁…",
+    "unlock": "解锁",
+    "unlockWithPassword": "用档案密码解锁",
+    "unlockWithDevice": "用系统验证解锁",
+    "unlockDirect": "直接解锁",
+    "removeDevice": "移除设备解锁",
+    "password": "密码"
+  },
+  "create": {
+    "title": "设置档案密码",
+    "subtitle": "第一次打开需要设置密码。密码至少 8 位。",
+    "password": "密码",
+    "confirm": "再输入一次",
+    "creating": "正在创建…",
+    "create": "创建档案"
+  },
+  "errors": {
+    "passwordWrong": "密码不正确",
+    "passwordEmpty": "密码不能为空",
+    "passwordShort": "密码至少 8 位",
+    "passwordMismatch": "两次输入的密码不一致",
+    "passwordRequired": "请输入档案密码。",
+    "deviceExpired": "设备解锁已失效"
+  },
+  "archive": {
+    "rowTitle": "档案",
+    "rowHint": "已解锁 · 锁定后回到锁屏。",
+    "action": "锁定档案",
+    "modalTitle": "锁定档案？",
+    "modalBody": "锁定后会回到锁屏。已启用设备解锁时，再打开需要系统验证；否则要重新输入档案密码。",
+    "locking": "正在锁定…",
+    "cancel": "取消"
+  },
+  "device": {
+    "rowTitle": "设备解锁",
+    "label": "设备解锁",
+    "hintOn": "已启用 · 打开应用用系统验证代替档案密码。",
+    "hintOff": "启用后，打开应用用系统验证代替档案密码。",
+    "password": "档案密码",
+    "placeholder": "输入档案密码",
+    "cancel": "取消",
+    "enable": "启用",
+    "enabling": "正在启用…",
+    "errorPasswordRequired": "请输入档案密码。"
+  }
+}

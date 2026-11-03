@@ -1,4 +1,6 @@
-const STORAGE_KEY = 'precession-appearance';
+import { readPreference, writePreference } from '@/bridge/preferences';
+
+const PREFERENCE_KEY = 'appearance';
 
 export type ThemePreference = 'light' | 'dark' | 'system';
 
@@ -24,25 +26,20 @@ export function loadAppearance(): Appearance {
     sidebarCollapsed: false,
     reduceMotion: systemReduce()
   };
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      return fallback;
-    }
-    const parsed = JSON.parse(raw) as Partial<Appearance>;
-    return {
-      theme: THEMES.includes(parsed.theme as ThemePreference) ? (parsed.theme as ThemePreference) : fallback.theme,
-      sidebarCollapsed:
-        typeof parsed.sidebarCollapsed === 'boolean' ? parsed.sidebarCollapsed : fallback.sidebarCollapsed,
-      reduceMotion: typeof parsed.reduceMotion === 'boolean' ? parsed.reduceMotion : fallback.reduceMotion
-    };
-  } catch {
+  const parsed = readPreference<Partial<Appearance>>(PREFERENCE_KEY);
+  if (!parsed) {
     return fallback;
   }
+  return {
+    theme: THEMES.includes(parsed.theme as ThemePreference) ? (parsed.theme as ThemePreference) : fallback.theme,
+    sidebarCollapsed:
+      typeof parsed.sidebarCollapsed === 'boolean' ? parsed.sidebarCollapsed : fallback.sidebarCollapsed,
+    reduceMotion: typeof parsed.reduceMotion === 'boolean' ? parsed.reduceMotion : fallback.reduceMotion
+  };
 }
 
 export function saveAppearance(value: Appearance) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
+  void writePreference(PREFERENCE_KEY, value);
 }
 
 export function resolveTheme(preference: ThemePreference): 'light' | 'dark' {

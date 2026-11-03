@@ -1,13 +1,23 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { dbDisableDeviceUnlock, dbUnlock, dbUnlockDevice } from '@/bridge/db';
 import { Button } from '@/components/button';
 import { PasswordInput } from '@/components/password-input';
 import { errorMessage } from '@/utils/error';
 import styles from './index.module.css';
 
-/** 密码框上的错误。其余错误属于整张表单。 */
-function isPasswordError(message: string) {
-  return message === '密码不正确' || message === '密码不能为空' || message === '密码至少 8 位';
+/** 取出后端原始错误文本，用来判断错误类型（展示仍走 errorMessage）。 */
+function rawMessage(error: unknown): string {
+  if (typeof error === 'string') {
+    return error;
+  }
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') {
+    return error.message;
+  }
+  return '';
 }
 
 /** 解锁档案 Props */
@@ -22,6 +32,7 @@ type UnlockViewProps = {
 
 /** 解锁档案 */
 export function UnlockView({ deviceUnlock, userLocked, onDone }: UnlockViewProps) {
+  const { t } = useTranslation('lock');
   /** 密码 */
   const [password, setPassword] = useState('');
   /** 错误 */
@@ -30,6 +41,10 @@ export function UnlockView({ deviceUnlock, userLocked, onDone }: UnlockViewProps
   const [busy, setBusy] = useState(false);
   /** 是否显示密码 */
   const [showPassword, setShowPassword] = useState(!deviceUnlock);
+  /** 密码框是否要标红。由提交结果决定，不再比对本地化后的文案 */
+  const [passwordInvalid, setPasswordInvalid] = useState(false);
+  /** 设备解锁是否已失效 */
+  const [deviceExpired, setDeviceExpired] = useState(false);
   /** 是否尝试过解锁 */
   const attempted = useRef(false);
   /** 完成回调引用 */
@@ -39,10 +54,12 @@ export function UnlockView({ deviceUnlock, userLocked, onDone }: UnlockViewProps
   const unlockWithDevice = useCallback(async () => {
     setBusy(true);
     setError('');
+    setPasswordInvalid(false);
     try {
       await dbUnlockDevice();
       await onDoneRef.current();
     } catch (err) {
+      setDeviceExpired(rawMessage(err) === '设备解锁已失效');
       setError(errorMessage(err));
       setShowPassword(true);
     } finally {
@@ -61,10 +78,12 @@ export function UnlockView({ deviceUnlock, userLocked, onDone }: UnlockViewProps
   async function submit() {
     setBusy(true);
     setError('');
+    setPasswordInvalid(false);
     try {
       await dbUnlock(password);
       await onDone();
     } catch (err) {
+      setPasswordInvalid(true);
       setError(errorMessage(err));
     } finally {
       setPassword('');
@@ -86,21 +105,21 @@ export function UnlockView({ deviceUnlock, userLocked, onDone }: UnlockViewProps
     }
   }
 
+  const subtitle = showPassword
+    ? deviceUnlock
+      ? userLocked
+        ? t('unlock.subtitleDeviceLocked')
+        : t('unlock.subtitleDevice')
+      : t('unlock.subtitlePassword')
+    : userLocked
+      ? t('unlock.subtitleLocked')
+      : t('unlock.subtitleOpening');
+
   return (
     <main className={styles.gate}>
-      <h1>解锁档案</h1>
-      <p className={styles.muted}>
-        {showPassword
-          ? deviceUnlock
-            ? userLocked
-              ? '可以输入档案密码，也可以再试一次系统验证。'
-              : '可以输入档案密码，也可以直接解锁。'
-            : '输入密码以打开人生档案。'
-          : userLocked
-            ? '已锁定。点解锁后需要通过系统验证。'
-            : '正在打开档案…'}
-      </p>
-      {busy && !showPassword ? <p className={styles.muted}>正在解锁…</p> : null}
+      <h1>{t('unlock.title')}</h1>
+      <p className={styles.muted}>{subtitle}</p>
+      {busy && !showPassword ? <p className={styles.muted}>{t('unlock.unlocking')}</p> : null}
       {!showPassword && userLocked ? (
         <form
           className={styles.form}
@@ -116,14 +135,14 @@ export function UnlockView({ deviceUnlock, userLocked, onDone }: UnlockViewProps
             {error}
           </p>
           <Button type="submit" className={styles.submit} disabled={busy}>
-            {busy ? '正在解锁…' : '解锁'}
+            {busy ? t('unlock.unlocking') : t('unlock.unlock')}
           </Button>
         </form>
       ) : null}
       {showPassword ? (
         <form
           className={styles.form}
-          aria-describedby={error && !isPasswordError(error) ? 'unlock-error' : undefined}
+          aria-describedby={error && !passwordInvalid ? 'unlock-error' : undefined}
           onSubmit={(event) => {
             event.preventDefault();
             if (!busy) {
@@ -134,15 +153,16 @@ export function UnlockView({ deviceUnlock, userLocked, onDone }: UnlockViewProps
           <div className={styles.field}>
             <PasswordInput
               id="unlock-password"
-              label="密码"
+              label={t('unlock.password')}
               autoComplete="current-password"
               value={password}
               disabled={busy}
-              aria-invalid={isPasswordError(error) ? true : undefined}
-              aria-describedby={isPasswordError(error) ? 'unlock-error' : undefined}
+              aria-invalid={passwordInvalid ? true : undefined}
+              aria-describedby={passwordInvalid ? 'unlock-error' : undefined}
               onChange={(event) => {
                 setPassword(event.currentTarget.value);
-                setError((current) => (isPasswordError(current) ? '' : current));
+                setPasswordInvalid(false);
+                setError((current) => (passwordInvalid ? '' : current));
               }}
             />
           </div>
@@ -150,7 +170,7 @@ export function UnlockView({ deviceUnlock, userLocked, onDone }: UnlockViewProps
             {error}
           </p>
           <Button type="submit" className={styles.submit} disabled={busy}>
-            {busy ? '正在解锁…' : '用档案密码解锁'}
+            {busy ? t('unlock.unlocking') : t('unlock.unlockWithPassword')}
           </Button>
           {deviceUnlock ? (
             <Button
@@ -161,10 +181,10 @@ export function UnlockView({ deviceUnlock, userLocked, onDone }: UnlockViewProps
                 void unlockWithDevice();
               }}
             >
-              {userLocked ? '用系统验证解锁' : '直接解锁'}
+              {userLocked ? t('unlock.unlockWithDevice') : t('unlock.unlockDirect')}
             </Button>
           ) : null}
-          {error === '设备解锁已失效' ? (
+          {deviceExpired ? (
             <Button
               variant="outlined"
               tone="destructive"
@@ -174,7 +194,7 @@ export function UnlockView({ deviceUnlock, userLocked, onDone }: UnlockViewProps
                 void removeDevice();
               }}
             >
-              移除设备解锁
+              {t('unlock.removeDevice')}
             </Button>
           ) : null}
         </form>

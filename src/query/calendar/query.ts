@@ -1,6 +1,7 @@
 import { queryOptions } from '@tanstack/react-query';
 import type { CalendarDay } from '@/bridge/calendar';
 import { calendarAlmanac, calendarList } from '@/bridge/calendar';
+import i18n from '@/i18n';
 
 /** 今天和计划月历共用这一段日期 */
 export function calendarRangeQuery(from: string, to: string) {
@@ -30,6 +31,6 @@ export function calendarCaption(day: CalendarDay | undefined): string {
   if (day.holidayName) {
     parts.push(day.holidayName);
   }
-  parts.push(day.isWorkday ? '上班' : '休息');
+  parts.push(i18n.t(day.isWorkday ? 'today:page.workday' : 'today:page.rest'));
   return parts.join(' · ');
 }

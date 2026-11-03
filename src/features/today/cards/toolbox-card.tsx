@@ -1,6 +1,7 @@
 import { SquaresFourIcon } from '@phosphor-icons/react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
+import { useTranslation } from 'react-i18next';
 import type { Task, TaskKind } from '@/bridge/task';
 import { useCardLayout } from '@/features/today/board/board';
 import { taskListQuery } from '@/query/task/query';
@@ -9,12 +10,6 @@ import { errorMessage } from '@/utils/error';
 import styles from './tile.module.css';
 import { TileHead } from './tile-head';
 
-const rows: { label: string; to: typeof PATH.cipher | typeof PATH.image | typeof PATH.video; kinds: TaskKind[] }[] = [
-  { label: '文件加密', to: PATH.cipher, kinds: ['encryptFile', 'decryptFile'] },
-  { label: '图片转码', to: PATH.image, kinds: ['convertAvif', 'convertJxl'] },
-  { label: '视频处理', to: PATH.video, kinds: ['convertVideo', 'cutVideo', 'mergeVideo', 'appendVideo'] }
-];
-
 function runningCount(tasks: Task[], kinds: TaskKind[]): number {
   return tasks.filter(
     (task) => kinds.includes(task.kind) && (task.status === 'pending' || task.status === 'processing')
@@ -22,16 +17,23 @@ function runningCount(tasks: Task[], kinds: TaskKind[]): number {
 }
 
 export function ToolboxCard() {
+  const { t } = useTranslation('today');
   const navigate = useNavigate();
   const tasksQuery = useQuery(taskListQuery);
   const tasks = tasksQuery.data ?? [];
+
+  const rows: { label: string; to: typeof PATH.cipher | typeof PATH.image | typeof PATH.video; kinds: TaskKind[] }[] = [
+    { label: t('toolboxCard.cipher'), to: PATH.cipher, kinds: ['encryptFile', 'decryptFile'] },
+    { label: t('toolboxCard.image'), to: PATH.image, kinds: ['convertAvif', 'convertJxl'] },
+    { label: t('toolboxCard.video'), to: PATH.video, kinds: ['convertVideo', 'cutVideo', 'mergeVideo', 'appendVideo'] }
+  ];
   const counts = rows.map((row) => runningCount(tasks, row.kinds));
 
   useCardLayout('toolbox', `${tasksQuery.isPending}:${counts.join(',')}`);
 
   return (
     <article className={styles.card}>
-      <TileHead tone="toolbox" icon={SquaresFourIcon} title="工具箱" />
+      <TileHead tone="toolbox" icon={SquaresFourIcon} title={t('card.toolbox')} />
       {tasksQuery.error ? <p className={styles.error}>{errorMessage(tasksQuery.error)}</p> : null}
       <ul className={styles.counts}>
         {rows.map((row, index) => (

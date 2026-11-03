@@ -1,0 +1,181 @@
+{
+  "page": {
+    "searchPlaceholder": "搜索文件名或记录",
+    "usage": "占用",
+    "fileCount_one": "{{count}} 个",
+    "fileCount_other": "{{count}} 个",
+    "upload": "上传",
+    "fileListAria": "文件列表",
+    "kindAria": "文件类别",
+    "sort": "排序",
+    "sortAria": "排序",
+    "loading": "正在读取…",
+    "empty": "还没有文件。可以从占用里上传。",
+    "emptyFiltered": "没有符合的文件。",
+    "selectPrompt": "选一个文件"
+  },
+  "detail": {
+    "sealedChip": "已封存",
+    "sealedNote": "这篇记录已封存。这里不显示内容，也不能删除。",
+    "missingOwner": "所属记录已经不在。可以删掉这份残留。",
+    "size": "大小",
+    "type": "类型",
+    "imported": "导入",
+    "path": "路径",
+    "fileName": "文件名",
+    "unknown": "未知",
+    "openMissing": "记录已不在",
+    "export": "导出",
+    "exporting": "正在导出…",
+    "exportedTo": "已导出到 {{path}}",
+    "deleteLabel": "删除文件",
+    "exportTitle": "导出这份文件",
+    "exportBody": "这份文件已加密。输入密码后写到所选文件夹。",
+    "password": "密码"
+  },
+  "import": {
+    "title": "上传",
+    "name": "名称",
+    "type": "类型",
+    "sealedNote": "已经加密的文件会原样入库，并标成加密文件。",
+    "password": "密码",
+    "passwordPlaceholderAll": "留空则不加密，填写后名称加上 .env",
+    "passwordPlaceholderSome": "只加密还没加密的文件",
+    "submit": "导入",
+    "submitting": "正在导入…",
+    "needName": "请填写文件名。",
+    "failed": "导入失败"
+  },
+  "viewer": {
+    "video": "视频",
+    "image": "图片",
+    "zoomOut": "缩小",
+    "zoomIn": "放大",
+    "fitToggle": "在适应和原大之间切换",
+    "fit": "适应",
+    "close": "关闭",
+    "sealed": "所属记录已封存",
+    "opening": "正在打开…",
+    "failed": "打不开",
+    "unavailable": "预览暂时不可用",
+    "imageFailed": "这张图片打不开",
+    "videoFailed": "这个视频打不开",
+    "play": "播放",
+    "pause": "暂停",
+    "previous": "上一个",
+    "next": "下一个",
+    "mute": "静音",
+    "unmute": "取消静音",
+    "volume": "音量",
+    "progress": "进度",
+    "preview": "预览",
+    "passwordPrompt": "输入密码后可以预览",
+    "passwordLabel": "密码",
+    "unlocking": "正在打开…",
+    "unlock": "打开"
+  },
+  "player": {
+    "sealed": "所属记录已封存",
+    "file": "文件",
+    "opening": "正在打开…",
+    "cannotOpen": "打不开",
+    "previewUnavailable": "预览暂时不可用",
+    "imageError": "这张图片打不开",
+    "videoError": "这个视频打不开",
+    "preview": "预览"
+  },
+  "types": {
+    "modules": {
+      "journal": "手记",
+      "library": "书库",
+      "plan": "计划",
+      "growth": "成长",
+      "loose": "未挂载"
+    },
+    "filters": {
+      "all": "全部",
+      "image": "图片",
+      "book": "书籍",
+      "video": "视频",
+      "file": "其他"
+    },
+    "ownerKinds": {
+      "diary": "日记",
+      "spark": "灵感",
+      "writing": "写作",
+      "milestone": "里程碑",
+      "moment": "瞬间",
+      "want": "想读",
+      "reading": "在读",
+      "finished": "读完",
+      "excerpt": "书摘",
+      "note": "笔记",
+      "avatar": "头像"
+    },
+    "book": "书籍",
+    "fileLabel": "文件",
+    "unnamed": "未命名文件",
+    "bodyImage": "正文图片",
+    "bodyImageIndex": "正文图片 {{index}}"
+  },
+  "role": {
+    "current": "当前正文",
+    "encrypted": "已加密",
+    "older": "较早的一份"
+  },
+  "reading": {
+    "none": "没有正文",
+    "readable": "可阅读",
+    "encrypted": "已加密，不能阅读",
+    "noReadable": "没有可打开的正文"
+  },
+  "open": {
+    "book": "打开这本书",
+    "bookNote": "打开这条书摘",
+    "plan": "打开这条计划",
+    "growth": "打开这条成长",
+    "member": "打开这位家人",
+    "journal": "打开这篇手记"
+  },
+  "record": {
+    "missing": "记录已不在"
+  },
+  "host": {
+    "bookNote": "这条书摘",
+    "plan": "这条计划",
+    "growth": "这条成长记录",
+    "member": "这位家人",
+    "journal": "这篇手记"
+  },
+  "remove": {
+    "looseTitle": "删除这份文件",
+    "looseBody": "它不挂在记录上。删掉后就没有了。",
+    "sealedTitle": "还不能删除",
+    "sealedBody": "{{record}}已封存。正文里仍引用这个文件，先解开再删。",
+    "thisRecord": "这条记录",
+    "quote": "《{{title}}》",
+    "bookCurrentTitle": "删除这份正文",
+    "bookOnlyEncrypted": "删除后，{{quoted}}只剩已加密的文件。书还在书架上，阅读页会显示暂时不能阅读。进度和封面保留。",
+    "bookNoReadable": "删除后，{{quoted}}还在书架上，但没有可打开的正文。进度和封面保留。",
+    "bookTitle": "删除这份文件",
+    "bookStillUses": "{{quoted}}仍用 {{format}} 打开，阅读不受影响。",
+    "bookNoText": "删除后，{{quoted}}没有正文文件。书还在书架上。",
+    "avatarTitle": "删除这张头像",
+    "avatarBody": "删掉后，{{name}}的头像会空着。家人还在。",
+    "avatarBodyNoName": "删掉后，这位家人的头像会空着。家人还在。",
+    "imageTitle": "删除这张正文图片",
+    "fileTitle": "删除这份文件",
+    "fromHost": "它会从{{host}}里去掉。记录本身保留。",
+    "fromHostNamed": "它会从{{host}}《{{title}}》里去掉。记录本身保留。",
+    "deleting": "正在删除…"
+  },
+  "sort": {
+    "recent": "最近导入",
+    "size": "体积",
+    "name": "名称"
+  },
+  "dialog": {
+    "filesFilter": "文件",
+    "archiveFilter": "Precession 档案"
+  }
+}

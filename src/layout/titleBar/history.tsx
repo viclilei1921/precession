@@ -1,5 +1,6 @@
 import { ArrowLeftIcon, ArrowRightIcon } from '@phosphor-icons/react';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { IconButton } from '@/components/button/icon';
 import { router } from '@/router';
 import { useAppStore } from '@/store/app';
@@ -23,6 +24,7 @@ function readHistoryNav(): HistoryNav {
 
 /** 标题栏里的路由后退、前进。锁屏时不能改底下的页面。 */
 export function TitleBarHistory() {
+  const { t } = useTranslation('layout');
   const unlocked = useAppStore((state) => Boolean(state.dbStatus?.unlocked));
   const [nav, setNav] = useState(readHistoryNav);
 
@@ -43,11 +45,16 @@ export function TitleBarHistory() {
 
   return (
     <div className={styles.history}>
-      <IconButton label="后退" size="compact" disabled={!unlocked || !nav.back} onClick={() => router.history.back()}>
+      <IconButton
+        label={t('titleBar.back')}
+        size="compact"
+        disabled={!unlocked || !nav.back}
+        onClick={() => router.history.back()}
+      >
         <ArrowLeftIcon weight="regular" />
       </IconButton>
       <IconButton
-        label="前进"
+        label={t('titleBar.forward')}
         size="compact"
         disabled={!unlocked || !nav.forward}
         onClick={() => router.history.forward()}

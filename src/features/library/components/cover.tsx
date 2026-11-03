@@ -1,5 +1,6 @@
+import { useTranslation } from 'react-i18next';
 import type { Book } from '@/bridge/library';
-import { bookFormat } from '../book';
+import { bookFormat, displayTitle } from '../book';
 import styles from './cover.module.css';
 
 const SPINES = [
@@ -21,6 +22,7 @@ function tone(id: string) {
 
 /** 字脊封面。不使用文件里的封面图 */
 export function Cover({ book, compact }: { book: Book; compact?: boolean }) {
+  const { t } = useTranslation('library');
   const color = tone(book.id);
   const format = bookFormat(book);
   const reading = book.status === 'reading';
@@ -30,10 +32,14 @@ export function Cover({ book, compact }: { book: Book; compact?: boolean }) {
       className={compact ? styles.compact : styles.cover}
       style={{ background: color.paper, color: color.ink, ['--spine' as string]: color.spine }}
     >
-      <span className={styles.name}>{book.title}</span>
+      <span className={styles.name}>{displayTitle(book.title)}</span>
       {format ? <span className={styles.format}>{format}</span> : null}
       {reading ? (
-        <span className={styles.progress} role="img" aria-label={`已读 ${Math.round(book.progress * 100)}%`}>
+        <span
+          className={styles.progress}
+          role="img"
+          aria-label={t('cover.readAria', { percent: Math.round(book.progress * 100) })}
+        >
           <span style={{ width: `${Math.round(book.progress * 100)}%` }} />
         </span>
       ) : null}

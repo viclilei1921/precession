@@ -2,6 +2,7 @@ import { CaretDownIcon } from '@phosphor-icons/react';
 import { Link, useRouterState } from '@tanstack/react-router';
 import clsx from 'clsx';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { rippleHost, useRipple } from '@/components/ripple';
 import { Scroll } from '@/components/scroll';
 import type { RouteGroup, RouteItem, RouteTone } from '@/router/items';
@@ -18,21 +19,23 @@ const toneClass: Record<RouteTone, string> = {
 };
 
 function AsideLink({ item }: { item: RouteItem }) {
+  const { t } = useTranslation('nav');
   const ripple = useRipple();
+  const label = t(item.id);
 
   return (
     <Link
       to={item.to}
       className={clsx(rippleHost, styles.link, item.tone && toneClass[item.tone])}
-      aria-label={item.label}
-      title={item.label}
+      aria-label={label}
+      title={label}
       activeOptions={{ exact: false }}
       onPointerDown={ripple.onPointerDown}
       onKeyDown={ripple.onKeyDown}
     >
       {ripple.nodes}
       <item.icon className={styles.icon} weight="regular" />
-      <span className={styles.label}>{item.label}</span>
+      <span className={styles.label}>{label}</span>
     </Link>
   );
 }
@@ -42,6 +45,7 @@ function covers(pathname: string, item: RouteItem) {
 }
 
 function MoreButton({ open, onClick }: { open: boolean; onClick: () => void }) {
+  const { t } = useTranslation('nav');
   const ripple = useRipple();
 
   return (
@@ -56,12 +60,13 @@ function MoreButton({ open, onClick }: { open: boolean; onClick: () => void }) {
     >
       {ripple.nodes}
       <CaretDownIcon className={styles.icon} weight="regular" />
-      <span className={styles.label}>{open ? '收起' : '更多'}</span>
+      <span className={styles.label}>{open ? t('collapse') : t('more')}</span>
     </button>
   );
 }
 
 function AsideGroup({ group }: { group: RouteGroup }) {
+  const { t } = useTranslation('nav');
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const items = itemsOn('sidebar').filter((item) => item.group === group);
   const primary = items.filter((item) => item.fold !== 'more');
@@ -78,9 +83,11 @@ function AsideGroup({ group }: { group: RouteGroup }) {
     }
   }, [group, pathname]);
 
+  const groupLabel = t(`group.${group}`);
+
   return (
-    <nav className={styles.group} aria-label={group}>
-      <div className={styles.groupLabel}>{group}</div>
+    <nav className={styles.group} aria-label={groupLabel}>
+      <div className={styles.groupLabel}>{groupLabel}</div>
       {primary.map((item) => (
         <AsideLink key={item.id} item={item} />
       ))}

@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { BookNote, BookNoteKind } from '@/bridge/library';
 import { bookNoteCreate, bookNoteDelete, bookNoteUpdate } from '@/bridge/library';
 import { Button } from '@/components/button';
@@ -18,6 +19,7 @@ import recordStyles from '@/components/record.module.css';
 import { Scroll } from '@/components/scroll';
 import { TextField } from '@/components/text-field';
 import styles from '@/features/plan/drawer.module.css';
+import i18n from '@/i18n';
 import { refreshFiles } from '@/query/files/query';
 import { refreshLibrary } from '@/query/library/query';
 import { fromDateInputValue, startOfLocalDay, toDateInputValue } from '@/utils/day';
@@ -26,7 +28,7 @@ import { errorMessage } from '@/utils/error';
 /** 列表和卡片上看到的句子。锁定的不露出正文 */
 export function noteBody(note: { body: string; title: string; locked: boolean }) {
   if (note.locked) {
-    return '这条已锁定。';
+    return i18n.t('library:note.locked');
   }
   return markdownPlain(note.body) || note.title.trim();
 }
@@ -41,6 +43,7 @@ type NoteFormProps = {
 };
 
 export function NoteForm({ bookId, note, preset, lockKind, onClose }: NoteFormProps) {
+  const { t } = useTranslation(['library', 'common']);
   const queryClient = useQueryClient();
   const markdownRef = useRef<MarkdownEditorHandle>(null);
   const [kind, setKind] = useState<BookNoteKind>(lockKind ? 'excerpt' : (note?.kind ?? preset?.kind ?? 'excerpt'));
@@ -56,7 +59,7 @@ export function NoteForm({ bookId, note, preset, lockKind, onClose }: NoteFormPr
   const save = useMutation({
     mutationFn: async () => {
       const sealed = Boolean(note?.locked) && body.trim() === '';
-      const text = sealed ? note?.body.trim() || note?.title.trim() || '已锁定' : body.trim();
+      const text = sealed ? note?.body.trim() || note?.title.trim() || t('note.lockedTitle') : body.trim();
       const first = text.split('\n')[0] || text;
       const input = {
         bookId,
@@ -94,7 +97,7 @@ export function NoteForm({ bookId, note, preset, lockKind, onClose }: NoteFormPr
     }
   });
   const remove = useMutation({
-    mutationFn: () => (note ? bookNoteDelete(note.id) : Promise.reject(new Error('记录不存在'))),
+    mutationFn: () => (note ? bookNoteDelete(note.id) : Promise.reject(new Error(t('note.notFound')))),
     onSuccess: async () => {
       await refreshLibrary(queryClient);
       onClose();
@@ -118,36 +121,44 @@ export function NoteForm({ bookId, note, preset, lockKind, onClose }: NoteFormPr
       <Scroll className={styles.sheet} axis="vertical">
         <div className={styles.main}>
           {lockKind ? (
-            <p className={recordStyles.note}>写下想留下的句子。章节先填了当前这一章。</p>
+            <p className={recordStyles.note}>{t('note.excerptHint')}</p>
           ) : (
             <div className={recordStyles.segments}>
               <SegmentButton selected={kind === 'excerpt'} onClick={() => setKind('excerpt')}>
-                书摘
+                {t('note.excerpt')}
               </SegmentButton>
               <SegmentButton selected={kind === 'note'} onClick={() => setKind('note')}>
-                笔记
+                {t('note.note')}
               </SegmentButton>
             </div>
           )}
           <MarkdownField
             ref={markdownRef}
-            label="正文"
-            hint={note?.locked && body === '' ? '这条已锁定。' : undefined}
+            label={t('note.body')}
+            hint={note?.locked && body === '' ? t('note.locked') : undefined}
             value={body}
             disabled={Boolean(note?.locked)}
             image={note?.locked ? undefined : note ? { owner: 'book_note', ownerId: note.id } : looseImageOwner}
             onChange={setBody}
           />
           <div className={recordStyles.pair}>
-            <TextField label="章节" value={chapter} onChange={(event) => setChapter(event.target.value)} />
-            <TextField label="位置" value={location} onChange={(event) => setLocation(event.target.value)} />
+            <TextField label={t('note.chapter')} value={chapter} onChange={(event) => setChapter(event.target.value)} />
+            <TextField
+              label={t('note.location')}
+              value={location}
+              onChange={(event) => setLocation(event.target.value)}
+            />
           </div>
-          <DateField label="时间" value={occurredAt} onChange={setOccurredAt} />
-          <Checkbox label="标为高光" checked={highlight} onChange={(event) => setHighlight(event.target.checked)} />
+          <DateField label={t('note.time')} value={occurredAt} onChange={setOccurredAt} />
+          <Checkbox
+            label={t('note.highlight')}
+            checked={highlight}
+            onChange={(event) => setHighlight(event.target.checked)}
+          />
         </div>
       </Scroll>
       <div className={styles.foot}>
-        {empty ? <p className={styles.error}>先写下内容</p> : null}
+        {empty ? <p className={styles.error}>{t('note.emptyError')}</p> : null}
         {save.error ? <p className={styles.error}>{errorMessage(save.error)}</p> : null}
         {remove.error ? <p className={styles.error}>{errorMessage(remove.error)}</p> : null}
         <div className={recordStyles.actions}>
@@ -164,15 +175,15 @@ export function NoteForm({ bookId, note, preset, lockKind, onClose }: NoteFormPr
                 remove.mutate();
               }}
             >
-              {confirmDelete ? '确认删除' : '删除'}
+              {confirmDelete ? t('note.confirmDelete') : t('common:button.delete')}
             </Button>
           ) : null}
           <span className={recordStyles.spacer} />
           <Button variant="outlined" disabled={pending} onClick={onClose}>
-            取消
+            {t('common:button.cancel')}
           </Button>
           <Button type="submit" disabled={pending}>
-            保存
+            {t('common:button.save')}
           </Button>
         </div>
       </div>

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Checkbox } from '@/components/checkbox';
 import { TextField } from '@/components/text-field';
 import type { ImageParamsDraft } from '../params-draft';
@@ -9,6 +10,8 @@ type ParamsContainerProps = {
 };
 
 export function ParamsContainer({ draft, onChange }: ParamsContainerProps) {
+  const { t } = useTranslation('image');
+
   function patch(next: Partial<ImageParamsDraft>) {
     onChange({ ...draft, ...next });
   }
@@ -17,19 +20,19 @@ export function ParamsContainer({ draft, onChange }: ParamsContainerProps) {
     <div className={styles.row}>
       <TextField
         className={styles.num}
-        label="线程数"
+        label={t('params.labels.threads')}
         value={draft.jxlThreads}
         inputMode="numeric"
-        placeholder="留空"
+        placeholder={t('params.placeholder.empty')}
         onChange={(event) => patch({ jxlThreads: event.target.value })}
       />
       <Checkbox
-        label="使用容器"
+        label={t('params.labels.useContainer')}
         checked={draft.useContainer}
         onChange={(event) => patch({ useContainer: event.target.checked })}
       />
       <Checkbox
-        label="渐进"
+        label={t('params.labels.progressive')}
         checked={draft.progressive}
         onChange={(event) => patch({ progressive: event.target.checked })}
       />

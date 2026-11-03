@@ -1,0 +1,93 @@
+{
+  "page": {
+    "typeAria": "手记类型",
+    "diary": "日记",
+    "spark": "灵感",
+    "writing": "写作",
+    "searchPlaceholder": "搜索手记",
+    "searchInput": "搜索标题或正文",
+    "searchAria": "搜索手记",
+    "new": "新建",
+    "cancel": "取消",
+    "emptySearch": "没有匹配的手记。",
+    "emptyDefault": "这里还没有记录。",
+    "writeFab": "写一条",
+    "locked": "已封存",
+    "highlight": "高光",
+    "words_one": "{{count}} 字",
+    "words_other": "{{count}} 字"
+  },
+  "common": {
+    "loading": "正在读取…"
+  },
+  "seal": {
+    "password": "正文密码",
+    "unseal": "解开",
+    "seal": "封存"
+  },
+  "meta": {
+    "add": "添加",
+    "empty": "没有可添加的。"
+  },
+  "text": {
+    "sealed": "正文已封存。",
+    "empty": "还没有正文。"
+  },
+  "section": {
+    "date": "日期",
+    "seal": "封存",
+    "place": "地点",
+    "tag": "标签",
+    "citation": "引用",
+    "other": "其他",
+    "member": "成员"
+  },
+  "editor": {
+    "done": "完成",
+    "addWith": "添加{{target}}",
+    "collapseSettings": "收起设置",
+    "openSettings": "打开设置",
+    "settings": "设置",
+    "title": "标题",
+    "lockedNotice": "正文已封存。解开之后才能改。",
+    "bodyPlaceholder": "写下来",
+    "editDate": "修改日期",
+    "occurredAt": "发生时间",
+    "sealLocked": "正文已封存。",
+    "sealUnlocked": "正文还没有封存。",
+    "sealAfterSave": "保存之后可以封存。",
+    "emptyPlaces": "还没有地点。",
+    "newPlace": "新地点",
+    "emptyTags": "还没有标签。",
+    "newTag": "新标签",
+    "emptyMembers": "还没有成员。",
+    "citationAfterSave": "保存之后可以引用。",
+    "highlight": "标为高光",
+    "deleteHint": "再点一次就会删掉这篇。",
+    "confirmDelete": "确认删除"
+  },
+  "errors": {
+    "notFound": "手记不存在"
+  },
+  "citations": {
+    "empty": "还没有引用。",
+    "book": "书",
+    "selectBook": "选择一本书",
+    "note": "书摘或笔记",
+    "selectNote": "选择一条",
+    "add": "引用",
+    "noBooks": "书库里还没有书，先去添加。",
+    "excerpt": "书摘"
+  },
+  "entry": {
+    "edit": "编辑"
+  },
+  "promote": {
+    "sparkToWriting": "灵感到写作",
+    "writingToDiary": "写作到日记",
+    "openLink": "打开关联",
+    "expand": "扩写成写作",
+    "toDiary": "归入日记",
+    "end": "日记是这条流转的尽头。"
+  }
+}

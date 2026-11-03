@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import type { TitleAnchor } from '@/bridge/task';
 import { Select } from '@/components/select';
 import { TextField } from '@/components/text-field';
@@ -10,6 +11,7 @@ type EncodeTitleProps = {
 };
 
 export function EncodeTitle({ draft, onChange }: EncodeTitleProps) {
+  const { t } = useTranslation('video');
   function patch(next: Partial<EncodeDraft>) {
     onChange({ ...draft, ...next });
   }
@@ -18,33 +20,33 @@ export function EncodeTitle({ draft, onChange }: EncodeTitleProps) {
     <div className={styles.fields}>
       <div className={styles.pair}>
         <Select
-          label="标题"
+          label={t('encode.title.mode')}
           value={draft.titleMode}
           onChange={(event) => patch({ titleMode: event.target.value as EncodeDraft['titleMode'] })}
         >
-          <option value="off">不画</option>
-          <option value="text">自定义文字</option>
-          <option value="filename">文件名</option>
+          <option value="off">{t('encode.title.off')}</option>
+          <option value="text">{t('encode.title.text')}</option>
+          <option value="filename">{t('encode.title.filename')}</option>
         </Select>
         <Select
-          label="标题位置"
+          label={t('encode.title.anchor')}
           value={draft.anchor}
           onChange={(event) => patch({ anchor: event.target.value as TitleAnchor })}
         >
-          <option value="topStart">左上</option>
-          <option value="topCenter">上中</option>
-          <option value="topEnd">右上</option>
-          <option value="centerStart">左中</option>
-          <option value="center">正中</option>
-          <option value="centerEnd">右中</option>
-          <option value="bottomStart">左下</option>
-          <option value="bottomCenter">下中</option>
-          <option value="bottomEnd">右下</option>
+          <option value="topStart">{t('encode.title.topStart')}</option>
+          <option value="topCenter">{t('encode.title.topCenter')}</option>
+          <option value="topEnd">{t('encode.title.topEnd')}</option>
+          <option value="centerStart">{t('encode.title.centerStart')}</option>
+          <option value="center">{t('encode.title.center')}</option>
+          <option value="centerEnd">{t('encode.title.centerEnd')}</option>
+          <option value="bottomStart">{t('encode.title.bottomStart')}</option>
+          <option value="bottomCenter">{t('encode.title.bottomCenter')}</option>
+          <option value="bottomEnd">{t('encode.title.bottomEnd')}</option>
         </Select>
       </div>
       {draft.titleMode === 'text' ? (
         <TextField
-          label="标题文字"
+          label={t('encode.title.textLabel')}
           value={draft.titleText}
           onChange={(event) => patch({ titleText: event.target.value })}
         />
@@ -52,13 +54,13 @@ export function EncodeTitle({ draft, onChange }: EncodeTitleProps) {
       {draft.titleMode !== 'off' ? (
         <div className={styles.pair}>
           <TextField
-            label="字号"
+            label={t('encode.title.fontSize')}
             value={draft.fontSize}
             inputMode="numeric"
             onChange={(event) => patch({ fontSize: event.target.value })}
           />
           <TextField
-            label="标题开始（秒）"
+            label={t('encode.title.start')}
             value={draft.titleStart}
             inputMode="decimal"
             onChange={(event) => patch({ titleStart: event.target.value })}
@@ -67,7 +69,7 @@ export function EncodeTitle({ draft, onChange }: EncodeTitleProps) {
       ) : null}
       {draft.titleMode !== 'off' ? (
         <TextField
-          label="标题结束（秒）"
+          label={t('encode.title.end')}
           value={draft.titleEnd}
           inputMode="decimal"
           onChange={(event) => patch({ titleEnd: event.target.value })}

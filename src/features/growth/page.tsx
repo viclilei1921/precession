@@ -1,7 +1,9 @@
 import { CameraIcon, CaretLeftIcon, FlagIcon, PlayIcon, PlusIcon, SquaresFourIcon } from '@phosphor-icons/react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
+import type { TFunction } from 'i18next';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { GrowthEntry, GrowthKind, GrowthMeasure } from '@/bridge/growth';
 import { Button } from '@/components/button';
 import { IconButton } from '@/components/button/icon';
@@ -9,12 +11,12 @@ import { SegmentButton } from '@/components/button/segment';
 import { firstImageId, firstVideoId, UploadThumb } from '@/components/markdown';
 import { Scroll } from '@/components/scroll';
 import { useJournalNames } from '@/features/journal/names';
-import { journalDate, journalExcerpt, lookupNames } from '@/features/journal/text';
+import { journalExcerpt, lookupNames } from '@/features/journal/text';
 import { usePageSearch } from '@/hooks/search';
 import { growthListQuery, growthMeasureListQuery } from '@/query/growth/query';
 import { useMembers } from '@/query/member/use-members';
 import { PATH } from '@/router/path';
-import { ageLabel } from '@/utils/day';
+import { ageLabel, formatDate, formatMonth, weekdayShort } from '@/utils/day';
 import { errorMessage } from '@/utils/error';
 import { matchesQuery } from '@/utils/search';
 import { GrowthEditor } from './components/editor';
@@ -24,24 +26,29 @@ import { MeasureForm } from './components/measure-form';
 import styles from './page.module.css';
 import { cardAge, cmText, groupChapters, isYoung, kgText } from './text';
 
-const segments: { kind: GrowthKind | 'all'; label: string; Icon: typeof FlagIcon }[] = [
-  { kind: 'all', label: '全部', Icon: SquaresFourIcon },
-  { kind: 'milestone', label: '里程碑', Icon: FlagIcon },
-  { kind: 'moment', label: '瞬间', Icon: CameraIcon }
+const segments: {
+  kind: GrowthKind | 'all';
+  labelKey: 'page.all' | 'page.moment' | 'page.milestone';
+  Icon: typeof FlagIcon;
+}[] = [
+  { kind: 'all', labelKey: 'page.all', Icon: SquaresFourIcon },
+  { kind: 'moment', labelKey: 'page.moment', Icon: CameraIcon },
+  { kind: 'milestone', labelKey: 'page.milestone', Icon: FlagIcon }
 ];
 
 /** 成长。家里看全家，点开一个人看轨迹。 */
 export function GrowthPage() {
+  const { t } = useTranslation('growth');
   const navigate = useNavigate();
   const search = useSearch({ from: '/growth' });
   const membersState = useMembers();
   const members = membersState.members;
   const names = useJournalNames();
-  const query = usePageSearch('搜索成长');
+  const query = usePageSearch(t('page.search'));
   const listQuery = useQuery(growthListQuery());
   const [kind, setKind] = useState<GrowthKind | 'all'>(search.kind ?? 'all');
   const [creating, setCreating] = useState(false);
-  const [draftKind, setDraftKind] = useState<GrowthKind>(search.kind ?? 'milestone');
+  const [draftKind, setDraftKind] = useState<GrowthKind>(search.kind ?? 'moment');
   const [family, setFamily] = useState(false);
   const [measure, setMeasure] = useState<GrowthMeasure | 'new' | null>(null);
   const member = members.find((item) => item.id === search.member) ?? null;
@@ -66,7 +73,7 @@ export function GrowthPage() {
       if (membersState.isPending) {
         return;
       }
-      setDraftKind(search.kind ?? 'milestone');
+      setDraftKind(search.kind ?? 'moment');
       if (members.length === 0) {
         setFamily(true);
       } else {
@@ -98,7 +105,7 @@ export function GrowthPage() {
       setFamily(true);
       return;
     }
-    setDraftKind(kind === 'moment' ? 'moment' : 'milestone');
+    setDraftKind(kind === 'milestone' ? 'milestone' : 'moment');
     setCreating(true);
   }
 
@@ -168,13 +175,13 @@ export function GrowthPage() {
 
   return (
     <section className={styles.page}>
-      {waitingMember ? <p className={styles.note}>正在读取…</p> : null}
+      {waitingMember ? <p className={styles.note}>{t('page.loading')}</p> : null}
       {!waitingMember && member ? (
         <Timeline
           memberId={member.id}
           memberName={member.name}
           avatar={member.avatar}
-          who={[member.relation, memberLine(member.birthday)].filter(Boolean).join(' · ')}
+          who={[member.relation, memberLine(member.birthday, t)].filter(Boolean).join(' · ')}
           kind={kind}
           entries={records.filter(
             (entry) => entry.memberId === member.id && (kind === 'all' || entry.kind === kind) && visible(entry)
@@ -226,12 +233,12 @@ export function GrowthPage() {
   );
 }
 
-function memberLine(birthday: number | null) {
+function memberLine(birthday: number | null, t: TFunction<'growth'>) {
   if (birthday == null) {
-    return '还没有生日';
+    return t('page.noBirthday');
   }
   const age = ageLabel(birthday);
-  return age ? `现在 ${age}` : '';
+  return age ? t('page.nowAge', { label: age }) : '';
 }
 
 function Home({
@@ -259,6 +266,7 @@ function Home({
   meta: (entry: GrowthEntry) => string;
   visible: (entry: GrowthEntry) => boolean;
 }) {
+  const { t } = useTranslation('growth');
   const shown = records.filter(visible);
   const hero = shown.find((entry) => entry.highlight) ?? null;
   const heroSide = hero == null ? { photo: '', video: false } : entrySide(hero);
@@ -267,24 +275,24 @@ function Home({
   return (
     <>
       <header className={styles.head}>
-        <h1 className={styles.title}>家里</h1>
+        <h1 className={styles.title}>{t('page.home')}</h1>
         <span className={styles.spacer} />
         <Button variant="outlined" onClick={onFamily}>
-          家人
+          {t('page.family')}
         </Button>
         <Button onClick={onCreate}>
           <PlusIcon weight="regular" />
-          记一笔
+          {t('page.newEntry')}
         </Button>
       </header>
       <Scroll className={styles.scroll}>
         <div className={styles.body}>
           {error ? <p className={styles.error}>{error}</p> : null}
-          {pending ? <p className={styles.note}>正在读取…</p> : null}
+          {pending ? <p className={styles.note}>{t('page.loading')}</p> : null}
           {!pending && members.length === 0 ? (
             <>
-              <p className={styles.empty}>先添加一位家人。</p>
-              <Button onClick={onFamily}>添加家人</Button>
+              <p className={styles.empty}>{t('page.addFamilyFirst')}</p>
+              <Button onClick={onFamily}>{t('page.addFamily')}</Button>
             </>
           ) : null}
           {hero ? (
@@ -296,7 +304,7 @@ function Home({
             >
               <DateMark time={hero.occurredAt} />
               <span className={styles.heroMain}>
-                <span className={styles.kicker}>最近的高光</span>
+                <span className={styles.kicker}>{t('page.latestHighlight')}</span>
                 <span className={styles.heroTitle}>{hero.title}</span>
                 <span className={styles.excerpt}>{journalExcerpt(hero.body, hero.locked)}</span>
                 <span className={styles.quiet}>{meta(hero)}</span>
@@ -306,7 +314,7 @@ function Home({
           ) : null}
           {members.length > 0 ? (
             <>
-              <h2 className={styles.sectionTitle}>家人</h2>
+              <h2 className={styles.sectionTitle}>{t('page.family')}</h2>
               <div className={styles.people}>
                 {members.map((person) => {
                   const own = records.filter((entry) => entry.memberId === person.id);
@@ -323,7 +331,7 @@ function Home({
                         <span className={styles.personName}>{person.name}</span>
                         {personMeta ? <span className={styles.personMeta}>{personMeta}</span> : null}
                         <span className={styles.personCount}>
-                          {own.length === 0 ? '还没有记录' : `${own.length} 条`}
+                          {own.length === 0 ? t('page.noRecords') : t('page.entryCount', { count: own.length })}
                         </span>
                         {own[0] ? <span className={styles.personLatest}>{own[0].title}</span> : null}
                       </span>
@@ -334,11 +342,11 @@ function Home({
             </>
           ) : null}
           {members.length > 0 && !pending && shown.length === 0 ? (
-            <p className={styles.empty}>{searching ? '没有匹配的记录。' : '家里还没有记录。'}</p>
+            <p className={styles.empty}>{searching ? t('page.emptySearch') : t('page.emptyHome')}</p>
           ) : null}
           {feed.length > 0 ? (
             <>
-              <h2 className={styles.sectionTitle}>最近</h2>
+              <h2 className={styles.sectionTitle}>{t('page.recent')}</h2>
               <ul className={styles.list}>
                 {feed.map((entry) => (
                   <EntryCard key={entry.id} entry={entry} meta={meta(entry)} showKind onOpen={() => onOpen(entry.id)} />
@@ -395,6 +403,7 @@ function Timeline({
   meta: (entry: GrowthEntry) => string;
   onMeasure: (measure: GrowthMeasure | 'new') => void;
 }) {
+  const { t } = useTranslation('growth');
   const chapters = groupChapters(entries, birthday, isYoung(birthday));
   const latest = measures[0];
 
@@ -402,7 +411,7 @@ function Timeline({
     <>
       <header className={styles.headStack}>
         <div className={styles.head}>
-          <IconButton label="返回家里" onClick={onBack}>
+          <IconButton label={t('page.backHome')} onClick={onBack}>
             <CaretLeftIcon weight="regular" />
           </IconButton>
           <div className={styles.who}>
@@ -414,18 +423,18 @@ function Timeline({
           </div>
           <span className={styles.spacer} />
           <Button variant="outlined" onClick={onFamily}>
-            编辑档案
+            {t('page.editProfile')}
           </Button>
           <Button onClick={onCreate}>
             <PlusIcon weight="regular" />
-            记一笔
+            {t('page.newEntry')}
           </Button>
         </div>
-        <div className={styles.segments} role="tablist" aria-label="成长类型">
+        <div className={styles.segments} role="tablist" aria-label={t('page.typeAria')}>
           {segments.map((item) => (
             <SegmentButton key={item.kind} selected={kind === item.kind} onClick={() => onKind(item.kind)}>
               <item.Icon weight="regular" />
-              {item.label}
+              {t(item.labelKey)}
             </SegmentButton>
           ))}
         </div>
@@ -436,32 +445,38 @@ function Timeline({
           {kind === 'all' ? (
             <section className={styles.measure}>
               <div className={styles.measureTop}>
-                <h2>生长</h2>
+                <h2>{t('page.growth')}</h2>
                 <Button variant="text" onClick={() => onMeasure('new')}>
-                  记一次
+                  {t('page.recordMeasure')}
                 </Button>
               </div>
               {measuresError ? <p className={styles.error}>{measuresError}</p> : null}
-              {measuresPending ? <p className={styles.note}>正在读取…</p> : null}
+              {measuresPending ? <p className={styles.note}>{t('page.loading')}</p> : null}
               {latest ? (
                 <p className={styles.measureNow}>
                   <strong>
-                    {cmText(latest.heightMm)} <span>厘米</span>
+                    {cmText(latest.heightMm)} <span>{t('page.centimeter')}</span>
                   </strong>
                   <strong>
-                    {kgText(latest.weightG)} <span>千克</span>
+                    {kgText(latest.weightG)} <span>{t('page.kilogram')}</span>
                   </strong>
                 </p>
               ) : null}
-              {!measuresPending && measures.length === 0 ? <p className={styles.note}>记下身高和体重。</p> : null}
+              {!measuresPending && measures.length === 0 ? (
+                <p className={styles.note}>{t('page.measureHint')}</p>
+              ) : null}
               {measures.length > 0 ? (
                 <ul className={styles.measureList}>
                   {measures.map((item) => (
                     <li key={item.id}>
                       <button type="button" className={styles.measureRow} onClick={() => onMeasure(item)}>
-                        <span>{journalDate(item.occurredAt).full}</span>
-                        <span>{cmText(item.heightMm)} 厘米</span>
-                        <span>{kgText(item.weightG)} 千克</span>
+                        <span>{formatDate(item.occurredAt)}</span>
+                        <span>
+                          {cmText(item.heightMm)} {t('page.centimeter')}
+                        </span>
+                        <span>
+                          {kgText(item.weightG)} {t('page.kilogram')}
+                        </span>
                       </button>
                     </li>
                   ))}
@@ -469,9 +484,9 @@ function Timeline({
               ) : null}
             </section>
           ) : null}
-          {pending ? <p className={styles.note}>正在读取…</p> : null}
+          {pending ? <p className={styles.note}>{t('page.loading')}</p> : null}
           {!pending && entries.length === 0 ? (
-            <p className={styles.empty}>{searching ? '没有匹配的记录。' : '这条轨迹里还没有这种记录。'}</p>
+            <p className={styles.empty}>{searching ? t('page.emptySearch') : t('page.emptyTimeline')}</p>
           ) : null}
           {chapters.length > 0 ? (
             <div className={styles.chapters}>
@@ -525,12 +540,11 @@ function EntryMedia({ entry, side }: { entry: GrowthEntry; side: { photo: string
 }
 
 function DateMark({ time }: { time: number }) {
-  const date = journalDate(time);
   return (
     <span className={styles.date}>
-      <span className={styles.day}>{date.day}</span>
-      <span className={styles.month}>{date.month}</span>
-      <span className={styles.week}>{date.week}</span>
+      <span className={styles.day}>{new Date(time).getDate()}</span>
+      <span className={styles.month}>{formatMonth(time)}</span>
+      <span className={styles.week}>{weekdayShort(time)}</span>
     </span>
   );
 }
@@ -546,6 +560,7 @@ function EntryCard({
   showKind: boolean;
   onOpen: () => void;
 }) {
+  const { t } = useTranslation('growth');
   const side = entrySide(entry);
   return (
     <li>
@@ -563,16 +578,20 @@ function EntryCard({
               <span className={styles.badges}>
                 {entry.highlight ? (
                   <span className={styles.badge} data-tone="highlight">
-                    高光
+                    {t('page.highlight')}
                   </span>
                 ) : null}
-                {entry.locked ? <span className={styles.badge}>已封存</span> : null}
+                {entry.locked ? <span className={styles.badge}>{t('page.locked')}</span> : null}
               </span>
             ) : null}
           </span>
           <span className={styles.excerpt}>{journalExcerpt(entry.body, entry.locked)}</span>
           <span className={styles.cardFoot}>
-            {showKind ? <span className={styles.quiet}>{entry.kind === 'milestone' ? '里程碑' : '瞬间'}</span> : null}
+            {showKind ? (
+              <span className={styles.quiet}>
+                {entry.kind === 'milestone' ? t('page.milestone') : t('page.moment')}
+              </span>
+            ) : null}
             {meta ? <span className={styles.quiet}>{meta}</span> : null}
           </span>
         </span>

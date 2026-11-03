@@ -1,5 +1,6 @@
 import { LockIcon } from '@phosphor-icons/react';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { dbLock, dbStatus } from '@/bridge/db';
 import { Button } from '@/components/button';
 import { Modal } from '@/components/modal';
@@ -11,6 +12,7 @@ import styles from './lock-archive.module.css';
 
 /** 确认后锁上档案并回到锁屏。 */
 export function LockArchive() {
+  const { t } = useTranslation('lock');
   const setDbStatus = useAppStore((state) => state.setDbStatus);
   const [open, setOpen] = useState(false);
   const [locking, setLocking] = useState(false);
@@ -31,24 +33,22 @@ export function LockArchive() {
 
   return (
     <>
-      <SettingRow title="档案" hint="已解锁 · 锁定后回到锁屏。">
+      <SettingRow title={t('archive.rowTitle')} hint={t('archive.rowHint')}>
         <Button variant="outlined" disabled={locking} onClick={() => setOpen(true)}>
           <LockIcon weight="regular" />
-          锁定档案
+          {t('archive.action')}
         </Button>
       </SettingRow>
       {open ? (
-        <Modal title="锁定档案？" onClose={() => setOpen(false)}>
-          <p className={styles.body}>
-            锁定后会回到锁屏。已启用设备解锁时，再打开需要系统验证；否则要重新输入档案密码。
-          </p>
+        <Modal title={t('archive.modalTitle')} onClose={() => setOpen(false)}>
+          <p className={styles.body}>{t('archive.modalBody')}</p>
           {error ? <p className={styles.error}>{error}</p> : null}
           <div className={styles.actions}>
             <Button variant="text" disabled={locking} onClick={() => setOpen(false)}>
-              取消
+              {t('archive.cancel')}
             </Button>
             <Button disabled={locking} onClick={() => void lockArchive()}>
-              {locking ? '正在锁定…' : '锁定档案'}
+              {locking ? t('archive.locking') : t('archive.action')}
             </Button>
           </div>
         </Modal>

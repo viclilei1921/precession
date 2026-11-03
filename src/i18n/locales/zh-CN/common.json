@@ -1,0 +1,38 @@
+{
+  "button": {
+    "confirm": "确认",
+    "cancel": "取消",
+    "delete": "删除",
+    "save": "保存",
+    "back": "返回",
+    "next": "下一步",
+    "close": "关闭",
+    "search": "搜索",
+    "clear": "清除",
+    "retry": "重试",
+    "loadMore": "加载更多"
+  },
+  "state": {
+    "loading": "加载中…",
+    "empty": "暂无数据",
+    "error": "出错了",
+    "noResult": "没有找到结果"
+  },
+  "time": {
+    "today": "今天",
+    "yesterday": "昨天",
+    "tomorrow": "明天"
+  },
+  "planStatus": {
+    "done": "已完成",
+    "overdue": "逾期"
+  },
+  "age": {
+    "months_one": "{{count}} 个月",
+    "months_other": "{{count}} 个月",
+    "years_one": "{{count}} 岁",
+    "years_other": "{{count}} 岁",
+    "yearsMonths": "{{years}} 岁 {{months}} 个月",
+    "birthDay": "出生当天"
+  }
+}

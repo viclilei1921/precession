@@ -1,6 +1,7 @@
 import { LockIcon, LockOpenIcon } from '@phosphor-icons/react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { JournalEntry } from '@/bridge/journal';
 import { journalEntryOpen, journalEntrySeal, journalEntryUpdate } from '@/bridge/journal';
 import { IconButton } from '@/components/button/icon';
@@ -12,6 +13,7 @@ import { errorMessage } from '@/utils/error';
 
 /** 用单独密码封存或解开日记正文。`readBody` 读编辑器里的当前正文。 */
 export function Seal({ entry, readBody, onKept }: { entry: JournalEntry; readBody: () => string; onKept: () => void }) {
+  const { t } = useTranslation('journal');
   const queryClient = useQueryClient();
   const [password, setPassword] = useState('');
   const seal = useMutation({
@@ -62,7 +64,7 @@ export function Seal({ entry, readBody, onKept }: { entry: JournalEntry; readBod
     <div className={styles.stack}>
       <PasswordInput
         id="journal-body-password"
-        label="正文密码"
+        label={t('seal.password')}
         value={password}
         onChange={(event) => setPassword(event.target.value)}
         onKeyDown={(event) => {
@@ -82,11 +84,19 @@ export function Seal({ entry, readBody, onKept }: { entry: JournalEntry; readBod
       />
       <div className={styles.actions}>
         {entry.locked ? (
-          <IconButton label="解开" disabled={open.isPending || password.length === 0} onClick={() => open.mutate()}>
+          <IconButton
+            label={t('seal.unseal')}
+            disabled={open.isPending || password.length === 0}
+            onClick={() => open.mutate()}
+          >
             <LockOpenIcon weight="regular" />
           </IconButton>
         ) : (
-          <IconButton label="封存" disabled={seal.isPending || password.length === 0} onClick={() => seal.mutate()}>
+          <IconButton
+            label={t('seal.seal')}
+            disabled={seal.isPending || password.length === 0}
+            onClick={() => seal.mutate()}
+          >
             <LockIcon weight="regular" />
           </IconButton>
         )}

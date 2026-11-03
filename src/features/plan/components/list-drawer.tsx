@@ -2,6 +2,7 @@ import { TrashIcon } from '@phosphor-icons/react';
 import { useMutation } from '@tanstack/react-query';
 import type { CSSProperties, FormEvent } from 'react';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Plan, PlanGroup } from '@/bridge/plan';
 import { planGroupCreate, planGroupDelete } from '@/bridge/plan';
 import { IconButton } from '@/components/button/icon';
@@ -21,10 +22,22 @@ type ListDrawerProps = {
   onPick: (id: string) => void;
   onCreated: () => void;
   onDeleted: (id: string) => void;
+  /** 放进底部面板时去掉自带内边距 */
+  flush?: boolean;
 };
 
 /** 清单。点一次过滤，再点一次看全部。默认清单不能删 */
-export function ListDrawer({ groups, plans, systemId, selectedId, onPick, onCreated, onDeleted }: ListDrawerProps) {
+export function ListDrawer({
+  groups,
+  plans,
+  systemId,
+  selectedId,
+  onPick,
+  onCreated,
+  onDeleted,
+  flush
+}: ListDrawerProps) {
+  const { t } = useTranslation('plan');
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState('');
   const [confirmId, setConfirmId] = useState<string | null>(null);
@@ -52,7 +65,7 @@ export function ListDrawer({ groups, plans, systemId, selectedId, onPick, onCrea
   }
 
   return (
-    <div className={styles.body}>
+    <div className={styles.body} data-flush={flush ? 'true' : undefined}>
       <div className={styles.list}>
         {groups.map((group) => {
           const locked = group.system || group.id === systemId;
@@ -77,15 +90,15 @@ export function ListDrawer({ groups, plans, systemId, selectedId, onPick, onCrea
               >
                 <i className={styles.dot} />
                 <span className={styles.name}>
-                  <span>{group.name}</span>
-                  {locked ? <i className={styles.tag}>默认</i> : null}
+                  <span>{group.system ? t('inbox') : group.name}</span>
+                  {locked ? <i className={styles.tag}>{t('drawer.defaultList')}</i> : null}
                 </span>
                 <span className={styles.count}>{count}</span>
               </button>
               {locked ? null : (
                 <IconButton
                   className={styles.listRemove}
-                  label={armed ? '确认删除' : '删除清单'}
+                  label={armed ? t('drawer.confirmDelete') : t('drawer.deleteList')}
                   size="compact"
                   tone="destructive"
                   disabled={remove.isPending}
@@ -104,14 +117,12 @@ export function ListDrawer({ groups, plans, systemId, selectedId, onPick, onCrea
           );
         })}
       </div>
-      {confirming ? (
-        <p className={styles.hint}>再点一次就会删掉「{confirming.name}」。里面的计划会回到默认清单。</p>
-      ) : null}
+      {confirming ? <p className={styles.hint}>{t('drawer.deleteListHint', { name: confirming.name })}</p> : null}
       {remove.error ? <p className={styles.error}>{errorMessage(remove.error)}</p> : null}
       {adding ? (
         <form className={styles.newList} onSubmit={(event) => void submit(event)}>
           <TextField
-            label="清单名称"
+            label={t('drawer.listName')}
             value={name}
             maxLength={16}
             onChange={(event) => setName(event.target.value)}
@@ -129,7 +140,7 @@ export function ListDrawer({ groups, plans, systemId, selectedId, onPick, onCrea
             setAdding(true);
           }}
         >
-          + 清单
+          {t('drawer.addList')}
         </DrawerAdd>
       )}
     </div>

@@ -1,3 +1,6 @@
+import i18n from '@/i18n';
+import { useAppStore } from '@/store/app';
+
 const STORAGE_KEY = 'precession-reading-settings';
 
 export type ReaderTheme = 'system' | 'paper' | 'sepia' | 'night' | 'eye_green';
@@ -28,33 +31,51 @@ const THEMES: ReaderTheme[] = ['system', 'paper', 'sepia', 'night', 'eye_green']
 const GAPS: ReaderGap[] = ['compact', 'normal', 'relaxed'];
 const WIDTHS: ReaderWidth[] = [70, 82, 90, 97];
 
-export const FONT_OPTIONS: { value: ReaderFont; label: string }[] = [
-  { value: 'wenkai', label: '霞鹜文楷' },
-  { value: 'serif', label: '宋体 / 衬线' },
-  { value: 'sans', label: '黑体 / 无衬线' },
-  { value: 'default', label: '系统默认' }
-];
+export type ReaderOption<T> = {
+  value: T;
+  /** 当前语言下的显示文案。保留这个字段给旧调用方，渲染时优先用 labelKey */
+  label: string;
+  /** `library` 命名空间下的文案 key */
+  labelKey: string;
+};
 
-export const THEME_OPTIONS: { value: ReaderTheme; label: string }[] = [
-  { value: 'system', label: '跟随应用' },
-  { value: 'paper', label: '纸质白' },
-  { value: 'sepia', label: '羊皮纸' },
-  { value: 'eye_green', label: '护眼绿' },
-  { value: 'night', label: '深色' }
-];
+function readerOptions<T>(defs: { value: T; labelKey: string }[]): ReaderOption<T>[] {
+  return defs.map((def) => ({
+    value: def.value,
+    labelKey: def.labelKey,
+    get label() {
+      return i18n.t(`library:${def.labelKey}`);
+    }
+  }));
+}
 
-export const WIDTH_OPTIONS: { value: ReaderWidth; label: string }[] = [
-  { value: 70, label: '窄' },
-  { value: 82, label: '适中' },
-  { value: 90, label: '宽' },
-  { value: 97, label: '超宽' }
-];
+export const FONT_OPTIONS: ReaderOption<ReaderFont>[] = readerOptions([
+  { value: 'wenkai', labelKey: 'reading.fonts.wenkai' },
+  { value: 'serif', labelKey: 'reading.fonts.serif' },
+  { value: 'sans', labelKey: 'reading.fonts.sans' },
+  { value: 'default', labelKey: 'reading.fonts.default' }
+]);
 
-export const GAP_OPTIONS: { value: ReaderGap; label: string }[] = [
-  { value: 'compact', label: '紧凑' },
-  { value: 'normal', label: '标准' },
-  { value: 'relaxed', label: '宽松' }
-];
+export const THEME_OPTIONS: ReaderOption<ReaderTheme>[] = readerOptions([
+  { value: 'system', labelKey: 'reading.themes.system' },
+  { value: 'paper', labelKey: 'reading.themes.paper' },
+  { value: 'sepia', labelKey: 'reading.themes.sepia' },
+  { value: 'eye_green', labelKey: 'reading.themes.eye_green' },
+  { value: 'night', labelKey: 'reading.themes.night' }
+]);
+
+export const WIDTH_OPTIONS: ReaderOption<ReaderWidth>[] = readerOptions([
+  { value: 70, labelKey: 'reading.widths.narrow' },
+  { value: 82, labelKey: 'reading.widths.medium' },
+  { value: 90, labelKey: 'reading.widths.wide' },
+  { value: 97, labelKey: 'reading.widths.extraWide' }
+]);
+
+export const GAP_OPTIONS: ReaderOption<ReaderGap>[] = readerOptions([
+  { value: 'compact', labelKey: 'reading.gaps.compact' },
+  { value: 'normal', labelKey: 'reading.gaps.normal' },
+  { value: 'relaxed', labelKey: 'reading.gaps.relaxed' }
+]);
 
 const FONT_CSS: Record<ReaderFont, string> = {
   wenkai: 'var(--font-sans)',
@@ -67,18 +88,24 @@ function nearestWidth(raw: number): ReaderWidth {
   return WIDTHS.reduce((best, value) => (Math.abs(value - raw) < Math.abs(best - raw) ? value : best));
 }
 
+function fallbackSettings(): ReadingSettings {
+  const platform = useAppStore.getState().platform;
+  const mobile = platform === 'android' || platform === 'ios';
+  return mobile ? { ...DEFAULTS, fontSize: 19 } : { ...DEFAULTS };
+}
+
 export function loadReadingSettings(): ReadingSettings {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
-      return { ...DEFAULTS };
+      return fallbackSettings();
     }
     const parsed = JSON.parse(raw) as Partial<ReadingSettings>;
     return {
       fontSize:
         typeof parsed.fontSize === 'number' && parsed.fontSize >= 16 && parsed.fontSize <= 40
           ? parsed.fontSize
-          : DEFAULTS.fontSize,
+          : fallbackSettings().fontSize,
       lineHeight: DEFAULTS.lineHeight,
       pageMaxWidth: typeof parsed.pageMaxWidth === 'number' ? nearestWidth(parsed.pageMaxWidth) : DEFAULTS.pageMaxWidth,
       fontFamily: FONTS.includes(parsed.fontFamily as ReaderFont)
@@ -92,7 +119,7 @@ export function loadReadingSettings(): ReadingSettings {
         : DEFAULTS.paragraphGap
     };
   } catch {
-    return { ...DEFAULTS };
+    return fallbackSettings();
   }
 }
 

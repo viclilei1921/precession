@@ -1,9 +1,11 @@
 import type { CSSProperties } from 'react';
 import { useLayoutEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Plan } from '@/bridge/plan';
 import { formatMonthDay, startOfLocalDay } from '@/utils/day';
 import styles from '../calendar.module.css';
-import { formatPlanClock, isWeekend, layoutBars, monthWeeks, planWhen, WEEKDAYS } from '../layout';
+import { planShowTime } from '../format';
+import { isWeekend, layoutBars, monthWeeks } from '../layout';
 import { PlanChip } from './plan-chip';
 
 type MonthViewProps = {
@@ -19,9 +21,11 @@ type MonthViewProps = {
 const LANE = 26;
 const TOP = 28;
 const MORE = 20;
+const WEEKDAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
 
 /** 月历。六周均分高度，排不下的收成个数 */
 export function MonthView({ month, today, plans, hueOf, onCreate, onOpen, onToggle }: MonthViewProps) {
+  const { t } = useTranslation('plan');
   const monthDate = new Date(month);
   const weeks = monthWeeks(month);
   const weeksRef = useRef<HTMLDivElement>(null);
@@ -46,9 +50,9 @@ export function MonthView({ month, today, plans, hueOf, onCreate, onOpen, onTogg
   return (
     <div className={styles.month}>
       <div className={styles.weekdays}>
-        {WEEKDAYS.map((label, index) => (
-          <span key={label} data-weekend={index >= 5 ? 'true' : undefined}>
-            {label}
+        {WEEKDAY_KEYS.map((key, index) => (
+          <span key={key} data-weekend={index >= 5 ? 'true' : undefined}>
+            {t(`weekday.${key}`)}
           </span>
         ))}
       </div>
@@ -63,7 +67,7 @@ export function MonthView({ month, today, plans, hueOf, onCreate, onOpen, onTogg
               {days.map((day) => {
                 const date = new Date(day);
                 const outside = date.getMonth() !== monthDate.getMonth();
-                const label = date.getDate() === 1 ? `${date.getMonth() + 1}月1日` : String(date.getDate());
+                const label = date.getDate() === 1 ? formatMonthDay(day) : String(date.getDate());
                 return (
                   <div
                     key={day}
@@ -74,7 +78,7 @@ export function MonthView({ month, today, plans, hueOf, onCreate, onOpen, onTogg
                     <button
                       type="button"
                       className={styles.cellHit}
-                      aria-label={`在${formatMonthDay(day)}添加计划`}
+                      aria-label={t('aria.addPlan', { date: formatMonthDay(day) })}
                       aria-current={startOfLocalDay(day) === today ? 'date' : undefined}
                       onClick={() => onCreate(day)}
                     />
@@ -89,7 +93,7 @@ export function MonthView({ month, today, plans, hueOf, onCreate, onOpen, onTogg
                   key={`${segment.plan.id}-${segment.col}`}
                   plan={segment.plan}
                   hue={hueOf(segment.plan)}
-                  time={segment.showTime ? barTime(segment.plan) : undefined}
+                  time={segment.showTime ? planShowTime(segment.plan, t) : undefined}
                   className={styles.bar}
                   before={segment.before}
                   after={segment.after}
@@ -129,14 +133,6 @@ function laneLimit(room: number, lanes: number): number {
     return lanes;
   }
   return Math.max(0, Math.floor((room - TOP - MORE) / LANE));
-}
-
-function barTime(plan: Plan): string {
-  const when = planWhen(plan);
-  if (when !== '全天') {
-    return when;
-  }
-  return plan.scheduledAt == null ? '' : formatPlanClock(plan.scheduledAt);
 }
 
 function barStyle(col: number, span: number, lane: number, before: boolean, after: boolean): CSSProperties {

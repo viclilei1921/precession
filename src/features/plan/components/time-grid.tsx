@@ -1,20 +1,13 @@
 import clsx from 'clsx';
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Plan } from '@/bridge/plan';
 import { rippleHost, useRipple } from '@/components/ripple';
 import { Scroll } from '@/components/scroll';
-import { startOfLocalDay } from '@/utils/day';
+import { formatMonthDay, startOfLocalDay, weekdayShort } from '@/utils/day';
 import styles from '../calendar.module.css';
-import {
-  fullWeekday,
-  gridPlacement,
-  hasTimeRange,
-  isTimedSingle,
-  isWeekend,
-  layoutBars,
-  weekdayLabel
-} from '../layout';
+import { gridPlacement, hasTimeRange, isTimedSingle, isWeekend, layoutBars } from '../layout';
 import { PlanChip } from './plan-chip';
 
 type TimeGridProps = {
@@ -94,6 +87,7 @@ export function TimeGrid({
   onMove
 }: TimeGridProps) {
   const cols = days.length;
+  const { t } = useTranslation('plan');
   const bodyRef = useRef<HTMLDivElement>(null);
   const timedRef = useRef<Plan[]>([]);
   const dragRef = useRef<Drag | null>(null);
@@ -347,7 +341,7 @@ export function TimeGrid({
           <div className={styles.gutter} />
           {days.map((day) => (
             <div key={day} className={styles.colHead} data-weekend={cols > 1 && isWeekend(day) ? 'true' : undefined}>
-              <span className={styles.wd}>{weekdayLabel(day)}</span>
+              <span className={styles.wd}>{weekdayShort(day)}</span>
               <DayJump today={startOfLocalDay(day) === today} onClick={() => onOpenDay(day)}>
                 {new Date(day).getDate()}
               </DayJump>
@@ -356,14 +350,14 @@ export function TimeGrid({
         </div>
       ) : (
         <div className={styles.dayBanner}>
-          <span className={styles.wd}>{fullWeekday(days[0] ?? today)}</span>
+          <span className={styles.wd}>{weekdayShort(days[0] ?? today)}</span>
           <span className={styles.colNum} data-today={startOfLocalDay(days[0] ?? today) === today ? 'true' : undefined}>
             {new Date(days[0] ?? today).getDate()}
           </span>
         </div>
       )}
       <div className={styles.allday}>
-        <div className={styles.gutter}>全天</div>
+        <div className={styles.gutter}>{t('allDay')}</div>
         <div className={styles.alldayCols} style={{ minHeight: Math.max(36, 8 + laneCount * 26) }}>
           <div className={styles.alldayHits}>
             {days.map((day) => (
@@ -372,7 +366,7 @@ export function TimeGrid({
                 type="button"
                 className={styles.alldayHit}
                 data-weekend={cols > 1 && isWeekend(day) ? 'true' : undefined}
-                aria-label={`在${new Date(day).getMonth() + 1}月${new Date(day).getDate()}日添加全天计划`}
+                aria-label={t('aria.addAllDay', { date: formatMonthDay(day) })}
                 onClick={() => onCreateAllDay(day)}
               />
             ))}
@@ -405,7 +399,7 @@ export function TimeGrid({
           {hours.map((hour) => (
             <div key={hour} className={styles.trow} data-hour={hour}>
               <div className={styles.gutter}>
-                <span>{hourLabel(hour)}</span>
+                <span>{hourLabel(hour, t)}</span>
               </div>
               {days.map((day) => (
                 <div
@@ -572,9 +566,9 @@ function visibleHours(plans: Plan[]): number[] {
   return hours;
 }
 
-function hourLabel(minutes: number): string {
+function hourLabel(minutes: number, t: (key: string) => string): string {
   if (minutes === 12 * 60) {
-    return '正午';
+    return t('noon');
   }
   return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:00`;
 }

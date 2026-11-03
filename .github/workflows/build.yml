@@ -7,8 +7,9 @@
 # Windows MSIX 在 NSIS 构建之后，用已经编好的 exe 和去掉架构后缀的侧车组装。
 # Android 不走 tauri-action：在 Ubuntu 上装 SDK/NDK 后执行 `tauri android build`。
 #
-# 侧车（ffmpeg / cjxl / avifenc）提交在 Git LFS，以仓库中的裁剪静态构建为准。
-# 检出后若文件缺失、或仍是 LFS 指针，构建直接失败，不下载兜底。
+# 侧车（ffmpeg / cjxl / avifenc）和霞鹜文楷（public/font/*.woff2）提交在 Git LFS。
+# 侧车以仓库中的裁剪静态构建为准。检出后若文件缺失、或仍是 LFS 指针，构建直接失败，不下载兜底。
+# Android 不打包侧车，但仍要检出字体。
 # =============================================================================
 
 name: Cross-Platform Build
@@ -263,7 +264,7 @@ jobs:
 
   # Android 与桌面 bundle 不是同一条构建链：需要 JDK、SDK、NDK，
   # 以及 openssl-src 交叉编译用的 AR / RANLIB / CC。侧车不参与
-  # （tauri.android.conf.json 把 externalBin 置空）。
+  # （tauri.android.conf.json 把 externalBin 置空）。字体在 Git LFS 里，检出要打开 lfs。
   build-android:
     permissions:
       contents: write
@@ -272,8 +273,37 @@ jobs:
     timeout-minutes: 90
 
     steps:
+      # 字体 public/font/*.woff2 在 Git LFS。默认 lfs: false 会留下指针文本，打进 APK 后没有霞鹜文楷。
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          lfs: true
+
+      - name: Verify fonts
+        shell: bash
+        run: |
+          set -euo pipefail
+          MISSING=0
+          for FONT in public/font/LXGWWenKaiLite-Regular.woff2 public/font/LXGWWenKaiMonoLite-Regular.woff2; do
+            if [ ! -f "${FONT}" ]; then
+              echo "❌ 缺少字体: ${FONT}"
+              MISSING=1
+              continue
+            fi
+            HEADER="$(head -c 80 "${FONT}" 2>/dev/null || true)"
+            case "${HEADER}" in
+              "version https://git-lfs.github.com/spec/v1"*)
+                echo "❌ 字体仍是 Git LFS 指针，未被检出: ${FONT}"
+                MISSING=1
+                continue
+                ;;
+            esac
+            echo "✅ 字体就绪: ${FONT}"
+          done
+          if [ "${MISSING}" -ne 0 ]; then
+            echo "public/font/*.woff2 必须随 Git LFS 检出，否则 Android 包没有霞鹜文楷。"
+            exit 1
+          fi
 
       - name: Install host build tools
         run: |

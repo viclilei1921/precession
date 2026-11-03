@@ -51,7 +51,7 @@
   color: var(--destructive);
 }
 
-.fieldError {
+.field-error {
   /* 先占住一行，错误出现时不再把下面的内容顶开 */
   min-height: calc(var(--text-xs) * 1.4);
   margin: var(--space-1) 0 0;
@@ -60,7 +60,7 @@
   color: var(--destructive);
 }
 
-.form > .fieldError {
+.form > .field-error {
   flex-shrink: 0;
   margin: 0;
 }

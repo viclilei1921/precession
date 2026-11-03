@@ -1,0 +1,93 @@
+{
+  "page": {
+    "typeAria": "Journal type",
+    "diary": "Diary",
+    "spark": "Spark",
+    "writing": "Writing",
+    "searchPlaceholder": "Search journal",
+    "searchInput": "Search title or body",
+    "searchAria": "Search journal",
+    "new": "New",
+    "cancel": "Cancel",
+    "emptySearch": "No matching entries.",
+    "emptyDefault": "Nothing here yet.",
+    "writeFab": "Write",
+    "locked": "Sealed",
+    "highlight": "Highlight",
+    "words_one": "{{count}} word",
+    "words_other": "{{count}} words"
+  },
+  "common": {
+    "loading": "Loading…"
+  },
+  "seal": {
+    "password": "Body password",
+    "unseal": "Unseal",
+    "seal": "Seal"
+  },
+  "meta": {
+    "add": "Add",
+    "empty": "Nothing to add."
+  },
+  "text": {
+    "sealed": "Body is sealed.",
+    "empty": "No body yet."
+  },
+  "section": {
+    "date": "Date",
+    "seal": "Seal",
+    "place": "Place",
+    "tag": "Tags",
+    "citation": "Citations",
+    "other": "More",
+    "member": "Members"
+  },
+  "editor": {
+    "done": "Done",
+    "addWith": "Add {{target}}",
+    "collapseSettings": "Collapse settings",
+    "openSettings": "Open settings",
+    "settings": "Settings",
+    "title": "Title",
+    "lockedNotice": "The body is sealed. Unseal it to make changes.",
+    "bodyPlaceholder": "Write it down",
+    "editDate": "Change date",
+    "occurredAt": "Occurred at",
+    "sealLocked": "The body is sealed.",
+    "sealUnlocked": "The body is not sealed yet.",
+    "sealAfterSave": "You can seal it after saving.",
+    "emptyPlaces": "No places yet.",
+    "newPlace": "New place",
+    "emptyTags": "No tags yet.",
+    "newTag": "New tag",
+    "emptyMembers": "No members yet.",
+    "citationAfterSave": "You can cite after saving.",
+    "highlight": "Mark as highlight",
+    "deleteHint": "Tap again to delete this entry.",
+    "confirmDelete": "Confirm delete"
+  },
+  "errors": {
+    "notFound": "Journal entry not found"
+  },
+  "citations": {
+    "empty": "No citations yet.",
+    "book": "Book",
+    "selectBook": "Select a book",
+    "note": "Excerpt or note",
+    "selectNote": "Select one",
+    "add": "Cite",
+    "noBooks": "Your library has no books yet. Add one first.",
+    "excerpt": "Excerpt"
+  },
+  "entry": {
+    "edit": "Edit"
+  },
+  "promote": {
+    "sparkToWriting": "Spark to writing",
+    "writingToDiary": "Writing to diary",
+    "openLink": "Open link",
+    "expand": "Expand into writing",
+    "toDiary": "Move to diary",
+    "end": "Diary is the end of this flow."
+  }
+}

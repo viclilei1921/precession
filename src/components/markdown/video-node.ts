@@ -2,6 +2,7 @@ import type { Node } from '@milkdown/kit/prose/model';
 import type { NodeViewConstructor } from '@milkdown/kit/prose/view';
 import { $nodeSchema, $remark, $view } from '@milkdown/kit/utils';
 import { mediaInfo, mediaSrc, uploadOpen } from '@/bridge';
+import i18n from '@/i18n';
 import { errorMessage } from '@/utils/error';
 
 import { videoIdFromUrl } from './plain';
@@ -114,10 +115,15 @@ export const growthVideoSchema = $nodeSchema('growth-video', () => ({
   }
 }));
 
+/** Rust 端 `UploadError::PasswordRequired` 的文案由 `errorMessage` 翻成 `errors:auth.passwordRequired`，显示前先对齐。 */
+function passwordRequiredText(): string {
+  return i18n.t('errors:auth.passwordRequired');
+}
+
 function mountPlayer(dom: HTMLElement, id: string) {
   const note = document.createElement('p');
   note.className = 'growth-video-note';
-  note.textContent = '正在准备…';
+  note.textContent = i18n.t('ui:markdown.videoPreparing');
   const video = document.createElement('video');
   video.className = 'growth-video-player';
   video.controls = true;
@@ -128,19 +134,24 @@ function mountPlayer(dom: HTMLElement, id: string) {
   form.className = 'growth-video-form';
   form.hidden = true;
   const label = document.createElement('span');
-  label.textContent = '输入密码后可以播放';
   const input = document.createElement('input');
   input.className = 'growth-video-password';
   input.type = 'password';
-  input.setAttribute('aria-label', '密码');
   const button = document.createElement('button');
   button.className = 'growth-video-open';
   button.type = 'submit';
-  button.textContent = '打开';
   const fail = document.createElement('span');
   fail.className = 'growth-video-fail';
   form.append(label, input, button, fail);
   dom.append(note, video, form);
+
+  function applyLabels() {
+    label.textContent = i18n.t('ui:markdown.videoPasswordPrompt');
+    input.setAttribute('aria-label', i18n.t('ui:markdown.password'));
+    button.textContent = i18n.t('ui:markdown.open');
+  }
+  applyLabels();
+  i18n.on('languageChanged', applyLabels);
 
   let alive = true;
 
@@ -148,7 +159,7 @@ function mountPlayer(dom: HTMLElement, id: string) {
     button.disabled = true;
     fail.textContent = '';
     note.hidden = false;
-    note.textContent = '正在准备…';
+    note.textContent = i18n.t('ui:markdown.videoPreparing');
     form.hidden = true;
     video.hidden = true;
     try {
@@ -159,7 +170,7 @@ function mountPlayer(dom: HTMLElement, id: string) {
       }
       const src = mediaSrc(endpoint, id);
       if (!src) {
-        note.textContent = '播放暂时不可用';
+        note.textContent = i18n.t('ui:markdown.videoUnavailable');
         return;
       }
       note.hidden = true;
@@ -170,13 +181,14 @@ function mountPlayer(dom: HTMLElement, id: string) {
         return;
       }
       const text = errorMessage(error);
-      if (text === '请输入密码' || password.length > 0) {
+      const needsPassword = text === passwordRequiredText();
+      if (needsPassword || password.length > 0) {
         note.hidden = true;
         form.hidden = false;
-        fail.textContent = text === '请输入密码' ? '' : text;
+        fail.textContent = needsPassword ? '' : text;
         return;
       }
-      note.textContent = text || '这个视频打不开';
+      note.textContent = text || i18n.t('ui:markdown.videoCannotOpen');
     } finally {
       if (alive) {
         button.disabled = false;
@@ -189,13 +201,14 @@ function mountPlayer(dom: HTMLElement, id: string) {
     void open(input.value);
   });
   if (!id) {
-    note.textContent = '视频找不到';
+    note.textContent = i18n.t('ui:markdown.videoMissing');
   } else {
     void open('');
   }
 
   return () => {
     alive = false;
+    i18n.off('languageChanged', applyLabels);
     video.removeAttribute('src');
     video.load();
   };

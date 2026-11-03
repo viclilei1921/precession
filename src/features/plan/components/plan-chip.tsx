@@ -1,5 +1,6 @@
 import clsx from 'clsx';
 import type { CSSProperties, MouseEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Plan } from '@/bridge/plan';
 import styles from '../calendar.module.css';
 
@@ -30,6 +31,7 @@ export function PlanChip({
   onOpen,
   onToggle
 }: PlanChipProps) {
+  const { t } = useTranslation('plan');
   const done = plan.status === 'done';
 
   function toggle(event: MouseEvent<HTMLButtonElement>) {
@@ -52,7 +54,7 @@ export function PlanChip({
         data-check="true"
         data-on={done ? 'true' : undefined}
         aria-pressed={done}
-        aria-label={done ? '标为未完成' : '标为完成'}
+        aria-label={done ? t('aria.markUndone') : t('aria.markDone')}
         onPointerDown={(event) => event.stopPropagation()}
         onClick={toggle}
       >

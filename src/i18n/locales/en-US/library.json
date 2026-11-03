@@ -1,0 +1,142 @@
+{
+  "page": {
+    "shelfAria": "Shelves",
+    "shelves": {
+      "reading": "Reading",
+      "want": "Want to read",
+      "finished": "Finished",
+      "all": "All"
+    },
+    "searchAria": "Search library",
+    "searchPage": "Search library",
+    "searchPlaceholder": "Search title or author",
+    "add": "Add book",
+    "detail": "Details",
+    "anonymous": "Unknown",
+    "emptySearch": "No matching books.",
+    "emptyShelf": "This shelf is empty."
+  },
+  "status": {
+    "want": "Want to read",
+    "reading": "Reading",
+    "finished": "Finished"
+  },
+  "detail": {
+    "backToShelf": "Back to library",
+    "starAria_one": "{{count}} star",
+    "starAria_other": "{{count}} stars",
+    "progress": "Progress {{percent}}%",
+    "progressAria": "Reading progress",
+    "importing": "Importing",
+    "encrypted": "This book is encrypted and can't be read yet.",
+    "noContent": "No text yet",
+    "continueReading": "Continue reading",
+    "importText": "Import text",
+    "confirmDelete": "Confirm delete",
+    "deleteBook": "Delete this book",
+    "notesTitle": "Excerpts & notes",
+    "newNote": "New note",
+    "editNote": "Edit",
+    "excerpt": "Excerpt",
+    "note": "Note",
+    "emptyNotesTitle": "No lines kept yet",
+    "emptyNotesHint": "When something is worth remembering, keep a note.",
+    "noteDrawerLabel": "Excerpt or note"
+  },
+  "add": {
+    "modeFile": "Import file",
+    "modeManual": "Create record only",
+    "chooseFileFirst": "Choose a file first",
+    "titleRequired": "Enter a title first",
+    "pick": "Choose EPUB, MOBI, or TXT",
+    "noFileHint": "No file selected. The title comes from the book file first, then from the file name.",
+    "title": "Title",
+    "author": "Author",
+    "status": "Status"
+  },
+  "note": {
+    "locked": "This entry is locked.",
+    "lockedTitle": "Locked",
+    "notFound": "Entry not found",
+    "excerptHint": "Write down the line worth keeping. The chapter is prefilled with the current one.",
+    "excerpt": "Excerpt",
+    "note": "Note",
+    "body": "Text",
+    "chapter": "Chapter",
+    "location": "Location",
+    "time": "Time",
+    "highlight": "Mark as highlight",
+    "emptyError": "Write something first",
+    "confirmDelete": "Confirm delete"
+  },
+  "cover": {
+    "readAria": "{{percent}}% read"
+  },
+  "reading": {
+    "fonts": {
+      "wenkai": "Wenkai",
+      "serif": "Song / Serif",
+      "sans": "Hei / Sans-serif",
+      "default": "System default"
+    },
+    "themes": {
+      "system": "Follow app",
+      "paper": "Paper white",
+      "sepia": "Sepia",
+      "eye_green": "Eye-friendly green",
+      "night": "Dark"
+    },
+    "widths": {
+      "narrow": "Narrow",
+      "medium": "Medium",
+      "wide": "Wide",
+      "extraWide": "Extra wide"
+    },
+    "gaps": {
+      "compact": "Compact",
+      "normal": "Normal",
+      "relaxed": "Relaxed"
+    }
+  },
+  "reader": {
+    "bookLabel": "Book",
+    "chapterLabel": "Chapter",
+    "progressBookAria": "Book progress",
+    "progressChapterAria": "Chapter progress",
+    "bookProgress": "Book progress",
+    "chapterProgress": "Chapter progress",
+    "back": "Back",
+    "reading": "Reading",
+    "noChapters": "No chapters available.",
+    "prevChapter": "Previous chapter",
+    "nextChapter": "Next chapter",
+    "toc": "Contents",
+    "bookPercent": "Book {{percent}}",
+    "chapterPercent": "Chapter {{percent}}",
+    "toolsAria": "Reading tools",
+    "excerpt": "Excerpt",
+    "settings": "Settings",
+    "settingsTitle": "Reading settings",
+    "settingsAria": "Reading settings",
+    "close": "Close",
+    "tocAria": "Contents",
+    "excerptAria": "Excerpt",
+    "closeToc": "Close contents",
+    "closeSettings": "Close reading settings",
+    "closeExcerpt": "Close excerpt",
+    "searchChapters": "Search chapters",
+    "chapterFallback": "Chapter {{index}}",
+    "fontSize": "Font size",
+    "fontFamily": "Font family",
+    "theme": "Theme",
+    "pageWidth": "Page width",
+    "paragraphGap": "Paragraph spacing"
+  },
+  "scroll": {
+    "opening": "Opening…",
+    "chapterEnd": "End of chapter",
+    "bookEnd": "End of book",
+    "continueReading": "Keep scrolling for the next chapter",
+    "lastChapter": "This is the last chapter"
+  }
+}

@@ -1,0 +1,13 @@
+.toast {
+  position: fixed;
+  right: 16px;
+  bottom: calc(var(--dock-h) + var(--inset-bottom) + 16px);
+  left: 16px;
+  z-index: var(--z-toast);
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--primary-foreground);
+  text-align: center;
+  background: var(--foreground);
+  border-radius: var(--radius-lg);
+}

@@ -1,0 +1,19 @@
+{
+  "today": "Today",
+  "plan": "Plan",
+  "journal": "Journal",
+  "growth": "Growth",
+  "library": "Library",
+  "cipher": "Encrypt",
+  "image": "Image",
+  "video": "Video",
+  "files": "Files",
+  "settings": "Settings",
+  "more": "More",
+  "collapse": "Collapse",
+  "group": {
+    "record": "Record",
+    "toolbox": "Tools",
+    "system": "System"
+  }
+}

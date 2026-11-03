@@ -2,6 +2,7 @@ import type { UnlistenFn } from '@tauri-apps/api/event';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { open } from '@tauri-apps/plugin-dialog';
 
+import i18n from '@/i18n';
 import { invokeCommand } from './invoke';
 
 /** 窗口拖放所处的阶段 */
@@ -39,12 +40,22 @@ export async function pickFiles(options: { multiple?: boolean; extensions?: stri
     multiple: options.multiple ?? true,
     directory: false,
     fileAccessMode: 'scoped',
-    filters: extensions && extensions.length > 0 ? [{ name: '文件', extensions }] : undefined
+    filters:
+      extensions && extensions.length > 0 ? [{ name: i18n.t('files:dialog.filesFilter'), extensions }] : undefined
   });
   if (selected == null) {
     return [];
   }
-  return Array.isArray(selected) ? selected : [selected];
+  const picked = Array.isArray(selected) ? selected : [selected];
+  if (!picked.some(needsMaterialize)) {
+    return picked;
+  }
+  return invokeCommand<string[]>('materialize_picked', { paths: picked });
+}
+
+/** Android 选择器会返回 content 或 file 地址，要先收成本地文件。 */
+function needsMaterialize(path: string) {
+  return /^content:/i.test(path) || /^file:/i.test(path);
 }
 
 /** 用系统对话框选择一个文件夹。取消时返回空字符串。 */

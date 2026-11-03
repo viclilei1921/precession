@@ -7,12 +7,15 @@ import type {
   ReactNode
 } from 'react';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Plan } from '@/bridge/plan';
 import { rippleHost, useRipple } from '@/components/ripple';
 import { Scroll } from '@/components/scroll';
-import { addLocalMonths, formatMonthDay, startOfLocalDay, startOfLocalMonth } from '@/utils/day';
+import { addLocalMonths, formatDate, startOfLocalDay, startOfLocalMonth } from '@/utils/day';
 import styles from '../calendar.module.css';
-import { isWeekend, miniDays, plansOnDay, WEEK_SHORT } from '../layout';
+import { isWeekend, miniDays, plansOnDay } from '../layout';
+
+const WEEKDAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
 
 type YearViewProps = {
   yearStart: number;
@@ -32,6 +35,7 @@ type Peek = {
 
 /** 一年十二个月。点日期只看名字，点名字才打开详情 */
 export function YearView({ yearStart, today, plans, hueOf, onOpenMonth, onOpen }: YearViewProps) {
+  const { t } = useTranslation('plan');
   const [peek, setPeek] = useState<Peek | null>(null);
   const year = new Date(yearStart).getFullYear();
   const hits = peek ? plansOnDay(plans, peek.day) : [];
@@ -81,12 +85,12 @@ export function YearView({ yearStart, today, plans, hueOf, onOpenMonth, onOpen }
           return (
             <section key={monthStart}>
               <Press className={styles.miniTitle} onClick={() => onOpenMonth(monthStart)}>
-                {`${month + 1}月`}
+                {t('title.monthOnly', { month: month + 1 })}
               </Press>
               <div className={styles.miniWd}>
-                {WEEK_SHORT.map((label, index) => (
-                  <span key={label} data-weekend={index >= 5 ? 'true' : undefined}>
-                    {label}
+                {WEEKDAY_KEYS.map((key, index) => (
+                  <span key={key} data-weekend={index >= 5 ? 'true' : undefined}>
+                    {t(`weekdayShort.${key}`)}
                   </span>
                 ))}
               </div>
@@ -123,9 +127,9 @@ export function YearView({ yearStart, today, plans, hueOf, onOpenMonth, onOpen }
       </div>
       {peek ? (
         <div className={styles.hover} data-peek="true" style={{ left: peek.left, top: peek.top }}>
-          <div className={styles.hoverDate}>{`${new Date(peek.day).getFullYear()}年${formatMonthDay(peek.day)}`}</div>
+          <div className={styles.hoverDate}>{formatDate(peek.day)}</div>
           {hits.length === 0 ? (
-            <p className={styles.hoverEmpty}>这一天没有计划</p>
+            <p className={styles.hoverEmpty}>{t('dayEmpty')}</p>
           ) : (
             <ul>
               {hits.map((plan) => (

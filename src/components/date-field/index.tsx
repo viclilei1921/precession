@@ -7,6 +7,7 @@ import {
 } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/button';
 import { DayButton } from '@/components/button/day';
 import { IconButton } from '@/components/button/icon';
@@ -19,16 +20,17 @@ import { useAppStore } from '@/store/app';
 import {
   addLocalDays,
   addLocalMonths,
+  formatDate,
   formatMonth,
   fromDateInputValue,
   isSameLocalDay,
   startOfLocalDay,
   startOfLocalMonth,
-  toDateInputValue
+  startOfLocalWeek,
+  toDateInputValue,
+  weekdayNarrow
 } from '@/utils/day';
 import styles from './index.module.css';
-
-const WEEKDAYS = ['一', '二', '三', '四', '五', '六', '日'];
 
 type DateFieldProps = {
   label: string;
@@ -49,42 +51,50 @@ function monthCells(month: number) {
   });
 }
 
-function displayValue(value: string): string {
+function displayValue(value: string, fallback: string): string {
   const time = fromDateInputValue(value);
   if (time == null) {
-    return '选择日期';
+    return fallback;
   }
-  const date = new Date(time);
-  return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+  return formatDate(time);
 }
 
 function CalendarPanel({ value, onPick }: { value: string; onPick: (value: string) => void }) {
+  const { t } = useTranslation('ui');
   const selected = fromDateInputValue(value);
   const today = startOfLocalDay();
   const [month, setMonth] = useState(() => startOfLocalMonth(selected ?? today));
   const cells = monthCells(month);
-  const heading = `${new Date(month).getFullYear()}年${formatMonth(month)}`;
+  const weekdayStart = startOfLocalWeek(today);
+  const weekdays = Array.from({ length: 7 }, (_, index) => {
+    const time = addLocalDays(weekdayStart, index);
+    return { time, label: weekdayNarrow(time) };
+  });
+  const heading = t('date.yearMonth', {
+    year: new Date(month).getFullYear(),
+    month: formatMonth(month)
+  });
 
   return (
     <div className={styles.calendar}>
       <header className={styles.header}>
-        <IconButton label="上一年" onClick={() => setMonth(addLocalMonths(month, -12))}>
+        <IconButton label={t('date.previousYear')} onClick={() => setMonth(addLocalMonths(month, -12))}>
           <CaretDoubleLeftIcon weight="regular" />
         </IconButton>
-        <IconButton label="上个月" onClick={() => setMonth(addLocalMonths(month, -1))}>
+        <IconButton label={t('date.previousMonth')} onClick={() => setMonth(addLocalMonths(month, -1))}>
           <CaretLeftIcon weight="regular" />
         </IconButton>
         <span className={styles.heading}>{heading}</span>
-        <IconButton label="下个月" onClick={() => setMonth(addLocalMonths(month, 1))}>
+        <IconButton label={t('date.nextMonth')} onClick={() => setMonth(addLocalMonths(month, 1))}>
           <CaretRightIcon weight="regular" />
         </IconButton>
-        <IconButton label="下一年" onClick={() => setMonth(addLocalMonths(month, 12))}>
+        <IconButton label={t('date.nextYear')} onClick={() => setMonth(addLocalMonths(month, 12))}>
           <CaretDoubleRightIcon weight="regular" />
         </IconButton>
       </header>
       <div className={styles.weekdays}>
-        {WEEKDAYS.map((day) => (
-          <span key={day}>{day}</span>
+        {weekdays.map((day) => (
+          <span key={day.time}>{day.label}</span>
         ))}
       </div>
       <div className={styles.days}>
@@ -109,6 +119,7 @@ function CalendarPanel({ value, onPick }: { value: string; onPick: (value: strin
 
 /** 日期选择。桌面用 Popover 浮出日历，移动端是底部抽屉。 */
 export function DateField({ label, value, onChange, disabled, error }: DateFieldProps) {
+  const { t } = useTranslation('ui');
   const mobile = useAppStore((state) => state.isMobile());
   const anchorRef = useRef<HTMLDivElement>(null);
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
@@ -138,14 +149,14 @@ export function DateField({ label, value, onChange, disabled, error }: DateField
               disabled={disabled}
               onClick={show}
             >
-              {displayValue(value)}
+              {displayValue(value, t('date.pickDate'))}
             </RowButton>
             {value ? (
               <Button variant="text" disabled={disabled} onClick={() => onChange('')}>
-                清除
+                {t('common:button.clear')}
               </Button>
             ) : null}
-            <IconButton label="打开日历" disabled={disabled} expanded={open} onClick={show}>
+            <IconButton label={t('date.openCalendar')} disabled={disabled} expanded={open} onClick={show}>
               <CalendarBlankIcon weight="regular" />
             </IconButton>
           </div>

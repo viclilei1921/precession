@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { dbStatus } from '@/bridge/db';
 import { useAppStore } from '@/store/app';
 import { errorMessage } from '@/utils/error';
@@ -8,6 +9,7 @@ import { UnlockView } from './unlock';
 
 /** 解锁前的页面：加载状态、创建档案和解锁。 */
 export function LockView() {
+  const { t } = useTranslation('lock');
   const status = useAppStore((state) => state.dbStatus);
   const setDbStatus = useAppStore((state) => state.setDbStatus);
 
@@ -46,7 +48,7 @@ export function LockView() {
   if (bootError) {
     return (
       <main className={styles.gate}>
-        <h1>人生档案</h1>
+        <h1>{t('app.title')}</h1>
         <p className={styles.error}>{bootError}</p>
       </main>
     );
@@ -55,8 +57,8 @@ export function LockView() {
   if (!status) {
     return (
       <main className={styles.gate}>
-        <h1>人生档案</h1>
-        <p className={styles.muted}>加载中…</p>
+        <h1>{t('app.title')}</h1>
+        <p className={styles.muted}>{t('app.loading')}</p>
       </main>
     );
   }

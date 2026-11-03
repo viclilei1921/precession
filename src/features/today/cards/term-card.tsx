@@ -1,5 +1,6 @@
 import { SunIcon } from '@phosphor-icons/react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { useCardLayout } from '@/features/today/board/board';
 import { termView } from '@/features/today/calendar/term';
 import { calendarAlmanacQuery, calendarRangeQuery } from '@/query/calendar/query';
@@ -13,6 +14,7 @@ type TermCardProps = {
 };
 
 export function TermCard({ selected }: TermCardProps) {
+  const { t } = useTranslation('today');
   const from = toDateInputValue(addLocalDays(selected, -24));
   const to = toDateInputValue(addLocalDays(selected, 24));
   const daysQuery = useQuery(calendarRangeQuery(from, to));
@@ -24,11 +26,11 @@ export function TermCard({ selected }: TermCardProps) {
 
   return (
     <article className={styles.card} data-static="true">
-      <TileHead tone="journal" icon={SunIcon} title="节气" />
+      <TileHead tone="journal" icon={SunIcon} title={t('card.term')} />
       {error ? <p className={styles.error}>{errorMessage(error)}</p> : null}
       <p className={styles.figure}>{view.name}</p>
       <p className={styles.meta}>{view.hint}</p>
-      <div className={styles.bar} role="img" aria-label="节气进度">
+      <div className={styles.bar} role="img" aria-label={t('termCard.progress')}>
         <span data-tone="journal" style={{ width: `${view.percent}%` }} />
       </div>
     </article>

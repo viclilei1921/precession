@@ -1,3 +1,5 @@
+import i18n from '@/i18n';
+
 export type SectionNote = {
   name: string;
   text: string;
@@ -7,12 +9,12 @@ type Codec = 'av1' | 'hevc' | 'vp9';
 
 function crfText(codec: Codec) {
   if (codec === 'hevc') {
-    return '0 最清晰，51 最小。默认 26。';
+    return i18n.t('video:notes.text.crfHevc');
   }
   if (codec === 'vp9') {
-    return '0 最清晰，63 最小。默认 33。';
+    return i18n.t('video:notes.text.crfVp9');
   }
-  return '0 最清晰，63 最小。默认 35。';
+  return i18n.t('video:notes.text.crfAv1');
 }
 
 /** 当前分组里需要说明的参数。分组切换时整段一起换。 */
@@ -24,31 +26,31 @@ export function sectionNotes(
   if (section === 'picture') {
     const notes: SectionNote[] = [
       {
-        name: '速度',
-        text: codec === 'vp9' ? '数字越小越慢。' : '数字越小越慢，同样质量下文件更小。'
+        name: i18n.t('video:notes.name.speed'),
+        text: i18n.t(codec === 'vp9' ? 'video:notes.text.speedVp9' : 'video:notes.text.speedAv1')
       },
-      { name: '质量 CRF', text: crfText(codec) }
+      { name: i18n.t('video:notes.name.crf'), text: crfText(codec) }
     ];
     if (codec !== 'vp9') {
-      notes.push({ name: '位深', text: '10-bit 渐变更干净，播放器支持更少。' });
+      notes.push({ name: i18n.t('video:notes.name.bitDepth'), text: i18n.t('video:notes.text.bitDepth') });
     }
     if (perFile) {
-      notes.push({ name: '帧率', text: '留空保留源帧率。' });
+      notes.push({ name: i18n.t('video:notes.name.frameRate'), text: i18n.t('video:notes.text.frameRate') });
     }
-    notes.push({ name: '宽度', text: '留空跟源。合并取最大，追加跟基准。' });
+    notes.push({ name: i18n.t('video:notes.name.width'), text: i18n.t('video:notes.text.width') });
     return notes;
   }
   if (section === 'title') {
     return [
-      { name: '字号', text: '留空为 24，按画面宽度缩放。' },
-      { name: '标题开始（秒）', text: '留空从片头开始。' },
-      { name: '标题结束（秒）', text: '留空一直显示。' }
+      { name: i18n.t('video:notes.name.fontSize'), text: i18n.t('video:notes.text.fontSize') },
+      { name: i18n.t('video:notes.name.titleStart'), text: i18n.t('video:notes.text.titleStart') },
+      { name: i18n.t('video:notes.name.titleEnd'), text: i18n.t('video:notes.text.titleEnd') }
     ];
   }
   if (section === 'subtitle') {
     return [
-      { name: '字幕流序号', text: 'Stream #0:N 的 N。' },
-      { name: '字幕样式', text: '只对 SRT、WebVTT 生效，可以留空。' }
+      { name: i18n.t('video:notes.name.subtitleTrack'), text: i18n.t('video:notes.text.subtitleTrack') },
+      { name: i18n.t('video:notes.name.subtitleStyle'), text: i18n.t('video:notes.text.subtitleStyle') }
     ];
   }
   return [];

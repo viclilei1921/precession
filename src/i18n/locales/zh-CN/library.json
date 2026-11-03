@@ -1,0 +1,142 @@
+{
+  "page": {
+    "shelfAria": "书架",
+    "shelves": {
+      "reading": "在读",
+      "want": "想读",
+      "finished": "读完",
+      "all": "全部"
+    },
+    "searchAria": "搜索书库",
+    "searchPage": "搜索书库",
+    "searchPlaceholder": "搜索书名或作者",
+    "add": "添加书",
+    "detail": "详情",
+    "anonymous": "佚名",
+    "emptySearch": "没有匹配的书。",
+    "emptyShelf": "这个书架还是空的。"
+  },
+  "status": {
+    "want": "想读",
+    "reading": "在读",
+    "finished": "读完"
+  },
+  "detail": {
+    "backToShelf": "返回书架",
+    "starAria_one": "{{count}} 星",
+    "starAria_other": "{{count}} 星",
+    "progress": "进度 {{percent}}%",
+    "progressAria": "阅读进度",
+    "importing": "正在导入",
+    "encrypted": "这本书已加密，暂时不能阅读",
+    "noContent": "还没有正文",
+    "continueReading": "继续阅读",
+    "importText": "导入正文",
+    "confirmDelete": "确认删除",
+    "deleteBook": "删除这本书",
+    "notesTitle": "书摘和笔记",
+    "newNote": "记一笔",
+    "editNote": "修改",
+    "excerpt": "书摘",
+    "note": "笔记",
+    "emptyNotesTitle": "还没有留下句子",
+    "emptyNotesHint": "读到想记住的地方，记一笔就好。",
+    "noteDrawerLabel": "书摘或笔记"
+  },
+  "add": {
+    "modeFile": "从文件导入",
+    "modeManual": "只建档案",
+    "chooseFileFirst": "先选择一个文件",
+    "titleRequired": "先写上书名",
+    "pick": "选择 EPUB、MOBI 或 TXT",
+    "noFileHint": "还没有选择文件。书名会先用文件里的，读不到再用文件名。",
+    "title": "书名",
+    "author": "作者",
+    "status": "状态"
+  },
+  "note": {
+    "locked": "这条已锁定。",
+    "lockedTitle": "已锁定",
+    "notFound": "记录不存在",
+    "excerptHint": "写下想留下的句子。章节先填了当前这一章。",
+    "excerpt": "书摘",
+    "note": "笔记",
+    "body": "正文",
+    "chapter": "章节",
+    "location": "位置",
+    "time": "时间",
+    "highlight": "标为高光",
+    "emptyError": "先写下内容",
+    "confirmDelete": "确认删除"
+  },
+  "cover": {
+    "readAria": "已读 {{percent}}%"
+  },
+  "reading": {
+    "fonts": {
+      "wenkai": "霞鹜文楷",
+      "serif": "宋体 / 衬线",
+      "sans": "黑体 / 无衬线",
+      "default": "系统默认"
+    },
+    "themes": {
+      "system": "跟随应用",
+      "paper": "纸质白",
+      "sepia": "羊皮纸",
+      "eye_green": "护眼绿",
+      "night": "深色"
+    },
+    "widths": {
+      "narrow": "窄",
+      "medium": "适中",
+      "wide": "宽",
+      "extraWide": "超宽"
+    },
+    "gaps": {
+      "compact": "紧凑",
+      "normal": "标准",
+      "relaxed": "宽松"
+    }
+  },
+  "reader": {
+    "bookLabel": "全书",
+    "chapterLabel": "本章",
+    "progressBookAria": "全书进度",
+    "progressChapterAria": "本章进度",
+    "bookProgress": "全书进度",
+    "chapterProgress": "本章进度",
+    "back": "返回",
+    "reading": "阅读",
+    "noChapters": "没有可阅读的章节。",
+    "prevChapter": "上一章",
+    "nextChapter": "下一章",
+    "toc": "目录",
+    "bookPercent": "全书 {{percent}}",
+    "chapterPercent": "本章 {{percent}}",
+    "toolsAria": "阅读工具",
+    "excerpt": "书摘",
+    "settings": "设置",
+    "settingsTitle": "阅读设置",
+    "settingsAria": "阅读设置",
+    "close": "关闭",
+    "tocAria": "目录",
+    "excerptAria": "书摘",
+    "closeToc": "关闭目录",
+    "closeSettings": "关闭阅读设置",
+    "closeExcerpt": "关闭书摘",
+    "searchChapters": "搜索章节",
+    "chapterFallback": "第 {{index}} 章",
+    "fontSize": "字号",
+    "fontFamily": "字体",
+    "theme": "主题",
+    "pageWidth": "版心",
+    "paragraphGap": "段距"
+  },
+  "scroll": {
+    "opening": "正在打开…",
+    "chapterEnd": "本章完",
+    "bookEnd": "全书完",
+    "continueReading": "继续滚动阅读下一章",
+    "lastChapter": "已经是最后一章"
+  }
+}

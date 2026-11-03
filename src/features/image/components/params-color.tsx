@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Select } from '@/components/select';
 import { TextField } from '@/components/text-field';
 import type { ImageParamsDraft } from '../params-draft';
@@ -9,6 +10,8 @@ type ParamsColorProps = {
 };
 
 export function ParamsColor({ draft, onChange }: ParamsColorProps) {
+  const { t } = useTranslation('image');
+
   function patch(next: Partial<ImageParamsDraft>) {
     onChange({ ...draft, ...next });
   }
@@ -17,22 +20,22 @@ export function ParamsColor({ draft, onChange }: ParamsColorProps) {
     <div className={styles.row}>
       <Select
         className={styles.choiceWide}
-        label="颜色编码"
+        label={t('params.labels.colorEncoding')}
         value={draft.colorEncoding}
         onChange={(event) => patch({ colorEncoding: event.target.value as ImageParamsDraft['colorEncoding'] })}
       >
-        <option value="source">保持原样</option>
+        <option value="source">{t('params.options.keepSource')}</option>
         <option value="srgb">sRGB</option>
-        <option value="linearSrgb">线性 sRGB</option>
-        <option value="srgbLuma">sRGB 灰度</option>
-        <option value="linearSrgbLuma">线性灰度</option>
+        <option value="linearSrgb">{t('params.options.linearSrgb')}</option>
+        <option value="srgbLuma">{t('params.options.srgbLuma')}</option>
+        <option value="linearSrgbLuma">{t('params.options.linearSrgbLuma')}</option>
       </Select>
       <TextField
         className={styles.num}
-        label="目标亮度"
+        label={t('params.labels.targetIntensity')}
         value={draft.targetIntensity}
         inputMode="decimal"
-        placeholder="留空"
+        placeholder={t('params.placeholder.empty')}
         onChange={(event) => patch({ targetIntensity: event.target.value })}
       />
     </div>

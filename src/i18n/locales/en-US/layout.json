@@ -1,0 +1,15 @@
+{
+  "titleBar": {
+    "minimize": "Minimize",
+    "restore": "Restore",
+    "maximize": "Maximize",
+    "close": "Close",
+    "search": "Search",
+    "expandSidebar": "Expand sidebar",
+    "collapseSidebar": "Collapse sidebar",
+    "back": "Back",
+    "forward": "Forward"
+  },
+  "mobile": {},
+  "common": {}
+}

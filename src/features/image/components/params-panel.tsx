@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { SegmentButton } from '@/components/button/segment';
 import { Scroll } from '@/components/scroll';
 import { InfoTip } from '@/components/tooltip';
@@ -13,16 +14,16 @@ import { ParamsPixel } from './params-pixel';
 import { ParamsQuality } from './params-quality';
 
 const avifSections = [
-  { id: 'quality', label: '质量' },
-  { id: 'pixel', label: '像素' },
-  { id: 'file', label: '文件' }
+  { id: 'quality', labelKey: 'params.sections.quality' },
+  { id: 'pixel', labelKey: 'params.sections.pixel' },
+  { id: 'file', labelKey: 'params.sections.file' }
 ] as const;
 
 const jxlSections = [
-  { id: 'quality', label: '质量' },
-  { id: 'pixel', label: '像素' },
-  { id: 'color', label: '色彩' },
-  { id: 'container', label: '容器' }
+  { id: 'quality', labelKey: 'params.sections.quality' },
+  { id: 'pixel', labelKey: 'params.sections.pixel' },
+  { id: 'color', labelKey: 'params.sections.color' },
+  { id: 'container', labelKey: 'params.sections.container' }
 ] as const;
 
 type SectionId = (typeof avifSections)[number]['id'] | (typeof jxlSections)[number]['id'];
@@ -35,6 +36,7 @@ type ParamsPanelProps = {
 
 /** 自定义编码一次只展开一组参数。两种格式各自记住当前分组。 */
 export function ParamsPanel({ format, draft, onChange }: ParamsPanelProps) {
+  const { t } = useTranslation('image');
   const [picked, setPicked] = useState<Record<'avif' | 'jxl', SectionId>>({
     avif: 'quality',
     jxl: 'quality'
@@ -47,19 +49,19 @@ export function ParamsPanel({ format, draft, onChange }: ParamsPanelProps) {
   return (
     <div className={styles.panel}>
       <div className={styles.bar}>
-        <div className={styles.segments} role="tablist" aria-label="参数分组">
+        <div className={styles.segments} role="tablist" aria-label={t('params.groupsAria')}>
           {sections.map((item) => (
             <SegmentButton
               key={item.id}
               selected={visible === item.id}
               onClick={() => setPicked((current) => ({ ...current, [format]: item.id }))}
             >
-              {item.label}
+              {t(item.labelKey)}
             </SegmentButton>
           ))}
         </div>
         <InfoTip
-          label={`${current.label}说明`}
+          label={t('params.notesAria', { section: t(current.labelKey) })}
           title={
             <Scroll className={styles.tip} axis="vertical" edge>
               <div className={styles.tipBody}>

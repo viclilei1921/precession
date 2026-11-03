@@ -1,4 +1,8 @@
-const WEEKDAYS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+import i18n, { currentLocale } from '@/i18n';
+
+function dateFormatter(options: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
+  return new Intl.DateTimeFormat(currentLocale(), options);
+}
 
 /** 本地当天 0 点的毫秒时间戳 */
 export function startOfLocalDay(time = Date.now()): number {
@@ -24,8 +28,10 @@ export function addLocalYears(time: number, years: number): number {
   return new Date(date.getFullYear() + years, 0, 1).getTime();
 }
 
-/** 从生日到某一天的年龄。不满两岁用月龄 */
-export function ageLabel(birthday: number, at = Date.now()): string {
+/** 生日到某一天的年龄，拆成可翻译的数字。不满两岁用月龄 */
+export type AgeParts = { months: number; years: number; rest: number };
+
+export function ageParts(birthday: number, at = Date.now()): AgeParts {
   const birth = new Date(birthday);
   const when = new Date(at);
   let months = (when.getFullYear() - birth.getFullYear()) * 12 + (when.getMonth() - birth.getMonth());
@@ -33,14 +39,27 @@ export function ageLabel(birthday: number, at = Date.now()): string {
     months -= 1;
   }
   if (months < 0) {
+    return { months: -1, years: 0, rest: 0 };
+  }
+  return { months, years: Math.floor(months / 12), rest: months % 12 };
+}
+
+/** 生日到某一天的年龄。不满两岁用月龄 */
+export function ageLabel(birthday: number, at = Date.now()): string {
+  const { months, years, rest } = ageParts(birthday, at);
+  if (months < 0) {
     return '';
   }
-  if (months < 24) {
-    return `${months} 个月`;
+  if (months === 0) {
+    return i18n.t('common:age.birthDay');
   }
-  const years = Math.floor(months / 12);
-  const rest = months % 12;
-  return rest === 0 ? `${years} 岁` : `${years} 岁 ${rest} 个月`;
+  if (months < 24) {
+    return i18n.t('common:age.months', { count: months });
+  }
+  if (rest === 0) {
+    return i18n.t('common:age.years', { count: years });
+  }
+  return i18n.t('common:age.yearsMonths', { years, months: rest });
 }
 
 /** 本地周一 0 点 */
@@ -92,21 +111,44 @@ export function fromDateInputValue(value: string): number | null {
   return new Date(year, month - 1, day).getTime();
 }
 
-/** 9月28日 */
+/** 9月28日 / Nov 3 */
 export function formatMonthDay(time: number): string {
-  const date = new Date(time);
-  return `${date.getMonth() + 1}月${date.getDate()}日`;
+  return dateFormatter({ month: 'short', day: 'numeric' }).format(new Date(time));
 }
 
-/** 9月28日 周一 */
+/** 9月28日 周一 / Nov 3, Mon */
 export function formatDayHeading(time: number): string {
-  const date = new Date(time);
-  return `${formatMonthDay(time)} ${WEEKDAYS[date.getDay()]}`;
+  return `${formatMonthDay(time)} ${weekdayShort(time)}`;
 }
 
-/** 9月 */
+/** 9月 / Nov */
 export function formatMonth(time: number): string {
-  return `${new Date(time).getMonth() + 1}月`;
+  return dateFormatter({ month: 'short' }).format(new Date(time));
+}
+
+/** 2026年11月3日 / Nov 3, 2026 */
+export function formatDate(time: number): string {
+  return dateFormatter({ year: 'numeric', month: 'short', day: 'numeric' }).format(new Date(time));
+}
+
+/** 2026年11月 / November 2026 */
+export function formatYearMonth(time: number): string {
+  return dateFormatter({ year: 'numeric', month: 'long' }).format(new Date(time));
+}
+
+/** 2026年 / 2026 */
+export function formatYear(time: number): string {
+  return dateFormatter({ year: 'numeric' }).format(new Date(time));
+}
+
+/** 周一 / Mon */
+export function weekdayShort(time: number): string {
+  return dateFormatter({ weekday: 'short' }).format(new Date(time));
+}
+
+/** 一 / M */
+export function weekdayNarrow(time: number): string {
+  return dateFormatter({ weekday: 'narrow' }).format(new Date(time));
 }
 
 /** 当天 0 点得到空字符串，其余得到 HH:mm */

@@ -1,4 +1,5 @@
 import clsx from 'clsx';
+import { useTranslation } from 'react-i18next';
 import styles from './index.module.css';
 
 /** 进度条的色调 */
@@ -21,14 +22,16 @@ type ProgressProps = {
  *
  * 轨道用色调浅底，填充从左向右按数值长出。数值变化时按线性过渡，避免缓动让进度看起来超前或滞后。
  */
-export function Progress({ value, label = '进度', tone = 'plan', className }: ProgressProps) {
+export function Progress({ value, label, tone = 'plan', className }: ProgressProps) {
+  const { t } = useTranslation('ui');
   const next = Math.min(100, Math.max(0, value));
+  const name = label ?? t('progress.label');
 
   return (
     <div
       className={clsx(styles.track, className)}
       role="progressbar"
-      aria-label={label}
+      aria-label={name}
       aria-valuenow={Math.round(next)}
       aria-valuemin={0}
       aria-valuemax={100}

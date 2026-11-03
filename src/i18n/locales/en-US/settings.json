@@ -1,0 +1,243 @@
+{
+  "page": {
+    "navAria": "Settings categories",
+    "searchPlaceholder": "Search settings",
+    "groupCount": "{{count}} groups",
+    "emptyTitle": "No matching settings found. Try another word, like \"theme\", \"font size\", or \"import\".",
+    "emptyClear": "Clear search"
+  },
+  "section": {
+    "appearance": {
+      "label": "Appearance",
+      "words": "appearance theme light dark system sidebar motion animation ui"
+    },
+    "reading": {
+      "label": "Reading",
+      "words": "reading font size font family line width typography library"
+    },
+    "security": {
+      "label": "Data & Security",
+      "words": "data security lock archive device unlock password file database path import export"
+    },
+    "versions": {
+      "label": "Version",
+      "words": "version app system webview ffmpeg cjxl avifenc sidecar"
+    },
+    "language": {
+      "label": "Language",
+      "words": "language chinese english system switch"
+    }
+  },
+  "appearance": {
+    "title": "Appearance",
+    "detail": "Theme, sidebar and interface motion",
+    "theme": {
+      "light": { "label": "Light", "hint": "Bright and clean" },
+      "dark": { "label": "Dark", "hint": "Night reading" },
+      "system": { "label": "System", "hint": "Follow system" }
+    },
+    "currentDark": "Dark",
+    "currentLight": "Light",
+    "extraSystem": "System · {{tone}}",
+    "extraCurrent": "{{tone}}",
+    "noticeSystem": "Theme will follow system appearance",
+    "noticeSwitched": "Switched to {{theme}} theme",
+    "sidebarRow": {
+      "title": "Expand sidebar",
+      "hint": "When off, navigation collapses to give more room to content."
+    },
+    "sidebarNoticeCollapsed": "Sidebar collapsed",
+    "sidebarNoticeExpanded": "Sidebar expanded",
+    "motionRow": {
+      "title": "Reduce motion",
+      "hint": "Disable transitions and fades for more direct page switches."
+    },
+    "motionNoticeOn": "Interface motion reduced",
+    "motionNoticeOff": "Interface motion restored"
+  },
+  "language": {
+    "title": "Language",
+    "detail": "Display language for the app interface",
+    "zhCN": { "label": "中文", "hint": "Simplified Chinese" },
+    "enUS": { "label": "English", "hint": "English" },
+    "system": { "label": "System", "hint": "Follow system language" },
+    "extraSystem": "System · {{lang}}",
+    "extraCurrent": "{{lang}}",
+    "noticeSystem": "Following the system · {{lang}}",
+    "noticeSwitched": "Switched to {{lang}}"
+  },
+  "mobile": {
+    "screenTitle": "Settings",
+    "screenSubtitle": "Local archive · Unlocked",
+    "versionsAria": "Version info",
+    "profileTagline": "A local-first personal archive",
+    "appearanceDetail": "Appearance and interface motion",
+    "theme": {
+      "title": "Theme",
+      "subtitle": "Light, dark, or follow system"
+    },
+    "motionHint": "Disable transitions and fades",
+    "readingRowTitle": "Reading preferences",
+    "readingRowHint": "Font size, typeface, theme and margins",
+    "readingSheetTitle": "Reading settings",
+    "readingSheetSubtitle": "19 px default on mobile",
+    "fonts": {
+      "wenkai": "WenKai",
+      "serif": "Serif",
+      "sans": "Sans",
+      "default": "Default"
+    },
+    "device": {
+      "title": "Device unlock",
+      "hintOn": "On · Use fingerprint or system verification",
+      "hintOff": "When on, open with fingerprint or system verification",
+      "disabledNotice": "Device unlock turned off",
+      "sheetTitle": "Turn on device unlock",
+      "sheetSubtitle": "Open the archive with fingerprint or system verification",
+      "note": "Enter the archive password once. After that, this device can open the archive with fingerprint or system verification.",
+      "password": "Archive password",
+      "placeholder": "Enter archive password",
+      "passwordRequired": "Enter the archive password",
+      "enabledNotice": "Password-free unlock is now on for this device",
+      "enable": "Enable",
+      "enabling": "Enabling…"
+    },
+    "file": {
+      "valueCount_one": "{{count}} file · {{size}}",
+      "valueCount_other": "{{count}} files · {{size}}",
+      "valueLocal": "Local"
+    },
+    "ioHint": "Bundle the database and all files",
+    "lock": {
+      "title": "Lock archive",
+      "hint": "Return to the lock screen, then verify again to open",
+      "sheetSubtitle": "You'll return to the lock screen after locking",
+      "note": "If device unlock is on, reopening requires fingerprint or system verification; otherwise you'll need the archive password again.",
+      "locking": "Locking…"
+    },
+    "about": {
+      "title": "About",
+      "detail": "This device",
+      "versionsHint": "App, system and WebView"
+    },
+    "versions": {
+      "sheetSubtitle": "Sidecar tools are desktop-only",
+      "note": "Encryption and transcoding tools aren't included on mobile."
+    },
+    "archive": {
+      "sheetTitle": "Import & export",
+      "sheetSubtitle": "Bundle the database and all files into one archive",
+      "exportTitle": "Export the current archive",
+      "exportHint": "Includes the database and all attachments",
+      "export": "Export archive",
+      "exportNotice": "Exported. Choose where to save it in the share sheet.",
+      "importTitle": "Restore from an archive",
+      "importHint": "Replaces everything on this device",
+      "confirmImport": "Confirm import",
+      "choose": "Choose archive",
+      "note": "Importing turns off device unlock. You'll need this archive's password to reopen it."
+    },
+    "bytes": {
+      "unknown": "Unknown"
+    }
+  },
+  "reading": {
+    "title": "Reading",
+    "detail": "Default typography for the library reader",
+    "fontSize": "Font size",
+    "fontSizeSmall": "Small",
+    "fontSizeLarge": "Large",
+    "fontFamily": "Font",
+    "lineHeight": "Line height",
+    "pageWidth": "Page width",
+    "readerTheme": "Reader theme",
+    "readerThemeHint": "Paper color",
+    "preview": "Preview",
+    "previewNote": "Preview is scaled down. Actual layout follows the reader.",
+    "fonts": {
+      "wenkai": "LXGW WenKai",
+      "serif": "Serif",
+      "sans": "Sans-serif",
+      "default": "System default"
+    },
+    "gaps": {
+      "compact": "Compact",
+      "normal": "Normal",
+      "relaxed": "Relaxed"
+    },
+    "widths": {
+      "narrow": "Narrow",
+      "medium": "Medium",
+      "wide": "Wide",
+      "extraWide": "Extra wide"
+    },
+    "themes": {
+      "system": "Follow app",
+      "paper": "Paper white",
+      "sepia": "Sepia",
+      "eye_green": "Eye green",
+      "night": "Dark"
+    },
+    "previewChapter": "Chapter 1",
+    "previewTitle": "A Day in the Mountains",
+    "previewText1": "The morning mist had not yet lifted. The mountain path crunched softly beneath the pine needles. Halfway up, I turned and saw the whole town floating in the clouds.",
+    "previewText2": "A gust of wind pushed from behind, turning the leaves over to reveal their silvery undersides."
+  },
+  "security": {
+    "title": "Data & Security",
+    "detail": "Archive lock and device unlock",
+    "extra": "Local only",
+    "fileRow": {
+      "title": "Files",
+      "open": "Open files",
+      "hintDefault": "Attachments in records are stored on this device.",
+      "hintLoading": "Reading…",
+      "hintFormat": "{{count}} files · {{size}} · Attachments are stored on this device."
+    },
+    "ioRow": {
+      "title": "Import / Export",
+      "hint": "Bundle the database and all files into an archive, or restore from one.",
+      "export": "Export",
+      "exporting": "Exporting…",
+      "import": "Import",
+      "importing": "Importing…"
+    },
+    "pathRow": {
+      "title": "Archive location",
+      "copy": "Copy archive path",
+      "unknown": "Unknown"
+    },
+    "noticeCopied": "Archive path copied",
+    "noticeExported": "Exported {{name}} · {{size}}",
+    "defaultArchiveName": "Archive",
+    "importModal": {
+      "title": "Import archive?",
+      "body": "This will replace the database and files on this device with the contents of the selected archive. Device unlock will be closed, and you'll need the archive password to reopen it.",
+      "cancel": "Cancel",
+      "confirm": "Import",
+      "importing": "Importing…"
+    }
+  },
+  "versions": {
+    "title": "Version",
+    "detail": "App and sidecar tools",
+    "extraDefault": "Version",
+    "app": "App",
+    "system": "System",
+    "webview": "WebView",
+    "ffmpeg": "FFmpeg",
+    "cjxl": "cjxl",
+    "avifenc": "avifenc",
+    "loading": "Reading…",
+    "unknown": "Unknown",
+    "footNote": "Read at startup",
+    "copyAll": "Copy info",
+    "copyRow": "Copy {{label}}",
+    "noticeCopied": "{{label}} copied",
+    "noticeCopiedAll": "Version info copied",
+    "refetch": "Refresh"
+  },
+  "common": {
+    "loading": "Reading…"
+  }
+}

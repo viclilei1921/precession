@@ -1,8 +1,10 @@
+import { useTranslation } from 'react-i18next';
 import type { Plan } from '@/bridge/plan';
 import { Scroll } from '@/components/scroll';
-import { formatMonthDay } from '@/utils/day';
+import { formatDate, weekdayShort } from '@/utils/day';
 import styles from '../calendar.module.css';
-import { endOfLocalMonth, fullWeekday, planFinish, planStart, planWhen } from '../layout';
+import { planWhen } from '../format';
+import { endOfLocalMonth, planFinish, planStart } from '../layout';
 import { PlanChip } from './plan-chip';
 
 type AgendaViewProps = {
@@ -16,6 +18,7 @@ type AgendaViewProps = {
 
 /** 按月份列出计划。没有日期的放在最上面，这里不能新建 */
 export function AgendaView({ through, plans, hueOf, onOpen, onToggle, onMore }: AgendaViewProps) {
+  const { t } = useTranslation('plan');
   const limit = endOfLocalMonth(through);
   const undated = plans.filter((plan) => plan.scheduledAt == null);
   const dated = plans.filter((plan) => {
@@ -36,13 +39,13 @@ export function AgendaView({ through, plans, hueOf, onOpen, onToggle, onMore }: 
     <Scroll className={styles.fill} axis="vertical">
       {undated.length > 0 ? (
         <section>
-          <h2 className={styles.agMonth}>未安排</h2>
+          <h2 className={styles.agMonth}>{t('undated')}</h2>
           {undated.map((plan) => (
             <AgendaRow key={plan.id} plan={plan} hue={hueOf(plan)} onOpen={onOpen} onToggle={onToggle} />
           ))}
         </section>
       ) : null}
-      {keys.length === 0 && undated.length === 0 ? <p className={styles.empty}>没有计划</p> : null}
+      {keys.length === 0 && undated.length === 0 ? <p className={styles.empty}>{t('empty')}</p> : null}
       {keys.map((key) => {
         const items = groups.get(key) ?? [];
         const [year, month] = key.split('-').map(Number);
@@ -58,12 +61,12 @@ export function AgendaView({ through, plans, hueOf, onOpen, onToggle, onMore }: 
         }
         return (
           <section key={key} id={`plan-month-${year}-${month}`}>
-            <h2 className={styles.agMonth}>{`${year}年${(month ?? 0) + 1}月`}</h2>
+            <h2 className={styles.agMonth}>{t('agenda.monthLabel', { year, month: (month ?? 0) + 1 })}</h2>
             {[...byDay.keys()].sort().map((day) => (
               <div key={day} className={styles.agDay}>
                 <div className={styles.agDate}>
                   <b>{new Date(day).getDate()}</b>
-                  <span>{fullWeekday(day)}</span>
+                  <span>{weekdayShort(day)}</span>
                 </div>
                 <div>
                   {(byDay.get(day) ?? []).map((plan) => (
@@ -76,9 +79,9 @@ export function AgendaView({ through, plans, hueOf, onOpen, onToggle, onMore }: 
         );
       })}
       <div className={styles.footer}>
-        <span>{`已显示至 ${new Date(limit).getFullYear()}年${formatMonthDay(limit)}`}</span>
+        <span>{t('showingUntil', { date: formatDate(limit) })}</span>
         <button type="button" onClick={onMore}>
-          显示更多
+          {t('showMore')}
         </button>
       </div>
     </Scroll>
@@ -96,10 +99,11 @@ function AgendaRow({
   onOpen: (plan: Plan) => void;
   onToggle: (plan: Plan) => void;
 }) {
+  const { t } = useTranslation('plan');
   const range = rangeText(plan);
   return (
     <div className={styles.agRow}>
-      <span className={styles.agWhen}>{plan.scheduledAt == null ? '' : planWhen(plan)}</span>
+      <span className={styles.agWhen}>{plan.scheduledAt == null ? '' : planWhen(plan, t)}</span>
       <PlanChip plan={plan} hue={hue} detail={range} className={styles.agChip} onOpen={onOpen} onToggle={onToggle} />
     </div>
   );
@@ -111,7 +115,7 @@ function rangeText(plan: Plan): string {
   if (start == null || finish == null || finish === start) {
     return '';
   }
-  return `${formatMonthDay(start)} – ${formatMonthDay(finish)}`;
+  return `${formatDate(start)} – ${formatDate(finish)}`;
 }
 
 function byAgenda(left: Plan, right: Plan): number {
@@ -120,5 +124,5 @@ function byAgenda(left: Plan, right: Plan): number {
   if (leftStart !== rightStart) {
     return leftStart - rightStart;
   }
-  return left.title.localeCompare(right.title, 'zh');
+  return left.title.localeCompare(right.title);
 }

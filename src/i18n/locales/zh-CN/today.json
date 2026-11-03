@@ -1,0 +1,127 @@
+{
+  "page": {
+    "yearTitle": "{{year}}年",
+    "monthTitle": "{{year}}年{{month}}月",
+    "prevYear": "上一年",
+    "nextYear": "下一年",
+    "prevMonth": "上一月",
+    "nextMonth": "下一月",
+    "monthView": "月",
+    "yearView": "年",
+    "workday": "上班",
+    "rest": "休息"
+  },
+  "weekday": {
+    "sun": "周日",
+    "mon": "周一",
+    "tue": "周二",
+    "wed": "周三",
+    "thu": "周四",
+    "fri": "周五",
+    "sat": "周六"
+  },
+  "weekdayShort": {
+    "mon": "一",
+    "tue": "二",
+    "wed": "三",
+    "thu": "四",
+    "fri": "五",
+    "sat": "六",
+    "sun": "日"
+  },
+  "card": {
+    "toolbox": "工具箱",
+    "library": "书库",
+    "growth": "成长",
+    "journal": "手记",
+    "plan": "计划",
+    "term": "节气"
+  },
+  "planCard": {
+    "overdue": "{{count}} 项逾期",
+    "complete": "完成 {{percent}}%",
+    "next": "下一件 · {{title}}",
+    "noNext": "今天没有未完成的计划"
+  },
+  "journalCard": {
+    "diary": "日记",
+    "spark": "灵感",
+    "writing": "写作"
+  },
+  "growthCard": {
+    "untitled": "未命名",
+    "noMilestones": "还没有里程碑"
+  },
+  "libraryCard": {
+    "reading": "在读《{{title}}》",
+    "progress": "已读 {{percent}}%",
+    "noBooks": "没有在读的书"
+  },
+  "latestCard": {
+    "title": "最近一条",
+    "types": {
+      "plan": "计划",
+      "diary": "日记",
+      "spark": "灵感",
+      "writing": "写作",
+      "milestone": "里程碑",
+      "moment": "瞬间",
+      "excerpt": "书摘",
+      "note": "笔记"
+    },
+    "untitled": "未命名",
+    "noRecords": "今天还没有记录"
+  },
+  "toolboxCard": {
+    "cipher": "文件加密",
+    "image": "图片转码",
+    "video": "视频处理"
+  },
+  "termCard": {
+    "progress": "节气进度"
+  },
+  "calendar": {
+    "monthCellLabel": "{{month}}月{{day}}日 {{lunarText}}",
+    "yearCellLabel": "{{month}}月{{day}}日 {{lunarText}} {{badge}}",
+    "badgeRest": "休",
+    "badgeWork": "班",
+    "monthLabel": "{{month}}月",
+    "term": {
+      "fallback": "节气",
+      "hint_one": "距{{name}}还有 {{count}} 天",
+      "hint_other": "距{{name}}还有 {{count}} 天",
+      "hintToday_one": "当日交节 · 距{{name}}还有 {{count}} 天",
+      "hintToday_other": "当日交节 · 距{{name}}还有 {{count}} 天"
+    },
+    "legend": {
+      "plan": "计划",
+      "journal": "手记",
+      "growth": "成长",
+      "library": "书库"
+    }
+  },
+  "almanac": {
+    "noData": "这一天没有黄历。",
+    "lunarMissing": "农历未收录",
+    "yi": "宜",
+    "ji": "忌",
+    "yearLine": "{{animal}}年",
+    "dayLine": "{{ganZhi}}日",
+    "caiShen": "财神{{name}}",
+    "xiShen": "喜神{{name}}",
+    "fuShen": "福神{{name}}",
+    "pengZu": "彭祖{{name}}",
+    "current": "当前"
+  },
+  "hours": {
+    "title": "时辰",
+    "hint": "上下滚动看全部",
+    "current": "当前",
+    "yi": "宜 {{text}}",
+    "ji": "忌 {{text}}",
+    "none": "暂无"
+  },
+  "common": {
+    "loading": "正在读取…"
+  }
+}

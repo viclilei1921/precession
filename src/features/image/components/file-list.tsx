@@ -1,4 +1,5 @@
 import { FileImageIcon, TrashIcon } from '@phosphor-icons/react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/button';
 import { IconButton } from '@/components/button/icon';
 import { Checkbox } from '@/components/checkbox';
@@ -33,6 +34,7 @@ export function FileList({
   onClear,
   onDeleteSelected
 }: FileListProps) {
+  const { t } = useTranslation('image');
   const selected = files.filter((file) => file.checked);
   const total = selected.reduce((sum, file) => sum + (file.size ?? 0), 0);
   const empty = files.length === 0;
@@ -42,20 +44,20 @@ export function FileList({
       <Scroll className={styles.sheet} axis="vertical" gutter>
         <div className={styles.head}>
           <span />
-          <span>文件名</span>
-          <span className={styles.size}>大小</span>
-          <span>路径</span>
-          <span className={styles.action}>操作</span>
+          <span>{t('files.fileName')}</span>
+          <span className={styles.size}>{t('files.size')}</span>
+          <span>{t('files.path')}</span>
+          <span className={styles.action}>{t('files.action')}</span>
         </div>
         <div className={styles.body}>
-          {empty ? <p className={styles.note}>还没有图片。选择文件或文件夹，也可以拖进来。</p> : null}
+          {empty ? <p className={styles.note}>{t('files.empty')}</p> : null}
           {files.map((file) => {
             const { name } = splitPath(file.input);
             return (
               <div className={styles.row} key={file.key}>
                 <Checkbox
                   checked={file.checked}
-                  aria-label={`选择 ${name}`}
+                  aria-label={t('files.selectAria', { name })}
                   onChange={(event) => onChecked(file.key, event.target.checked)}
                 />
                 <span className={styles.name} title={name}>
@@ -68,7 +70,7 @@ export function FileList({
                 </span>
                 <IconButton
                   className={styles.remove}
-                  label="移除"
+                  label={t('files.remove')}
                   tone="destructive"
                   size="compact"
                   onClick={() => onRemove(file.key)}
@@ -83,21 +85,19 @@ export function FileList({
       <div className={styles.foot}>
         <div className={styles.actions}>
           <Button variant="text" disabled={empty} onClick={onSelectAll}>
-            全选
+            {t('files.selectAll')}
           </Button>
           <Button variant="text" disabled={empty} onClick={onInvert}>
-            反选
+            {t('files.invert')}
           </Button>
           <Button variant="text" disabled={empty} onClick={onClear}>
-            清空
+            {t('files.clear')}
           </Button>
           <Button variant="text" tone="destructive" disabled={selected.length === 0} onClick={onDeleteSelected}>
-            删除
+            {t('files.delete')}
           </Button>
         </div>
-        <p className={styles.total}>
-          已选 {selected.length} 个 · 总大小 {formatBytes(total)}
-        </p>
+        <p className={styles.total}>{t('files.selected', { count: selected.length, size: formatBytes(total) })}</p>
       </div>
     </>
   );

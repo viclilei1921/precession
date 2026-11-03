@@ -1,0 +1,136 @@
+{
+  "screenTitle": "计划",
+  "view": {
+    "year": "年",
+    "month": "月",
+    "week": "周",
+    "day": "日",
+    "agenda": "日程"
+  },
+  "title": {
+    "year": "{{year}}年",
+    "month": "{{year}}年{{month}}月",
+    "monthOnly": "{{month}}月"
+  },
+  "nav": {
+    "prevYear": "上一年",
+    "nextYear": "下一年",
+    "prevMonth": "上个月",
+    "nextMonth": "下个月",
+    "prevWeek": "上一周",
+    "nextWeek": "下一周",
+    "prevDay": "前一天",
+    "nextDay": "后一天"
+  },
+  "weekday": {
+    "mon": "周一",
+    "tue": "周二",
+    "wed": "周三",
+    "thu": "周四",
+    "fri": "周五",
+    "sat": "周六",
+    "sun": "周日"
+  },
+  "weekdayShort": {
+    "mon": "一",
+    "tue": "二",
+    "wed": "三",
+    "thu": "四",
+    "fri": "五",
+    "sat": "六",
+    "sun": "日"
+  },
+  "allDay": "全天",
+  "noon": "正午",
+  "inbox": "收集箱",
+  "searchPlaceholder": "搜索计划",
+  "newPlan": "新建计划",
+  "today": "今天",
+  "empty": "没有计划",
+  "dayEmpty": "这一天没有计划",
+  "undated": "未安排",
+  "showMore": "显示更多",
+  "showingUntil": "已显示至 {{date}}",
+  "aria": {
+    "addPlan": "在{{date}}添加计划",
+    "addAllDay": "在{{date}}添加全天计划",
+    "markDone": "标为完成",
+    "markUndone": "标为未完成",
+    "close": "关闭",
+    "expandMonth": "展开月历",
+    "collapseMonth": "收起月历",
+    "openLists": "设置清单",
+    "search": "搜索计划"
+  },
+  "count": {
+    "items_one": "{{count}} 项",
+    "items_other": "{{count}} 项",
+    "schedule_one": "{{count}} 项安排",
+    "schedule_other": "{{count}} 项安排"
+  },
+  "mobile": {
+    "searchInput": "搜索计划标题或内容",
+    "all": "全部",
+    "scheduleLine": "{{date}}有 {{count}} 项安排",
+    "dayCount": "{{count}} 项",
+    "empty": "这一天还没有安排。点右下角新建一条。",
+    "planMissing": "这条计划已经不在了"
+  },
+  "agenda": {
+    "monthLabel": "{{year}}年{{month}}月"
+  },
+  "drawer": {
+    "lists": "清单",
+    "planDetail": "计划详情",
+    "newPlan": "新建计划",
+    "plan": "计划",
+    "close": "收起{{title}}",
+    "defaultList": "默认",
+    "deleteList": "删除清单",
+    "confirmDelete": "确认删除",
+    "deleteListHint": "再点一次就会删掉「{{name}}」。里面的计划会回到默认清单。",
+    "listName": "清单名称",
+    "addList": "+ 清单"
+  },
+  "priority": {
+    "normal": "普通",
+    "important": "重要",
+    "urgent": "紧急"
+  },
+  "field": {
+    "title": "标题",
+    "detail": "详情",
+    "step": "步骤",
+    "date": "日期",
+    "endDate": "结束日期",
+    "allDay": "全天",
+    "start": "开始",
+    "end": "结束",
+    "list": "清单",
+    "priority": "优先级"
+  },
+  "action": {
+    "done": "已完成",
+    "addStep": "添加步骤",
+    "moveStepUp": "上移步骤",
+    "moveStepDown": "下移步骤",
+    "deleteStep": "删除步骤",
+    "delete": "删除",
+    "confirmDelete": "确认删除",
+    "cancel": "取消",
+    "save": "保存"
+  },
+  "form": {
+    "titleRequired": "标题不能为空",
+    "planMissing": "计划不存在",
+    "dateHint": "日期留空，就放进未安排。结束日期留空，就只占开始这一天。"
+  },
+  "when": {
+    "unscheduled": "未安排",
+    "allDay": "全天",
+    "today": "今天"
+  },
+  "common": {
+    "loading": "正在读取…"
+  }
+}

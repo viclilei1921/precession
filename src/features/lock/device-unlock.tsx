@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { dbDisableDeviceUnlock, dbEnableDeviceUnlock, dbStatus } from '@/bridge/db';
 import { Button } from '@/components/button';
 import { PasswordInput } from '@/components/password-input';
@@ -9,6 +10,7 @@ import { errorMessage } from '@/utils/error';
 import styles from './device-unlock.module.css';
 
 export function DeviceUnlock() {
+  const { t } = useTranslation('lock');
   const deviceUnlock = useAppStore((state) => state.dbStatus?.deviceUnlock ?? false);
   const setDbStatus = useAppStore((state) => state.setDbStatus);
   const [password, setPassword] = useState('');
@@ -28,7 +30,7 @@ export function DeviceUnlock() {
 
   async function enableDevice() {
     if (!password) {
-      setError('请输入档案密码。');
+      setError(t('device.errorPasswordRequired'));
       return;
     }
     setBusy(true);
@@ -73,12 +75,12 @@ export function DeviceUnlock() {
     setAsking(true);
   }
 
-  const hint = deviceUnlock ? '已启用 · 打开应用用系统验证代替档案密码。' : '启用后，打开应用用系统验证代替档案密码。';
+  const hint = deviceUnlock ? t('device.hintOn') : t('device.hintOff');
 
   return (
     <>
-      <SettingRow title="设备解锁" hint={hint}>
-        <Switch label="设备解锁" checked={deviceUnlock} disabled={busy} onClick={onSwitch} />
+      <SettingRow title={t('device.rowTitle')} hint={hint}>
+        <Switch label={t('device.label')} checked={deviceUnlock} disabled={busy} onClick={onSwitch} />
       </SettingRow>
       {asking && !deviceUnlock ? (
         <form
@@ -92,9 +94,9 @@ export function DeviceUnlock() {
         >
           <PasswordInput
             id="device-password"
-            label="档案密码"
+            label={t('device.password')}
             autoComplete="current-password"
-            placeholder="输入档案密码"
+            placeholder={t('device.placeholder')}
             value={password}
             disabled={busy}
             onChange={(event) => setPassword(event.currentTarget.value)}
@@ -102,10 +104,10 @@ export function DeviceUnlock() {
           {error ? <p className={styles.error}>{error}</p> : null}
           <div className={styles.actions}>
             <Button variant="text" disabled={busy} onClick={closeForm}>
-              取消
+              {t('device.cancel')}
             </Button>
             <Button type="submit" disabled={busy}>
-              {busy ? '正在启用…' : '启用'}
+              {busy ? t('device.enabling') : t('device.enable')}
             </Button>
           </div>
         </form>

@@ -11,6 +11,7 @@ import {
   uploadStage,
   uploadTmp
 } from '@/bridge';
+import i18n from '@/i18n';
 
 import { imageIds } from './plain';
 
@@ -25,6 +26,9 @@ const mimeExtension: Record<string, string> = {
 };
 
 const urls = new Map<string, string>();
+
+/** Rust 端错误文案里的「加密」，只用来区分已加密和文件缺失；展示走翻译。 */
+const ENCRYPTED_HINT = '\u52a0\u5bc6';
 
 export type MarkdownImageOwner = {
   owner: OwnerKind;
@@ -93,7 +97,9 @@ export async function uploadDisplayUrl(url: string, owner: MarkdownImageOwner): 
     return blob;
   } catch (error) {
     const message = error instanceof Error ? error.message : '';
-    return message.includes('加密') ? placeholder('图片已加密') : placeholder('图片找不到');
+    return message.includes(ENCRYPTED_HINT)
+      ? placeholder(i18n.t('ui:markdown.imageEncrypted'))
+      : placeholder(i18n.t('ui:markdown.imageMissing'));
   }
 }
 
@@ -101,7 +107,7 @@ export async function uploadDisplayUrl(url: string, owner: MarkdownImageOwner): 
 export function importImagePath(path: string, owner: MarkdownImageOwner, convert: boolean) {
   const ext = imageExtension(path);
   if (!ext) {
-    return Promise.reject(new Error('不支持的文件格式'));
+    return Promise.reject(new Error(i18n.t('errors:files.unsupportedFormat')));
   }
   return importSource(path, ext, owner, convert, []);
 }
@@ -110,7 +116,7 @@ export function importImagePath(path: string, owner: MarkdownImageOwner, convert
 export async function importImageFile(file: File, owner: MarkdownImageOwner, convert: boolean) {
   const ext = imageExtension(file.name) ?? mimeExtension[file.type] ?? null;
   if (!ext) {
-    throw new Error('不支持的文件格式');
+    throw new Error(i18n.t('errors:files.unsupportedFormat'));
   }
   const bytes = new Uint8Array(await file.arrayBuffer());
   const staged = await uploadStage(ext, bytesToBase64(bytes));
@@ -142,7 +148,7 @@ async function importSource(source: string, ext: string, owner: MarkdownImageOwn
     });
     const done = await waitTask(task.id);
     if (!done.uploadId) {
-      throw new Error('导入没有返回文件');
+      throw new Error(i18n.t('errors:files.importNoOutput'));
     }
     return done.uploadId;
   } finally {
@@ -168,7 +174,7 @@ export function waitTask(id: string): Promise<Task> {
         resolve(task);
         return;
       }
-      reject(new Error(task.message || '导入失败'));
+      reject(new Error(task.message || i18n.t('errors:files.importFailed')));
     };
     void onTaskUpdate(finish)
       .then((unlisten) => {
@@ -189,7 +195,7 @@ export function waitTask(id: string): Promise<Task> {
         if (!settled) {
           settled = true;
           stop?.();
-          reject(error instanceof Error ? error : new Error('导入失败'));
+          reject(error instanceof Error ? error : new Error(i18n.t('errors:files.importFailed')));
         }
       });
   });

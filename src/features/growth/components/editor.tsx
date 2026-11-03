@@ -10,6 +10,7 @@ import {
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
 import { useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { GrowthEntry, GrowthEntryInput, GrowthKind } from '@/bridge/growth';
 import { growthEntryCreate, growthEntryDelete, growthEntryUpdate } from '@/bridge/growth';
 import { placeCreate } from '@/bridge/place';
@@ -31,25 +32,31 @@ import {
 } from '@/components/markdown';
 import { MetaChips } from '@/features/journal/components/meta-chips';
 import { useJournalNames } from '@/features/journal/names';
-import { journalDate } from '@/features/journal/text';
+import { useBackLayer } from '@/layout/mobile/back';
 import { refreshFiles } from '@/query/files/query';
 import { refreshGrowth } from '@/query/growth/query';
 import { refreshPlaces } from '@/query/place/query';
 import { refreshTags } from '@/query/tag/query';
-import { fromDateInputValue, startOfLocalDay, toDateInputValue } from '@/utils/day';
+import { formatDate, fromDateInputValue, startOfLocalDay, toDateInputValue } from '@/utils/day';
 import { errorMessage } from '@/utils/error';
 import styles from '../entry.module.css';
 
-const kinds: { kind: GrowthKind; label: string; Icon: typeof FlagIcon }[] = [
-  { kind: 'milestone', label: '里程碑', Icon: FlagIcon },
-  { kind: 'moment', label: '瞬间', Icon: CameraIcon }
+const kinds: { kind: GrowthKind; labelKey: 'page.moment' | 'page.milestone'; Icon: typeof FlagIcon }[] = [
+  { kind: 'moment', labelKey: 'page.moment', Icon: CameraIcon },
+  { kind: 'milestone', labelKey: 'page.milestone', Icon: FlagIcon }
 ];
 
 type Panel = 'date' | 'member' | 'place' | 'tag';
 
 function AddToggle({ label, open, onClick }: { label: string; open: boolean; onClick: () => void }) {
+  const { t } = useTranslation('growth');
   return (
-    <IconButton label={open ? '完成' : `添加${label}`} size="compact" selected={open} onClick={onClick}>
+    <IconButton
+      label={open ? t('form.done') : t('form.add', { label })}
+      size="compact"
+      selected={open}
+      onClick={onClick}
+    >
       <PlusIcon weight="regular" />
     </IconButton>
   );
@@ -66,6 +73,7 @@ type GrowthEditorProps = {
 
 /** 成长编辑。正文铺满，属于谁、一起的人和封存都在右侧抽屉。 */
 export function GrowthEditor({ entry, ownerId, kind, onClose, onSaved, onDeleted }: GrowthEditorProps) {
+  const { t } = useTranslation(['growth', 'common']);
   const queryClient = useQueryClient();
   const names = useJournalNames();
   const markdownRef = useRef<MarkdownEditorHandle>(null);
@@ -94,6 +102,20 @@ export function GrowthEditor({ entry, ownerId, kind, onClose, onSaved, onDeleted
     setPanel(null);
     setConfirmDelete(false);
   }
+
+  function stepBack() {
+    if (panel) {
+      setPanel(null);
+      return;
+    }
+    if (settingsOpen) {
+      closeSettings();
+      return;
+    }
+    onClose();
+  }
+
+  useBackLayer(true, stepBack);
 
   function toggle(next: Panel) {
     setPanel((current) => (current === next ? null : next));
@@ -166,7 +188,7 @@ export function GrowthEditor({ entry, ownerId, kind, onClose, onSaved, onDeleted
   const remove = useMutation({
     mutationFn: () => {
       if (!entry) {
-        return Promise.reject(new Error('成长记录不存在'));
+        return Promise.reject(new Error(t('page.notFound')));
       }
       return growthEntryDelete(entry.id);
     },
@@ -194,26 +216,23 @@ export function GrowthEditor({ entry, ownerId, kind, onClose, onSaved, onDeleted
       }}
     >
       <header className={styles.bar}>
-        <IconButton label="返回" disabled={busy} onClick={onClose}>
+        <IconButton label={t('page.back')} disabled={busy} onClick={stepBack}>
           <CaretLeftIcon weight="regular" />
         </IconButton>
-        {entry == null ? (
-          <Button
-            type="submit"
-            className={styles.push}
-            disabled={busy || memberId === ''}
-            onClick={() => {
-              if (title.trim() === '') {
-                closeSettings();
-              }
-            }}
-          >
-            保存
-          </Button>
-        ) : null}
+        <Button
+          type="submit"
+          className={styles.push}
+          disabled={busy || memberId === ''}
+          onClick={() => {
+            if (title.trim() === '') {
+              closeSettings();
+            }
+          }}
+        >
+          {t('common:button.save')}
+        </Button>
         <IconButton
-          className={entry == null ? undefined : styles.push}
-          label={settingsOpen ? '收起设置' : '打开设置'}
+          label={settingsOpen ? t('page.closeSettings') : t('page.openSettings')}
           expanded={settingsOpen}
           disabled={busy}
           onClick={() => (settingsOpen ? closeSettings() : setSettingsOpen(true))}
@@ -227,11 +246,11 @@ export function GrowthEditor({ entry, ownerId, kind, onClose, onSaved, onDeleted
             className={styles.title}
             value={title}
             required
-            placeholder="标题"
-            aria-label="标题"
+            placeholder={t('form.title')}
+            aria-label={t('form.title')}
             onChange={(event) => setTitle(event.target.value)}
           />
-          {locked ? <p className={styles.note}>正文已封存。</p> : null}
+          {locked ? <p className={styles.note}>{t('page.sealed')}</p> : null}
           {!settingsOpen && save.error ? (
             <p className={clsx(styles.error, styles.sheetNotice)}>{errorMessage(save.error)}</p>
           ) : null}
@@ -244,7 +263,7 @@ export function GrowthEditor({ entry, ownerId, kind, onClose, onSaved, onDeleted
               edge
               value={body}
               disabled={locked}
-              placeholder="写下来"
+              placeholder={t('form.bodyPlaceholder')}
               image={mediaOwner}
               video={mediaOwner}
               onChange={onBody}
@@ -257,19 +276,19 @@ export function GrowthEditor({ entry, ownerId, kind, onClose, onSaved, onDeleted
         className={styles.scrim}
         data-open={settingsOpen ? 'true' : undefined}
         tabIndex={-1}
-        aria-label="收起设置"
+        aria-label={t('page.closeSettings')}
         onClick={closeSettings}
       />
-      <aside className={styles.drawer} data-open={settingsOpen ? 'true' : undefined} aria-label="设置">
+      <aside className={styles.drawer} data-open={settingsOpen ? 'true' : undefined} aria-label={t('page.settings')}>
         <div className={styles.drawerHead}>
           <div className={styles.drawerTitle}>
-            <h2 className={styles.drawerHeading}>设置</h2>
+            <h2 className={styles.drawerHeading}>{t('page.settings')}</h2>
           </div>
         </div>
         <div className={styles.drawerBody}>
           <section className={styles.group}>
-            <h2 className={styles.groupTitle}>类型</h2>
-            <div className={styles.segments} role="tablist" aria-label="成长类型">
+            <h2 className={styles.groupTitle}>{t('form.kind')}</h2>
+            <div className={styles.segments} role="tablist" aria-label={t('page.typeAria')}>
               {kinds.map((item) => (
                 <SegmentButton
                   key={item.kind}
@@ -277,16 +296,16 @@ export function GrowthEditor({ entry, ownerId, kind, onClose, onSaved, onDeleted
                   onClick={() => setEntryKind(item.kind)}
                 >
                   <item.Icon weight="regular" />
-                  {item.label}
+                  {t(item.labelKey)}
                 </SegmentButton>
               ))}
             </div>
           </section>
           <section className={styles.group}>
             <div className={styles.groupHead}>
-              <h2 className={styles.groupTitle}>日期</h2>
+              <h2 className={styles.groupTitle}>{t('form.date')}</h2>
               <IconButton
-                label={panel === 'date' ? '完成' : '修改日期'}
+                label={panel === 'date' ? t('form.done') : t('form.editDate')}
                 size="compact"
                 selected={panel === 'date'}
                 onClick={() => toggle('date')}
@@ -295,15 +314,15 @@ export function GrowthEditor({ entry, ownerId, kind, onClose, onSaved, onDeleted
               </IconButton>
             </div>
             {panel === 'date' ? (
-              <DateField label="发生时间" value={occurredAt} onChange={setOccurredAt} />
+              <DateField label={t('form.occurredAt')} value={occurredAt} onChange={setOccurredAt} />
             ) : (
-              <p className={styles.value}>{journalDate(occurredTime).full}</p>
+              <p className={styles.value}>{formatDate(occurredTime)}</p>
             )}
           </section>
           <section className={styles.group}>
-            <h2 className={styles.groupTitle}>属于谁</h2>
+            <h2 className={styles.groupTitle}>{t('form.owner')}</h2>
             {names.memberError ? <p className={styles.error}>{errorMessage(names.memberError)}</p> : null}
-            {names.members.length === 0 ? <p className={styles.value}>还没有家人。</p> : null}
+            {names.members.length === 0 ? <p className={styles.value}>{t('form.noMembers')}</p> : null}
             <div className={styles.chips}>
               {names.members.map((item) => (
                 <ChipButton
@@ -322,28 +341,28 @@ export function GrowthEditor({ entry, ownerId, kind, onClose, onSaved, onDeleted
           </section>
           <section className={styles.group}>
             <div className={styles.groupHead}>
-              <h2 className={styles.groupTitle}>一起的人</h2>
-              <AddToggle label="一起的人" open={panel === 'member'} onClick={() => toggle('member')} />
+              <h2 className={styles.groupTitle}>{t('form.companions')}</h2>
+              <AddToggle label={t('form.companions')} open={panel === 'member'} onClick={() => toggle('member')} />
             </div>
             <MetaChips
               items={companions}
               selected={companionIds}
               adding={panel === 'member'}
-              empty="还没有其他家人。"
+              empty={t('form.noCompanions')}
               onChange={setCompanionIds}
             />
           </section>
           <section className={styles.group}>
             <div className={styles.groupHead}>
-              <h2 className={styles.groupTitle}>地点</h2>
-              <AddToggle label="地点" open={panel === 'place'} onClick={() => toggle('place')} />
+              <h2 className={styles.groupTitle}>{t('form.places')}</h2>
+              <AddToggle label={t('form.places')} open={panel === 'place'} onClick={() => toggle('place')} />
             </div>
             <MetaChips
               items={names.places}
               selected={placeIds}
               adding={panel === 'place'}
-              empty="还没有地点。"
-              addLabel="新地点"
+              empty={t('form.noPlaces')}
+              addLabel={t('form.newPlace')}
               listError={names.placeError ? errorMessage(names.placeError) : ''}
               onChange={setPlaceIds}
               onAdd={async (name) => {
@@ -355,15 +374,15 @@ export function GrowthEditor({ entry, ownerId, kind, onClose, onSaved, onDeleted
           </section>
           <section className={styles.group}>
             <div className={styles.groupHead}>
-              <h2 className={styles.groupTitle}>标签</h2>
-              <AddToggle label="标签" open={panel === 'tag'} onClick={() => toggle('tag')} />
+              <h2 className={styles.groupTitle}>{t('form.tags')}</h2>
+              <AddToggle label={t('form.tags')} open={panel === 'tag'} onClick={() => toggle('tag')} />
             </div>
             <MetaChips
               items={names.tags}
               selected={tagIds}
               adding={panel === 'tag'}
-              empty="还没有标签。"
-              addLabel="新标签"
+              empty={t('form.noTags')}
+              addLabel={t('form.newTag')}
               listError={names.tagError ? errorMessage(names.tagError) : ''}
               onChange={setTagIds}
               onAdd={async (name) => {
@@ -374,19 +393,27 @@ export function GrowthEditor({ entry, ownerId, kind, onClose, onSaved, onDeleted
             />
           </section>
           <section className={styles.group}>
-            <h2 className={styles.groupTitle}>其他</h2>
-            <Checkbox label="标为高光" checked={highlight} onChange={(event) => setHighlight(event.target.checked)} />
+            <h2 className={styles.groupTitle}>{t('form.other')}</h2>
+            <Checkbox
+              label={t('form.highlight')}
+              checked={highlight}
+              onChange={(event) => setHighlight(event.target.checked)}
+            />
             {entry ? (
-              <Checkbox label="封存正文" checked={locked} onChange={(event) => changeLocked(event.target.checked)} />
+              <Checkbox
+                label={t('form.seal')}
+                checked={locked}
+                onChange={(event) => changeLocked(event.target.checked)}
+              />
             ) : (
-              <p className={styles.value}>保存之后可以封存。</p>
+              <p className={styles.value}>{t('form.sealLater')}</p>
             )}
           </section>
         </div>
         <footer className={styles.drawerFoot}>
           {save.error ? <p className={styles.error}>{errorMessage(save.error)}</p> : null}
           {remove.error ? <p className={styles.error}>{errorMessage(remove.error)}</p> : null}
-          {confirmDelete ? <p className={styles.hint}>再点一次就会删掉这条。</p> : null}
+          {confirmDelete ? <p className={styles.hint}>{t('form.confirmDeleteEntry')}</p> : null}
           <div className={styles.footActions}>
             {entry && onDeleted ? (
               <Button
@@ -402,7 +429,7 @@ export function GrowthEditor({ entry, ownerId, kind, onClose, onSaved, onDeleted
                   remove.mutate();
                 }}
               >
-                {confirmDelete ? '确认删除' : '删除'}
+                {confirmDelete ? t('form.confirmDelete') : t('common:button.delete')}
               </Button>
             ) : null}
             <Button
@@ -415,7 +442,7 @@ export function GrowthEditor({ entry, ownerId, kind, onClose, onSaved, onDeleted
                 }
               }}
             >
-              保存
+              {t('common:button.save')}
             </Button>
           </div>
         </footer>

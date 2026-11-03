@@ -2,12 +2,15 @@ import { CaretLeftIcon, PencilSimpleIcon } from '@phosphor-icons/react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { IconButton } from '@/components/button/icon';
 import { MarkdownEditor } from '@/components/markdown';
 import { useJournalNames } from '@/features/journal/names';
-import { journalDate, journalWords, lookupNames } from '@/features/journal/text';
+import { journalWords, lookupNames } from '@/features/journal/text';
+import { popRoute } from '@/layout/mobile/back';
 import { growthEntryQuery } from '@/query/growth/query';
 import { PATH } from '@/router/path';
+import { formatDate } from '@/utils/day';
 import { errorMessage } from '@/utils/error';
 import { GrowthEditor } from './components/editor';
 import styles from './entry.module.css';
@@ -15,6 +18,7 @@ import { cardAge, isYoung } from './text';
 
 /** 一条成长记录。已写的先阅读，编辑时再打开抽屉。 */
 export function GrowthEntryPage() {
+  const { t } = useTranslation('growth');
   const { entryId } = useParams({ from: '/growth/$entryId' });
   const navigate = useNavigate();
   const entryQuery = useQuery(growthEntryQuery(entryId));
@@ -22,20 +26,22 @@ export function GrowthEntryPage() {
   const [editing, setEditing] = useState(false);
 
   function back(memberId: string) {
-    void navigate({ to: PATH.growth, search: { member: memberId } });
+    popRoute(() => {
+      void navigate({ to: PATH.growth, search: { member: memberId }, replace: true });
+    });
   }
 
   if (entryQuery.isPending) {
     return (
       <section className={styles.page}>
-        <p className={styles.note}>正在读取…</p>
+        <p className={styles.note}>{t('page.loading')}</p>
       </section>
     );
   }
   if (entryQuery.error || !entryQuery.data) {
     return (
       <section className={styles.page}>
-        <p className={styles.error}>{errorMessage(entryQuery.error ?? '成长记录不存在')}</p>
+        <p className={styles.error}>{errorMessage(entryQuery.error ?? t('page.notFound'))}</p>
       </section>
     );
   }
@@ -59,19 +65,19 @@ export function GrowthEntryPage() {
   const young = isYoung(person?.birthday ?? null);
   const words = journalWords(entry.body, entry.locked);
   const byline = [
-    journalDate(entry.occurredAt).full,
+    formatDate(entry.occurredAt),
     person?.name ?? '',
     cardAge(person?.birthday ?? null, entry.occurredAt, young),
-    entry.kind === 'milestone' ? '里程碑' : '瞬间',
-    entry.highlight ? '高光' : '',
-    entry.locked ? '已封存' : '',
+    entry.kind === 'milestone' ? t('page.milestone') : t('page.moment'),
+    entry.highlight ? t('page.highlight') : '',
+    entry.locked ? t('page.locked') : '',
     ...lookupNames(entry.placeIds, names.places),
     ...lookupNames(
       entry.memberIds.filter((id) => id !== entry.memberId),
       names.members
     ),
     ...lookupNames(entry.tagIds, names.tags),
-    words == null ? '' : `${words} 字`
+    words == null ? '' : t('page.words', { count: words })
   ]
     .filter((item) => item.length > 0)
     .join(' · ');
@@ -79,10 +85,15 @@ export function GrowthEntryPage() {
   return (
     <section className={styles.readPage}>
       <div className={styles.chrome}>
-        <IconButton label="返回" variant="outlined" className={styles.float} onClick={() => back(entry.memberId)}>
+        <IconButton
+          label={t('page.back')}
+          variant="outlined"
+          className={styles.float}
+          onClick={() => back(entry.memberId)}
+        >
           <CaretLeftIcon weight="regular" />
         </IconButton>
-        <IconButton label="编辑" variant="outlined" className={styles.float} onClick={() => setEditing(true)}>
+        <IconButton label={t('page.edit')} variant="outlined" className={styles.float} onClick={() => setEditing(true)}>
           <PencilSimpleIcon weight="regular" />
         </IconButton>
       </div>
@@ -90,7 +101,7 @@ export function GrowthEntryPage() {
         <h1 className={styles.readTitle}>{entry.title}</h1>
         <p className={styles.byline}>{byline}</p>
         {entry.locked ? (
-          <p className={styles.note}>正文已封存。</p>
+          <p className={styles.note}>{t('page.sealed')}</p>
         ) : (
           <div className={styles.readBody}>
             <MarkdownEditor

@@ -18,7 +18,8 @@ export type Surface = 'sidebar';
 
 export type RouteTone = 'plan' | 'journal' | 'growth' | 'library' | 'toolbox';
 
-export type RouteGroup = '记录' | '工具箱' | '系统';
+/** 侧栏分组 key，对应 nav.json 里的 group.* 字段 */
+export type RouteGroup = 'record' | 'toolbox' | 'system';
 
 /** 桌面侧栏里默认收进「更多」 */
 export type RouteFold = 'more';
@@ -36,8 +37,8 @@ export type NavPath =
   | typeof PATH.settings;
 
 export type RouteItem = {
+  /** 路由 id，同时作为 nav.json 里的翻译 key */
   id: string;
-  label: string;
   to: NavPath;
   group: RouteGroup;
   surfaces: Surface[];
@@ -47,21 +48,19 @@ export type RouteItem = {
 };
 
 export const routeItems: RouteItem[] = [
-  { id: 'today', label: '今天', to: PATH.today, group: '记录', surfaces: ['sidebar'], icon: SunIcon },
+  { id: 'today', to: PATH.today, group: 'record', surfaces: ['sidebar'], icon: SunIcon },
   {
     id: 'plan',
-    label: '计划',
     to: PATH.plan,
-    group: '记录',
+    group: 'record',
     surfaces: ['sidebar'],
     icon: ListChecksIcon,
     tone: 'plan'
   },
   {
     id: 'journal',
-    label: '手记',
     to: PATH.journal,
-    group: '记录',
+    group: 'record',
     surfaces: ['sidebar'],
     icon: NotebookIcon,
     tone: 'journal',
@@ -69,9 +68,8 @@ export const routeItems: RouteItem[] = [
   },
   {
     id: 'growth',
-    label: '成长',
     to: PATH.growth,
-    group: '记录',
+    group: 'record',
     surfaces: ['sidebar'],
     icon: FlagIcon,
     tone: 'growth',
@@ -79,42 +77,38 @@ export const routeItems: RouteItem[] = [
   },
   {
     id: 'library',
-    label: '书库',
     to: PATH.library,
-    group: '记录',
+    group: 'record',
     surfaces: ['sidebar'],
     icon: BookOpenIcon,
     tone: 'library'
   },
   {
     id: 'cipher',
-    label: '文件加密',
     to: PATH.cipher,
-    group: '工具箱',
+    group: 'toolbox',
     surfaces: ['sidebar'],
     icon: LockKeyIcon,
     tone: 'toolbox'
   },
   {
     id: 'image',
-    label: '图片转码',
     to: PATH.image,
-    group: '工具箱',
+    group: 'toolbox',
     surfaces: ['sidebar'],
     icon: ImageIcon,
     tone: 'toolbox'
   },
   {
     id: 'video',
-    label: '视频处理',
     to: PATH.video,
-    group: '工具箱',
+    group: 'toolbox',
     surfaces: ['sidebar'],
     icon: VideoCameraIcon,
     tone: 'toolbox'
   },
-  { id: 'files', label: '文件', to: PATH.files, group: '系统', surfaces: ['sidebar'], icon: FileTextIcon },
-  { id: 'settings', label: '设置', to: PATH.settings, group: '系统', surfaces: ['sidebar'], icon: GearIcon }
+  { id: 'files', to: PATH.files, group: 'system', surfaces: ['sidebar'], icon: FileTextIcon },
+  { id: 'settings', to: PATH.settings, group: 'system', surfaces: ['sidebar'], icon: GearIcon }
 ];
 
 const mobileNavOrder = ['plan', 'journal', 'growth', 'library', 'settings'] as const;
@@ -127,7 +121,7 @@ export function mobileNavItems() {
   });
 }
 
-export const sidebarGroups: RouteGroup[] = ['记录', '工具箱', '系统'];
+export const sidebarGroups: RouteGroup[] = ['record', 'toolbox', 'system'];
 
 export function itemsOn(surface: Surface) {
   return routeItems.filter((item) => item.surfaces.includes(surface));

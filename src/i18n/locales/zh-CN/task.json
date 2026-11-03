@@ -1,0 +1,84 @@
+{
+  "queue": {
+    "heading": "队列",
+    "clearList": "清空列表",
+    "loading": "正在读取…",
+    "empty": "现在没有任务。",
+    "emptyFiltered": "没有匹配的任务。",
+    "emptyRunning": "没有正在处理的任务。",
+    "emptyPending": "没有待处理的任务。",
+    "emptyDone": "还没有完成的任务。",
+    "searchPlaceholder": "搜索任务",
+    "tab": {
+      "run": "进行中",
+      "wait_one": "待处理 {{count}}",
+      "wait_other": "待处理 {{count}}",
+      "done_one": "已完成 {{count}}",
+      "done_other": "已完成 {{count}}"
+    }
+  },
+  "status": {
+    "pending": "等待",
+    "processing": "处理中",
+    "completed": "完成",
+    "failed": "失败",
+    "canceled": "已取消"
+  },
+  "kind": {
+    "encryptFile": "加密文件",
+    "decryptFile": "解密文件",
+    "importUpload": "导入文件",
+    "encryptUpload": "加密已上传文件",
+    "decryptUpload": "解密已上传文件",
+    "convertVideo": "转码视频",
+    "cutVideo": "裁剪视频",
+    "mergeVideo": "合并视频",
+    "appendVideo": "追加视频",
+    "convertAvif": "转为 AVIF",
+    "convertJxl": "转为 JXL",
+    "short": {
+      "encrypt": "加密",
+      "decrypt": "解密",
+      "convert": "转码",
+      "cut": "裁剪",
+      "merge": "合并",
+      "append": "追加",
+      "avif": "AVIF",
+      "jxl": "JXL"
+    }
+  },
+  "action": {
+    "reveal": "显示文件",
+    "editAgain": "再次编辑",
+    "cancel": "取消",
+    "delete": "删除"
+  },
+  "aria": {
+    "queue": "队列",
+    "open": "打开"
+  },
+  "time": {
+    "calculating": "计算中",
+    "remaining": "剩余 {{time}}"
+  },
+  "count": {
+    "segments_one": "{{count}} 段",
+    "segments_other": "{{count}} 段"
+  },
+  "bitDepth": "{{depth}}-bit",
+  "video": {
+    "hevc": "{{container}} · HEVC · {{preset}} · CRF {{crf}} · {{bit}}",
+    "vp9": "{{container}} · VP9 · 速度 {{speed}} · CRF {{crf}}",
+    "av1": "{{container}} · AV1 · 速度 {{speed}} · CRF {{crf}} · {{bit}}"
+  },
+  "avif": {
+    "summary": "质量 {{quality}} · 速度 {{speed}}",
+    "lossless": "无损",
+    "alpha": "透明 {{value}}"
+  },
+  "jxl": {
+    "summary": "距离 {{distance}} · 速度 {{effort}}",
+    "lossless": "无损",
+    "decoding": "解码 {{speed}}"
+  }
+}

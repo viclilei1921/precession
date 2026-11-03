@@ -1,5 +1,6 @@
 import { PlusIcon } from '@phosphor-icons/react';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ChipButton } from '@/components/button/chip';
 import { IconButton } from '@/components/button/icon';
 import { TextField } from '@/components/text-field';
@@ -25,6 +26,7 @@ type MetaChipsProps = {
 
 /** 已选的名字直接摆出来。添加时才出现可选项和输入框。 */
 export function MetaChips({ items, selected, onChange, adding, empty, addLabel, onAdd, listError }: MetaChipsProps) {
+  const { t } = useTranslation('journal');
   const [name, setName] = useState('');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
@@ -92,12 +94,12 @@ export function MetaChips({ items, selected, onChange, adding, empty, addLabel, 
                   void add();
                 }}
               />
-              <IconButton label="添加" disabled={pending || name.trim() === ''} onClick={() => void add()}>
+              <IconButton label={t('meta.add')} disabled={pending || name.trim() === ''} onClick={() => void add()}>
                 <PlusIcon weight="regular" />
               </IconButton>
             </div>
           ) : rest.length === 0 ? (
-            <p className={styles.hint}>没有可添加的。</p>
+            <p className={styles.hint}>{t('meta.empty')}</p>
           ) : null}
         </>
       ) : null}

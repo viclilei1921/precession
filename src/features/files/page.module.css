@@ -26,18 +26,18 @@
   border-radius: var(--radius-lg);
 }
 
-.usageTop {
+.usage-top {
   display: flex;
   gap: var(--space-3);
   align-items: center;
 }
 
-.usageTop strong {
+.usage-top strong {
   font-size: var(--text-sm);
   font-weight: 700;
 }
 
-.usageTop span {
+.usage-top span {
   font-size: var(--text-sm);
   color: var(--muted-foreground);
 }
@@ -211,14 +211,14 @@
   min-height: 0;
 }
 
-.listScroll {
+.list-scroll {
   flex: 1;
   min-height: 0;
   padding-top: var(--space-3);
   border-top: 1px solid var(--border);
 }
 
-.ownerCard {
+.owner-card {
   display: grid;
   gap: var(--space-2);
   padding: var(--space-3) var(--space-4) var(--space-2);
@@ -296,33 +296,33 @@
   background: color-mix(in oklch, var(--primary) 8%, var(--card));
 }
 
-.fileCopy {
+.file-copy {
   display: grid;
   gap: 0.125rem;
   min-width: 0;
 }
 
-.fileName {
+.file-name {
   overflow: hidden;
   text-overflow: ellipsis;
   font-size: var(--text-sm);
   white-space: nowrap;
 }
 
-.fileMeta,
-.fileSize {
+.file-meta,
+.file-size {
   font-size: var(--text-xs);
   color: var(--muted-foreground);
 }
 
-.fileMeta {
+.file-meta {
   display: flex;
   gap: var(--space-2);
   align-items: center;
   min-width: 0;
 }
 
-.fileMeta span {
+.file-meta span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -409,26 +409,26 @@
   min-height: 0;
 }
 
-.metaBody {
+.meta-body {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
   min-height: 100%;
 }
 
-.importList {
+.import-list {
   display: grid;
   gap: var(--space-3);
 }
 
-.importRow {
+.import-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 8rem;
   gap: var(--space-3);
   align-items: start;
 }
 
-.importNote {
+.import-note {
   margin: 0;
   font-size: var(--text-sm);
   color: var(--muted-foreground);
@@ -458,19 +458,19 @@
   background: var(--library-soft);
 }
 
-.previewNote {
+.preview-note {
   display: grid;
   gap: var(--space-1);
   justify-items: center;
   font-size: var(--text-sm);
 }
 
-.previewNote svg {
+.preview-note svg {
   width: var(--icon-lg);
   height: var(--icon-lg);
 }
 
-.paneTitle {
+.pane-title {
   font-size: var(--text-lg);
   font-weight: 400;
   line-height: 1.4;
@@ -506,15 +506,15 @@
   overflow-wrap: anywhere;
 }
 
-.ownerCard {
+.owner-card {
   padding: var(--space-3);
 }
 
-.ownerCard strong {
+.owner-card strong {
   font-weight: 400;
 }
 
-.paneActions {
+.pane-actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
@@ -530,13 +530,13 @@
   color: var(--muted-foreground);
 }
 
-.dialogBody {
+.dialog-body {
   margin: 0;
   font-size: var(--text-sm);
   line-height: 1.7;
 }
 
-.dialogActions {
+.dialog-actions {
   display: flex;
   gap: var(--space-2);
   justify-content: flex-end;

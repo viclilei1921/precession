@@ -1,4 +1,5 @@
 import { CheckIcon, PaletteIcon } from '@phosphor-icons/react';
+import { useTranslation } from 'react-i18next';
 import { Card } from '@/components/card';
 import type { ThemePreference } from '@/features/settings/preferences';
 import { Switch } from '@/features/settings/switch';
@@ -7,17 +8,12 @@ import { CardHead } from './card-head';
 import styles from './page.module.css';
 import { SettingRow } from './row';
 
-const THEMES: { value: ThemePreference; label: string; hint: string; shot: 'light' | 'dark' | 'system' }[] = [
-  { value: 'light', label: '浅色', hint: '明亮通透', shot: 'light' },
-  { value: 'dark', label: '深色', hint: '夜间阅读', shot: 'dark' },
-  { value: 'system', label: '跟随系统', hint: '随系统切换', shot: 'system' }
-];
-
 type AppearanceSectionProps = {
   onNotice: (message: string) => void;
 };
 
 export function AppearanceSection({ onNotice }: AppearanceSectionProps) {
+  const { t } = useTranslation('settings');
   const mobile = useAppStore((state) => state.isMobile());
   const preference = useAppStore((state) => state.themePreference);
   const theme = useAppStore((state) => state.theme);
@@ -27,18 +23,42 @@ export function AppearanceSection({ onNotice }: AppearanceSectionProps) {
   const setSidebarCollapsed = useAppStore((state) => state.setSidebarCollapsed);
   const setReduceMotion = useAppStore((state) => state.setReduceMotion);
 
-  const tone = theme === 'dark' ? '深色' : '浅色';
-  const extra = preference === 'system' ? `跟随系统 · ${tone}` : `当前 ${tone}`;
+  const THEMES: { value: ThemePreference; label: string; hint: string; shot: 'light' | 'dark' | 'system' }[] = [
+    { value: 'light', label: t('appearance.theme.light.label'), hint: t('appearance.theme.light.hint'), shot: 'light' },
+    { value: 'dark', label: t('appearance.theme.dark.label'), hint: t('appearance.theme.dark.hint'), shot: 'dark' },
+    {
+      value: 'system',
+      label: t('appearance.theme.system.label'),
+      hint: t('appearance.theme.system.hint'),
+      shot: 'system'
+    }
+  ];
+
+  const tone = theme === 'dark' ? t('appearance.currentDark') : t('appearance.currentLight');
+  const extra =
+    preference === 'system' ? t('appearance.extraSystem', { tone }) : t('appearance.extraCurrent', { tone });
 
   function choose(next: ThemePreference) {
     setThemePreference(next);
-    onNotice(next === 'system' ? '主题将跟随系统外观' : `已切换到${next === 'dark' ? '深色' : '浅色'}主题`);
+    onNotice(
+      next === 'system'
+        ? t('appearance.noticeSystem')
+        : t('appearance.noticeSwitched', {
+            theme: next === 'dark' ? t('appearance.theme.dark.label') : t('appearance.theme.light.label')
+          })
+    );
   }
 
   return (
     <Card id="appearance" className={styles.section}>
-      <CardHead tone="system" icon={PaletteIcon} title="外观" detail="主题、侧栏与界面动效" extra={extra} />
-      <fieldset className={styles.themes} aria-label="主题">
+      <CardHead
+        tone="system"
+        icon={PaletteIcon}
+        title={t('appearance.title')}
+        detail={t('appearance.detail')}
+        extra={extra}
+      />
+      <fieldset className={styles.themes} aria-label={t('appearance.title')}>
         {THEMES.map((item) => (
           <button
             key={item.value}
@@ -74,26 +94,28 @@ export function AppearanceSection({ onNotice }: AppearanceSectionProps) {
       </fieldset>
       <div className={styles.rows}>
         {mobile ? null : (
-          <SettingRow title="展开侧栏" hint="关闭后导航收起，内容区更宽。">
+          <SettingRow title={t('appearance.sidebarRow.title')} hint={t('appearance.sidebarRow.hint')}>
             <Switch
-              label="展开侧栏"
+              label={t('appearance.sidebarRow.title')}
               checked={!collapsed}
               onClick={() => {
                 const nextCollapsed = !collapsed;
                 setSidebarCollapsed(nextCollapsed);
-                onNotice(nextCollapsed ? '侧栏已收起' : '侧栏已展开');
+                onNotice(
+                  nextCollapsed ? t('appearance.sidebarNoticeCollapsed') : t('appearance.sidebarNoticeExpanded')
+                );
               }}
             />
           </SettingRow>
         )}
-        <SettingRow title="减少动效" hint="关闭过渡和渐隐，页面切换更直接。">
+        <SettingRow title={t('appearance.motionRow.title')} hint={t('appearance.motionRow.hint')}>
           <Switch
-            label="减少动效"
+            label={t('appearance.motionRow.title')}
             checked={reduceMotion}
             onClick={() => {
               const next = !reduceMotion;
               setReduceMotion(next);
-              onNotice(next ? '已减少界面动效' : '已恢复界面动效');
+              onNotice(next ? t('appearance.motionNoticeOn') : t('appearance.motionNoticeOff'));
             }}
           />
         </SettingRow>

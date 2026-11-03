@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { dbCreate } from '@/bridge/db';
 import { Button } from '@/components/button';
 import { PasswordInput } from '@/components/password-input';
-import { errorMessage } from '@/utils/error';
+import { errorMessage, rawErrorMessage } from '@/utils/error';
 import styles from './index.module.css';
 
 /** 创建档案 Props */
@@ -11,26 +12,25 @@ type CreateViewProps = {
   onDone: () => Promise<unknown>;
 };
 
+type ValidationCode = 'passwordShort' | 'passwordMismatch';
+
 /** 创建表单上最近的一条错误 */
-type CreateError = {
-  /** 错误对应哪一项 */
-  field: 'password' | 'confirm' | 'form';
-  /** 错误文案 */
-  message: string;
-};
+type CreateError = { field: 'password' | 'confirm'; code: ValidationCode } | { field: 'form'; message: string };
 
-/** 密码至少 8 位。空密码同样不通过。 */
-function passwordErrorMessage(password: string) {
-  return password.length < 8 ? '密码至少 8 位' : '';
-}
-
-/** 两次输入不一致时的文案 */
-function confirmErrorMessage(password: string, passwordConfirm: string) {
-  return password !== passwordConfirm ? '两次输入的密码不一致' : '';
+/** 校验密码和确认密码，返回稳定错误码 */
+function validate(password: string, passwordConfirm: string): CreateError | null {
+  if (password.length < 8) {
+    return { field: 'password', code: 'passwordShort' };
+  }
+  if (password !== passwordConfirm) {
+    return { field: 'confirm', code: 'passwordMismatch' };
+  }
+  return null;
 }
 
 /** 创建档案 */
 export function CreateView({ onDone }: CreateViewProps) {
+  const { t } = useTranslation('lock');
   /** 密码 */
   const [password, setPassword] = useState('');
   /** 确认密码 */
@@ -42,20 +42,20 @@ export function CreateView({ onDone }: CreateViewProps) {
 
   /** 是否可以提交 */
   const canSubmit = useMemo(() => {
-    return !busy && password && passwordConfirm && !error;
+    return !busy && Boolean(password) && Boolean(passwordConfirm) && !error;
   }, [password, passwordConfirm, busy, error]);
 
   /** 把创建失败换成当前这一条错误 */
-  function applyCreateError(message: string) {
+  function applyCreateError(message: string, display = message) {
     if (message === '密码至少 8 位' || message === '密码不能为空') {
-      setError({ field: 'password', message });
+      setError({ field: 'password', code: 'passwordShort' });
       return;
     }
     if (message === '两次输入的密码不一致') {
-      setError({ field: 'confirm', message });
+      setError({ field: 'confirm', code: 'passwordMismatch' });
       return;
     }
-    setError({ field: 'form', message });
+    setError({ field: 'form', message: display });
   }
 
   /** 离开密码框时检查长度 */
@@ -63,9 +63,8 @@ export function CreateView({ onDone }: CreateViewProps) {
     if (busy) {
       return;
     }
-    const message = passwordErrorMessage(password);
-    if (message) {
-      setError({ field: 'password', message });
+    if (password.length < 8) {
+      setError({ field: 'password', code: 'passwordShort' });
       return;
     }
     setError((current) => (current?.field === 'password' ? null : current));
@@ -76,9 +75,8 @@ export function CreateView({ onDone }: CreateViewProps) {
     if (busy) {
       return;
     }
-    const message = confirmErrorMessage(password, passwordConfirm);
-    if (message) {
-      setError({ field: 'confirm', message });
+    if (password !== passwordConfirm) {
+      setError({ field: 'confirm', code: 'passwordMismatch' });
       return;
     }
     setError((current) => (current?.field === 'confirm' ? null : current));
@@ -86,14 +84,9 @@ export function CreateView({ onDone }: CreateViewProps) {
 
   /** 提交创建。两次都不通过时只留下密码那一条。 */
   async function submit() {
-    const nextPasswordError = passwordErrorMessage(password);
-    if (nextPasswordError) {
-      setError({ field: 'password', message: nextPasswordError });
-      return;
-    }
-    const nextConfirmError = confirmErrorMessage(password, passwordConfirm);
-    if (nextConfirmError) {
-      setError({ field: 'confirm', message: nextConfirmError });
+    const nextError = validate(password, passwordConfirm);
+    if (nextError) {
+      setError(nextError);
       return;
     }
     setError(null);
@@ -103,7 +96,7 @@ export function CreateView({ onDone }: CreateViewProps) {
       await dbCreate(password, passwordConfirm);
       await onDone();
     } catch (err) {
-      applyCreateError(errorMessage(err));
+      applyCreateError(rawErrorMessage(err), errorMessage(err));
     } finally {
       setPassword('');
       setPasswordConfirm('');
@@ -111,10 +104,12 @@ export function CreateView({ onDone }: CreateViewProps) {
     }
   }
 
+  const errorText = error == null ? '' : error.field === 'form' ? error.message : t(`errors.${error.code}`);
+
   return (
     <main className={styles.gate}>
-      <h1>设置档案密码</h1>
-      <p className={styles.muted}>第一次打开需要设置密码。密码至少 8 位。</p>
+      <h1>{t('create.title')}</h1>
+      <p className={styles.muted}>{t('create.subtitle')}</p>
       <form
         className={styles.form}
         aria-describedby={error?.field === 'form' ? 'create-error' : undefined}
@@ -128,7 +123,7 @@ export function CreateView({ onDone }: CreateViewProps) {
         <div className={styles.field}>
           <PasswordInput
             id="create-password"
-            label="密码"
+            label={t('create.password')}
             autoComplete="new-password"
             value={password}
             disabled={busy}
@@ -144,7 +139,7 @@ export function CreateView({ onDone }: CreateViewProps) {
         <div className={styles.field}>
           <PasswordInput
             id="create-password-confirm"
-            label="再输入一次"
+            label={t('create.confirm')}
             autoComplete="new-password"
             value={passwordConfirm}
             disabled={busy}
@@ -153,15 +148,15 @@ export function CreateView({ onDone }: CreateViewProps) {
             onBlur={blurConfirm}
             onChange={(event) => {
               setPasswordConfirm(event.currentTarget.value);
-              setError((current) => (current?.field === 'password' ? current : null));
+              setError(null);
             }}
           />
         </div>
         <p id="create-error" className={styles.fieldError} aria-live="polite">
-          {error?.message ?? ''}
+          {errorText}
         </p>
         <Button type="submit" className={styles.submit} disabled={!canSubmit}>
-          {busy ? '正在创建…' : '创建档案'}
+          {busy ? t('create.creating') : t('create.create')}
         </Button>
       </form>
     </main>

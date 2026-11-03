@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Plan } from '@/bridge/plan';
 import { Button } from '@/components/button';
 import { MarkdownField } from '@/components/markdown';
@@ -34,18 +35,25 @@ function CompletePanel({
   onClose: () => void;
 }) {
   const [result, setResult] = useState('');
+  const { t } = useTranslation('ui');
 
   return (
-    <Modal title="完成计划" onClose={onClose}>
+    <Modal title={t('complete.title')} onClose={onClose}>
       <p className={styles.name}>{plan.title}</p>
-      <MarkdownField compact label="结果" value={result} placeholder="可以补一句结果" onChange={setResult} />
+      <MarkdownField
+        compact
+        label={t('complete.result')}
+        value={result}
+        placeholder={t('complete.resultPlaceholder')}
+        onChange={setResult}
+      />
       {error ? <p className={styles.error}>{error}</p> : null}
       <div className={styles.actions}>
         <Button variant="outlined" disabled={pending} onClick={onClose}>
-          取消
+          {t('common:button.cancel')}
         </Button>
         <Button disabled={pending} onClick={() => onSubmit(result.trim())}>
-          完成
+          {t('complete.submit')}
         </Button>
       </div>
     </Modal>

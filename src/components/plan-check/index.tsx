@@ -1,4 +1,5 @@
 import { CheckCircleIcon, CircleIcon } from '@phosphor-icons/react';
+import { useTranslation } from 'react-i18next';
 import type { Plan } from '@/bridge/plan';
 import { IconButton } from '@/components/button/icon';
 import { RowButton } from '@/components/button/row';
@@ -12,12 +13,13 @@ type PlanCheckProps = {
 };
 
 export function PlanCheck({ plan, meta, onComplete, onOpen }: PlanCheckProps) {
+  const { t } = useTranslation('ui');
   const done = plan.status === 'done';
 
   return (
     <div className={styles.row}>
       <IconButton
-        label={done ? '已完成' : '完成'}
+        label={done ? t('planCheck.done') : t('planCheck.complete')}
         size="plain"
         className={styles.check}
         disabled={done}

@@ -74,6 +74,41 @@ sudo apt install -y \
 
 `build-essential` 已经包含 `make`，不必再单独 `apt install make`。`perl` 要单独写，因为它不在 `build-essential` 里。
 
+### 4.2 Git LFS（霞鹜文楷）
+
+`public/font/*.woff2` 在 `.gitattributes` 里走 Git LFS。WSL 里没有 `git-lfs` 时，这两个文件检出的是约 132 字节的指针文本。页面请求 `/font/LXGWWenKaiLite-Regular.woff2` 时解析失败，`@font-face` 不生效。Android 上后备字体是苹方和微软雅黑，系统里都没有，界面会落到默认无衬线字体。
+
+在 WSL 里装官方版本：
+
+```bash
+curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash
+sudo apt update
+sudo apt install git-lfs -y
+```
+
+装好后验证：
+
+```bash
+which git-lfs
+git-lfs version
+git lfs install
+```
+
+`git lfs install` 给当前用户写上 smudge / clean 过滤，做一次即可。仓库已经克隆、字体仍是指针时，在仓库根目录把真正的文件拉下来：
+
+```bash
+git lfs pull --include="public/font/*.woff2"
+```
+
+确认已经换成字体：
+
+```bash
+file public/font/*.woff2
+ls -lh public/font/*.woff2
+```
+
+`file` 应显示 Web Open Font Format，每个文件大约 5 MB。若仍是 `ASCII text`，在仓库根目录再执行上面的 `git lfs pull`。
+
 ## 5. Rust
 
 Tauri要求的四个Android target都要加（dev可能编模拟器x86_64，真机是aarch64）：
@@ -255,7 +290,7 @@ export CC_i686_linux_android="$NDK_BIN/i686-linux-android24-clang"
 echo "$JAVA_HOME"
 echo "$ANDROID_HOME"
 echo "$NDK_HOME"
-which java perl make adb rustc node pnpm
+which java perl make adb rustc node pnpm git-lfs
 java -version
 perl -v | head -2
 adb version

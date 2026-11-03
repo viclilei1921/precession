@@ -1,0 +1,181 @@
+{
+  "page": {
+    "searchPlaceholder": "Search file names or records",
+    "usage": "Storage",
+    "fileCount_one": "{{count}} file",
+    "fileCount_other": "{{count}} files",
+    "upload": "Upload",
+    "fileListAria": "File list",
+    "kindAria": "File type",
+    "sort": "Sort",
+    "sortAria": "Sort",
+    "loading": "Loading…",
+    "empty": "No files yet. You can upload from Storage.",
+    "emptyFiltered": "No matching files.",
+    "selectPrompt": "Select a file"
+  },
+  "detail": {
+    "sealedChip": "Sealed",
+    "sealedNote": "This record is sealed. Its content is hidden here and it can't be deleted.",
+    "missingOwner": "The owning record no longer exists. You can delete this leftover.",
+    "size": "Size",
+    "type": "Type",
+    "imported": "Imported",
+    "path": "Path",
+    "fileName": "File name",
+    "unknown": "Unknown",
+    "openMissing": "Record is gone",
+    "export": "Export",
+    "exporting": "Exporting…",
+    "exportedTo": "Exported to {{path}}",
+    "deleteLabel": "Delete file",
+    "exportTitle": "Export this file",
+    "exportBody": "This file is encrypted. Enter the password to write it to the selected folder.",
+    "password": "Password"
+  },
+  "import": {
+    "title": "Upload",
+    "name": "Name",
+    "type": "Type",
+    "sealedNote": "Already encrypted files are added as-is and marked as encrypted.",
+    "password": "Password",
+    "passwordPlaceholderAll": "Leave blank to keep it unencrypted; otherwise .env is appended to the name",
+    "passwordPlaceholderSome": "Only encrypt files that aren't encrypted yet",
+    "submit": "Import",
+    "submitting": "Importing…",
+    "needName": "Enter a file name.",
+    "failed": "Import failed"
+  },
+  "viewer": {
+    "video": "Video",
+    "image": "Image",
+    "zoomOut": "Zoom out",
+    "zoomIn": "Zoom in",
+    "fitToggle": "Toggle between fit and actual size",
+    "fit": "Fit",
+    "close": "Close",
+    "sealed": "The owning record is sealed",
+    "opening": "Opening…",
+    "failed": "Can't open",
+    "unavailable": "Preview is unavailable right now",
+    "imageFailed": "Can't open this image",
+    "videoFailed": "Can't open this video",
+    "play": "Play",
+    "pause": "Pause",
+    "previous": "Previous",
+    "next": "Next",
+    "mute": "Mute",
+    "unmute": "Unmute",
+    "volume": "Volume",
+    "progress": "Progress",
+    "preview": "Preview",
+    "passwordPrompt": "Enter the password to preview",
+    "passwordLabel": "Password",
+    "unlocking": "Opening…",
+    "unlock": "Open"
+  },
+  "player": {
+    "sealed": "The owning record is sealed",
+    "file": "File",
+    "opening": "Opening…",
+    "cannotOpen": "Can't open",
+    "previewUnavailable": "Preview is unavailable right now",
+    "imageError": "Can't open this image",
+    "videoError": "Can't open this video",
+    "preview": "Preview"
+  },
+  "types": {
+    "modules": {
+      "journal": "Journal",
+      "library": "Library",
+      "plan": "Plan",
+      "growth": "Growth",
+      "loose": "Unattached"
+    },
+    "filters": {
+      "all": "All",
+      "image": "Images",
+      "book": "Books",
+      "video": "Videos",
+      "file": "Other"
+    },
+    "ownerKinds": {
+      "diary": "Diary",
+      "spark": "Spark",
+      "writing": "Writing",
+      "milestone": "Milestone",
+      "moment": "Moment",
+      "want": "Want to read",
+      "reading": "Reading",
+      "finished": "Finished",
+      "excerpt": "Excerpt",
+      "note": "Note",
+      "avatar": "Avatar"
+    },
+    "book": "Book",
+    "fileLabel": "File",
+    "unnamed": "Untitled file",
+    "bodyImage": "Body image",
+    "bodyImageIndex": "Body image {{index}}"
+  },
+  "role": {
+    "current": "Current text",
+    "encrypted": "Encrypted",
+    "older": "An earlier copy"
+  },
+  "reading": {
+    "none": "No text",
+    "readable": "Readable",
+    "encrypted": "Encrypted, can't read",
+    "noReadable": "No readable text"
+  },
+  "open": {
+    "book": "Open this book",
+    "bookNote": "Open this excerpt",
+    "plan": "Open this plan",
+    "growth": "Open this growth entry",
+    "member": "Open this family member",
+    "journal": "Open this journal entry"
+  },
+  "record": {
+    "missing": "Record is gone"
+  },
+  "host": {
+    "bookNote": "this excerpt",
+    "plan": "this plan",
+    "growth": "this growth entry",
+    "member": "this family member",
+    "journal": "this journal entry"
+  },
+  "remove": {
+    "looseTitle": "Delete this file",
+    "looseBody": "It isn't attached to a record. Once deleted, it's gone.",
+    "sealedTitle": "Can't delete yet",
+    "sealedBody": "{{record}} is sealed. The body still references this file — unseal it first.",
+    "thisRecord": "this record",
+    "quote": "“{{title}}”",
+    "bookCurrentTitle": "Delete this text",
+    "bookOnlyEncrypted": "After deletion, only encrypted files will remain for {{quoted}}. The book stays on the shelf, and the reader will show that it can't be read right now. Progress and cover are kept.",
+    "bookNoReadable": "After deletion, {{quoted}} stays on the shelf without a readable text. Progress and cover are kept.",
+    "bookTitle": "Delete this file",
+    "bookStillUses": "{{quoted}} will still open with {{format}}, so reading is unaffected.",
+    "bookNoText": "After deletion, {{quoted}} has no text file. The book stays on the shelf.",
+    "avatarTitle": "Delete this avatar",
+    "avatarBody": "After deletion, {{name}}'s avatar will be empty. The family member stays.",
+    "avatarBodyNoName": "After deletion, this family member's avatar will be empty. The family member stays.",
+    "imageTitle": "Delete this body image",
+    "fileTitle": "Delete this file",
+    "fromHost": "It will be removed from {{host}}. The record itself stays.",
+    "fromHostNamed": "It will be removed from {{host}} “{{title}}”. The record itself stays.",
+    "deleting": "Deleting…"
+  },
+  "sort": {
+    "recent": "Recently added",
+    "size": "Size",
+    "name": "Name"
+  },
+  "dialog": {
+    "filesFilter": "Files",
+    "archiveFilter": "Precession archive"
+  }
+}

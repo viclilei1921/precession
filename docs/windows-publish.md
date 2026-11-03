@@ -18,15 +18,15 @@
 
 清单里其余固定值：
 
-| 字段        | 值                                                               |
-| ----------- | ---------------------------------------------------------------- |
-| DisplayName | `precession`                                                     |
+| 字段        | 值                                                                 |
+| ----------- | ------------------------------------------------------------------ |
+| DisplayName | `precession`                                                       |
 | Version     | 四段式。用 `pnpm version:set` 修改。覆盖安装必须高于上次提交的版本 |
-| Executable  | `precession.exe`                                                 |
-| EntryPoint  | `Windows.FullTrustApplication`                                   |
-| Language    | `zh-CN`                                                          |
-| 能力        | `runFullTrust`                                                   |
-| 架构        | `x64`                                                            |
+| Executable  | `precession.exe`                                                   |
+| EntryPoint  | `Windows.FullTrustApplication`                                     |
+| Language    | `zh-CN`                                                            |
+| 能力        | `runFullTrust`                                                     |
+| 架构        | `x64`                                                              |
 
 图标用 `src-tauri/icons/` 里现成的 `StoreLogo.png`、`Square44x44Logo.png`、`Square150x150Logo.png`。不要单独写 `Square310x310Logo`：指定它时还必须有一张 310×150 的宽磁贴，项目里没有这张图。
 

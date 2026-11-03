@@ -36,6 +36,29 @@ mod imp {
     let _ = window.set_focus();
   }
 
+  /// 显示主窗口并把它放到前台
+  ///
+  /// 找不到名为 `main` 的窗口时不做任何事。窗口隐藏或最小化时先显示并取消最小化。
+  ///
+  /// # 参数
+  /// - `app`: 应用句柄
+  ///
+  /// # 返回值
+  /// 不返回数据
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```ignore
+  /// focus_main_window(app);
+  /// ```
+  pub(crate) fn focus_main_window(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+      focus_window(window);
+    }
+  }
+
   /// 处理托盘菜单点击
   ///
   /// `quit` 以退出码 0 结束进程，`show` 聚焦主窗口，其他标识忽略。
@@ -60,11 +83,29 @@ mod imp {
         app.exit(0);
       }
       "show" => {
-        if let Some(window) = app.get_webview_window("main") {
-          focus_window(window);
-        }
+        focus_main_window(app);
       }
       _ => {}
+    }
+  }
+
+  /// 按当前语言创建菜单
+  ///
+  /// 语言由前端在启动和切换语言时通过 `set_app_locale` 同步。
+  fn build_menu(app: &AppHandle) -> Result<Menu<tauri::Wry>, Box<dyn std::error::Error>> {
+    let quit = MenuItem::with_id(app, "quit", crate::i18n::tray("quit"), true, None::<&str>)?;
+    let show = MenuItem::with_id(app, "show", crate::i18n::tray("show"), true, None::<&str>)?;
+    let separator = PredefinedMenuItem::separator(app)?;
+    Ok(Menu::with_items(app, &[&show, &separator, &quit])?)
+  }
+
+  /// 重建托盘菜单。切换语言后调用。
+  pub fn refresh_tray_menu(app: &AppHandle) {
+    let Some(tray) = app.tray_by_id("main-tray") else {
+      return;
+    };
+    if let Ok(menu) = build_menu(app) {
+      let _ = tray.set_menu(Some(menu));
     }
   }
 
@@ -89,12 +130,9 @@ mod imp {
   /// register_tray_menu(app)?;
   /// ```
   pub fn register_tray_menu(app: &App) -> Result<(), Box<dyn std::error::Error>> {
-    let quit = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
-    let show = MenuItem::with_id(app, "show", "显示窗口", true, None::<&str>)?;
-    let separator = PredefinedMenuItem::separator(app)?;
-    let menu = Menu::with_items(app, &[&show, &separator, &quit])?;
+    let menu = build_menu(app.handle())?;
 
-    let _tray = TrayIconBuilder::new()
+    let _tray = TrayIconBuilder::with_id("main-tray")
       .icon(app.default_window_icon().unwrap().clone())
       .tooltip("Precession")
       .show_menu_on_left_click(false)
@@ -104,10 +142,7 @@ mod imp {
       })
       .on_tray_icon_event(|tray, event| {
         if let TrayIconEvent::Click { button: MouseButton::Left, .. } = event {
-          let app = tray.app_handle();
-          if let Some(window) = app.get_webview_window("main") {
-            focus_window(window);
-          }
+          focus_main_window(tray.app_handle());
         }
       })
       .build(app)?;
@@ -140,6 +175,13 @@ mod imp {
     let _ = app;
     Ok(())
   }
+
+  /// 没有托盘时不需要重建菜单
+  pub fn refresh_tray_menu(app: &tauri::AppHandle) {
+    let _ = app;
+  }
 }
 
-pub use imp::register_tray_menu;
+#[cfg(desktop)]
+pub(crate) use imp::focus_main_window;
+pub use imp::{refresh_tray_menu, register_tray_menu};

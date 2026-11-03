@@ -1,4 +1,5 @@
 import type { AvifDepth, AvifRange, AvifYuv, JxlColorEncoding } from '@/bridge/task';
+import i18n from '@/i18n';
 
 export type ImageParamsDraft = {
   qcolor: string;
@@ -79,23 +80,49 @@ const depthLabel: Record<AvifDepth, string> = {
 };
 
 /** 默认模式固定使用的 AVIF 参数。 */
-export const defaultAvifSummary = '默认：质量 60 · 透明质量 60 · 速度 6 · 8-bit';
+export function defaultAvifSummary() {
+  return i18n.t('image:params.summary.defaultAvif');
+}
 
 /** 默认模式固定使用的 JXL 参数。 */
-export const defaultJxlSummary = '默认：距离 1 · effort 7';
+export function defaultJxlSummary() {
+  return i18n.t('image:params.summary.defaultJxl');
+}
 
 /** 自定义模式当前会提交的 AVIF 参数。 */
 export function avifSummary(draft: ImageParamsDraft) {
-  const loss = draft.lossless ? ' · 无损' : '';
-  return `AVIF · 质量 ${draft.qcolor} · 速度 ${draft.speed} · ${depthLabel[draft.depth]}${loss}`;
+  const loss = draft.lossless ? i18n.t('image:params.summary.lossless') : '';
+  return i18n.t('image:params.summary.avif', {
+    qcolor: draft.qcolor,
+    speed: draft.speed,
+    depth: depthLabel[draft.depth],
+    loss
+  });
 }
 
 /** 自定义模式当前会提交的 JXL 参数。 */
 export function jxlSummary(draft: ImageParamsDraft) {
-  const loss = draft.lossless ? ' · 无损' : '';
-  const mode = draft.jxlModular === 'modular' ? ' · 模块化' : draft.jxlModular === 'vardct' ? ' · VarDCT' : '';
+  const loss = draft.lossless ? i18n.t('image:params.summary.lossless') : '';
+  const mode =
+    draft.jxlModular === 'modular'
+      ? i18n.t('image:params.summary.modular')
+      : draft.jxlModular === 'vardct'
+        ? i18n.t('image:params.summary.varDct')
+        : '';
   const sample =
-    draft.jxlResampling === 'auto' ? '' : draft.jxlResampling === '1' ? ' · 不抽样' : ` · 抽样 ${draft.jxlResampling}×`;
-  const depth = draft.jxlBitDepth === 'source' ? '' : ` · ${draft.jxlBitDepth}-bit`;
-  return `JPEG XL · 距离 ${draft.quality} · effort ${draft.effort}${loss}${mode}${sample}${depth}`;
+    draft.jxlResampling === 'auto'
+      ? ''
+      : draft.jxlResampling === '1'
+        ? i18n.t('image:params.summary.noSampling')
+        : i18n.t('image:params.summary.sampling', { factor: draft.jxlResampling });
+  const depth =
+    draft.jxlBitDepth === 'source' ? '' : i18n.t('image:params.summary.bitDepth', { bits: draft.jxlBitDepth });
+  return i18n.t('image:params.summary.jxl', {
+    quality: draft.quality,
+    effort: draft.effort,
+    loss,
+    mode,
+    sample,
+    depth
+  });
 }

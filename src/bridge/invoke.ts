@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import i18n from '@/i18n';
 
 /**
  * 调用 Rust 命令。后端把错误序列化成字符串，这里统一转成 Error。
@@ -13,6 +14,6 @@ export async function invokeCommand<T = unknown>(cmd: string, args?: Record<stri
     if (typeof error === 'string' && error.length > 0) {
       throw new Error(error);
     }
-    throw new Error('操作失败');
+    throw new Error(i18n.t('errors:generic.actionFailed'));
   }
 }

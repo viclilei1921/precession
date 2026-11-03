@@ -1,6 +1,7 @@
 import { CaretLeftIcon, CaretRightIcon } from '@phosphor-icons/react';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { IconButton } from '@/components/button/icon';
 import { Scroll } from '@/components/scroll';
 import { calendarRangeQuery } from '@/query/calendar/query';
@@ -26,9 +27,8 @@ import { TermCard } from './cards/term-card';
 import { ToolboxCard } from './cards/toolbox-card';
 import styles from './page.module.css';
 
-const WEEK = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-
 export function TodayPage() {
+  const { t } = useTranslation('today');
   const [mode, setMode] = useState<CalendarMode>('month');
   const [cursor, setCursor] = useState(() => startOfLocalMonth());
   const [selected, setSelected] = useState(() => startOfLocalDay());
@@ -37,10 +37,14 @@ export function TodayPage() {
   const day = dayQuery.data?.days[0];
   const cursorDate = new Date(cursor);
   const title =
-    mode === 'year' ? `${cursorDate.getFullYear()}年` : `${cursorDate.getFullYear()}年${cursorDate.getMonth() + 1}月`;
+    mode === 'year'
+      ? t('page.yearTitle', { year: cursorDate.getFullYear() })
+      : t('page.monthTitle', { year: cursorDate.getFullYear(), month: cursorDate.getMonth() + 1 });
   const holiday = day?.holidayName ?? '';
   const term = day?.lunar?.solarTerm ?? '';
   const extra = holiday && holiday !== term ? holiday : term;
+
+  const WEEK_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
 
   function selectDay(time: number) {
     const dayStart = startOfLocalDay(time);
@@ -79,30 +83,30 @@ export function TodayPage() {
         <div className={styles.body}>
           <header className={styles.head}>
             <div className={styles.nav}>
-              <IconButton label={mode === 'year' ? '上一年' : '上一月'} onClick={() => shift(-1)}>
+              <IconButton label={mode === 'year' ? t('page.prevYear') : t('page.prevMonth')} onClick={() => shift(-1)}>
                 <CaretLeftIcon weight="regular" />
               </IconButton>
               <h1 className={styles.title}>{title}</h1>
-              <IconButton label={mode === 'year' ? '下一年' : '下一月'} onClick={() => shift(1)}>
+              <IconButton label={mode === 'year' ? t('page.nextYear') : t('page.nextMonth')} onClick={() => shift(1)}>
                 <CaretRightIcon weight="regular" />
               </IconButton>
               <div className={styles.mode}>
                 <button type="button" aria-pressed={mode === 'month'} onClick={showMonth}>
-                  月
+                  {t('page.monthView')}
                 </button>
                 <button type="button" aria-pressed={mode === 'year'} onClick={showYear}>
-                  年
+                  {t('page.yearView')}
                 </button>
               </div>
             </div>
             <p className={styles.summary}>
               <strong>{formatMonthDay(selected)}</strong>
-              <span>{WEEK[new Date(selected).getDay()]}</span>
+              <span>{t(`weekday.${WEEK_KEYS[new Date(selected).getDay()]}`)}</span>
               {day?.lunar?.text ? <span className={styles.muted}>{day.lunar.text}</span> : null}
               {extra ? <span className={styles.muted}>{extra}</span> : null}
               {day ? (
                 <span className={styles.pill} data-rest={day.isWorkday ? 'false' : 'true'}>
-                  {day.isWorkday ? '上班' : '休息'}
+                  {day.isWorkday ? t('page.workday') : t('page.rest')}
                 </span>
               ) : null}
             </p>

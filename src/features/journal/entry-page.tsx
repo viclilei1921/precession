@@ -2,8 +2,10 @@ import { CaretLeftIcon, PencilSimpleIcon } from '@phosphor-icons/react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { IconButton } from '@/components/button/icon';
 import { MarkdownEditor } from '@/components/markdown';
+import { popRoute } from '@/layout/mobile/back';
 import { journalEntryQuery } from '@/query/journal/query';
 import { PATH } from '@/router/path';
 import { errorMessage } from '@/utils/error';
@@ -14,6 +16,7 @@ import { journalDate, journalWords, lookupNames } from './text';
 
 /** 一条手记。已写的先阅读，编辑时再展开不常改的项。 */
 export function JournalEntryPage() {
+  const { t } = useTranslation(['journal', 'common']);
   const { entryId } = useParams({ from: '/journal/$entryId' });
   const navigate = useNavigate();
   const entryQuery = useQuery(journalEntryQuery(entryId));
@@ -23,14 +26,14 @@ export function JournalEntryPage() {
   if (entryQuery.isPending) {
     return (
       <section className={styles.page}>
-        <p className={styles.note}>正在读取…</p>
+        <p className={styles.note}>{t('common:state.loading')}</p>
       </section>
     );
   }
   if (entryQuery.error || !entryQuery.data) {
     return (
       <section className={styles.page}>
-        <p className={styles.error}>{errorMessage(entryQuery.error ?? '手记不存在')}</p>
+        <p className={styles.error}>{errorMessage(entryQuery.error ?? t('errors.notFound'))}</p>
       </section>
     );
   }
@@ -44,7 +47,9 @@ export function JournalEntryPage() {
         kind={entry.kind}
         onClose={() => setEditing(false)}
         onSaved={() => setEditing(false)}
-        onDeleted={() => void navigate({ to: PATH.journal, search: { kind: entry.kind } })}
+        onDeleted={() =>
+          popRoute(() => void navigate({ to: PATH.journal, search: { kind: entry.kind }, replace: true }))
+        }
       />
     );
   }
@@ -52,11 +57,11 @@ export function JournalEntryPage() {
   const words = journalWords(entry.body, entry.locked);
   const byline = [
     journalDate(entry.occurredAt).full,
-    entry.highlight ? '高光' : '',
+    entry.highlight ? t('page.highlight') : '',
     ...lookupNames(entry.placeIds, names.places),
     ...lookupNames(entry.memberIds, names.members),
     ...lookupNames(entry.tagIds, names.tags),
-    words == null ? '' : `${words} 字`
+    words == null ? '' : t('page.words', { count: words })
   ]
     .filter((item) => item.length > 0)
     .join(' · ');
@@ -65,14 +70,21 @@ export function JournalEntryPage() {
     <section className={styles.readPage}>
       <div className={styles.chrome}>
         <IconButton
-          label="返回"
+          label={t('common:button.back')}
           variant="outlined"
           className={styles.float}
-          onClick={() => void navigate({ to: PATH.journal, search: { kind: entry.kind } })}
+          onClick={() =>
+            popRoute(() => void navigate({ to: PATH.journal, search: { kind: entry.kind }, replace: true }))
+          }
         >
           <CaretLeftIcon weight="regular" />
         </IconButton>
-        <IconButton label="编辑" variant="outlined" className={styles.float} onClick={() => setEditing(true)}>
+        <IconButton
+          label={t('entry.edit')}
+          variant="outlined"
+          className={styles.float}
+          onClick={() => setEditing(true)}
+        >
           <PencilSimpleIcon weight="regular" />
         </IconButton>
       </div>
@@ -80,7 +92,7 @@ export function JournalEntryPage() {
         <h1 className={styles.readTitle}>{entry.title}</h1>
         <p className={styles.byline}>{byline}</p>
         {entry.locked ? (
-          <p className={styles.notice}>正文已封存。解开之后才能改。</p>
+          <p className={styles.notice}>{t('editor.lockedNotice')}</p>
         ) : (
           <div className={styles.readBody}>
             <MarkdownEditor

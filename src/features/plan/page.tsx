@@ -4,6 +4,7 @@ import { useNavigate, useSearch } from '@tanstack/react-router';
 import clsx from 'clsx';
 import type { MouseEventHandler } from 'react';
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Plan } from '@/bridge/plan';
 import { planComplete, planGroupCreate, planUpdate } from '@/bridge/plan';
 import { Button } from '@/components/button';
@@ -23,16 +24,7 @@ import { PlanDrawer } from './components/plan-drawer';
 import { TimeGrid } from './components/time-grid';
 import { YearView } from './components/year-view';
 import type { PlanPreset, PlanView } from './layout';
-import {
-  clockLabel,
-  endOfLocalMonth,
-  gridPlacement,
-  groupHue,
-  navLabel,
-  shiftCursor,
-  titleText,
-  VIEW_LABEL
-} from './layout';
+import { clockLabel, endOfLocalMonth, gridPlacement, groupHue, shiftCursor } from './layout';
 import styles from './page.module.css';
 
 const VIEWS: PlanView[] = ['year', 'month', 'week', 'day', 'agenda'];
@@ -48,10 +40,11 @@ function blankPreset(day: number): PlanPreset {
 
 /** 计划页：月周日日程年，清单和计划都从右侧抽屉打开 */
 export function PlanPage() {
+  const { t } = useTranslation('plan');
   const navigate = useNavigate();
   const search = useSearch({ from: '/plan' });
   const queryClient = useQueryClient();
-  const query = usePageSearch('搜索计划');
+  const query = usePageSearch(t('searchPlaceholder'));
   const today = startOfLocalDay();
   const [view, setView] = useState<PlanView>('week');
   const [cursor, setCursor] = useState(today);
@@ -65,7 +58,7 @@ export function PlanPage() {
   const ensured = useRef(false);
   const pendingId = useRef<string | undefined>(undefined);
   const groups = groupsQuery.data ?? [];
-  const system = groups.find((group) => group.system) ?? groups.find((group) => group.name === '收集箱');
+  const system = groups.find((group) => group.system) ?? groups.find((group) => group.name === t('inbox'));
   const listed = (plansQuery.data ?? []).filter((plan) => matchesQuery(query, plan.title, plan.body, plan.result));
   const visible = listed.filter((plan) => {
     if (!listId) {
@@ -76,9 +69,31 @@ export function PlanPage() {
     }
     return listId === system?.id && plan.groupId == null;
   });
-  const [prevLabel, nextLabel] = navLabel(view);
   const canCreate = view !== 'year' && view !== 'agenda';
   const drawerOpen = listsOpen || editor != null;
+
+  const cursorDate = new Date(cursor);
+  const title =
+    view === 'year'
+      ? t('title.year', { year: cursorDate.getFullYear() })
+      : t('title.month', { year: cursorDate.getFullYear(), month: cursorDate.getMonth() + 1 });
+
+  const navPrev =
+    view === 'year'
+      ? t('nav.prevYear')
+      : view === 'week'
+        ? t('nav.prevWeek')
+        : view === 'day'
+          ? t('nav.prevDay')
+          : t('nav.prevMonth');
+  const navNext =
+    view === 'year'
+      ? t('nav.nextYear')
+      : view === 'week'
+        ? t('nav.nextWeek')
+        : view === 'day'
+          ? t('nav.nextDay')
+          : t('nav.nextMonth');
 
   const movePlan = useMutation({
     mutationFn: ({ plan, day, start, end }: { plan: Plan; day: number; start: number; end: number | null }) => {
@@ -116,14 +131,14 @@ export function PlanPage() {
 
   useEffect(() => {
     const loaded = groupsQuery.data;
-    if (!loaded || ensured.current || loaded.some((group) => group.system || group.name === '收集箱')) {
+    if (!loaded || ensured.current || loaded.some((group) => group.system || group.name === t('inbox'))) {
       return;
     }
     ensured.current = true;
-    void planGroupCreate({ name: '收集箱', color: '175', system: true, sort: 0 }).then(() =>
+    void planGroupCreate({ name: t('inbox'), color: '175', system: true, sort: 0 }).then(() =>
       refreshPlanViews(queryClient)
     );
-  }, [groupsQuery.data, queryClient]);
+  }, [groupsQuery.data, queryClient, t]);
 
   useEffect(() => {
     if (search.create) {
@@ -224,32 +239,32 @@ export function PlanPage() {
   return (
     <section className={styles.page}>
       <header className={styles.head}>
-        <h1 className={styles.title}>{titleText(view, cursor)}</h1>
+        <h1 className={styles.title}>{title}</h1>
         <div className={styles.tools}>
           {canCreate ? (
-            <IconButton label="新建计划" variant="outlined" onClick={() => openCreate(blankPreset(cursor))}>
+            <IconButton label={t('newPlan')} variant="outlined" onClick={() => openCreate(blankPreset(cursor))}>
               <PlusIcon weight="regular" />
             </IconButton>
           ) : null}
           <Button variant="outlined" onClick={(event) => setMenuAnchor(menuAnchor ? null : event.currentTarget)}>
-            {VIEW_LABEL[view]}
+            {t(`view.${view}`)}
             <CaretDownIcon weight="regular" />
           </Button>
           <div className={styles.nav}>
-            <IconButton label={prevLabel} shape="square" onClick={() => shift(-1)}>
+            <IconButton label={navPrev} shape="square" onClick={() => shift(-1)}>
               <CaretLeftIcon weight="regular" />
             </IconButton>
             <Button className={styles.navToday} variant="text" onClick={() => setCursor(today)}>
-              今天
+              {t('today')}
             </Button>
-            <IconButton label={nextLabel} shape="square" onClick={() => shift(1)}>
+            <IconButton label={navNext} shape="square" onClick={() => shift(1)}>
               <CaretRightIcon weight="regular" />
             </IconButton>
           </div>
         </div>
         <IconButton
           className={styles.listButton}
-          label="清单"
+          label={t('view.agenda')}
           variant="outlined"
           shape="rounded"
           expanded={listsOpen}
@@ -266,7 +281,7 @@ export function PlanPage() {
         {groupsQuery.error ? <p className={styles.error}>{errorMessage(groupsQuery.error)}</p> : null}
         {toggle.error ? <p className={styles.error}>{errorMessage(toggle.error)}</p> : null}
         {movePlan.error ? <p className={styles.error}>{errorMessage(movePlan.error)}</p> : null}
-        {plansQuery.isPending ? <p className={styles.note}>正在读取…</p> : null}
+        {plansQuery.isPending ? <p className={styles.note}>{t('common.loading')}</p> : null}
         {view === 'month' ? (
           <MonthView
             month={startOfLocalMonth(cursor)}
@@ -352,7 +367,7 @@ export function PlanPage() {
       <Popover
         open={menuAnchor != null}
         anchorEl={menuAnchor}
-        label="视图"
+        label={t('view.agenda')}
         className={styles.menu}
         anchorOrigin={{ horizontal: 'left', vertical: 'bottom' }}
         transformOrigin={{ horizontal: 'left', vertical: 'top' }}
@@ -372,12 +387,12 @@ export function PlanPage() {
               }
             }}
           >
-            {VIEW_LABEL[item]}
+            {t(`view.${item}`)}
           </ViewChoice>
         ))}
       </Popover>
       <DrawerScrim open={drawerOpen} onClose={closeDrawer} />
-      <DrawerPanel open={listsOpen} title="清单" label="清单" onClose={closeDrawer}>
+      <DrawerPanel open={listsOpen} title={t('drawer.lists')} label={t('drawer.lists')} onClose={closeDrawer}>
         <ListDrawer
           groups={groups}
           plans={plansQuery.data ?? []}
@@ -397,8 +412,8 @@ export function PlanPage() {
       <DrawerPanel
         wide
         open={editor != null}
-        title={editor?.plan ? '计划详情' : '新建计划'}
-        label="计划"
+        title={editor?.plan ? t('drawer.planDetail') : t('drawer.newPlan')}
+        label={t('drawer.plan')}
         onClose={closeDrawer}
       >
         {editor ? (

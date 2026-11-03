@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import type { BitDepth, Fit, HevcPreset, HevcTune, VideoContainer, Vp9Content } from '@/bridge/task';
 import { Select } from '@/components/select';
 import { TextField } from '@/components/text-field';
@@ -11,6 +12,7 @@ type EncodePictureProps = {
 };
 
 export function EncodePicture({ draft, perFile, onChange }: EncodePictureProps) {
+  const { t } = useTranslation('video');
   function patch(next: Partial<EncodeDraft>) {
     onChange({ ...draft, ...next });
   }
@@ -19,7 +21,7 @@ export function EncodePicture({ draft, perFile, onChange }: EncodePictureProps) 
     <div className={styles.fields}>
       <div className={styles.pair}>
         <Select
-          label="输出格式"
+          label={t('encode.picture.outputFormat')}
           value={draft.container}
           onChange={(event) => patch({ container: event.target.value as VideoContainer })}
         >
@@ -28,7 +30,7 @@ export function EncodePicture({ draft, perFile, onChange }: EncodePictureProps) 
           {draft.codec === 'vp9' ? null : <option value="mpegTs">MPEG-TS</option>}
         </Select>
         <Select
-          label="视频编码"
+          label={t('encode.picture.videoCodec')}
           value={draft.codec}
           onChange={(event) => {
             const codec = event.target.value as EncodeDraft['codec'];
@@ -45,14 +47,18 @@ export function EncodePicture({ draft, perFile, onChange }: EncodePictureProps) 
       </div>
       {draft.codec === 'av1' ? (
         <div className={styles.pair}>
-          <Select label="速度" value={draft.av1Preset} onChange={(event) => patch({ av1Preset: event.target.value })}>
-            <option value="4">4 · 更小</option>
-            <option value="6">6 · 默认</option>
-            <option value="8">8 · 较快</option>
-            <option value="10">10 · 很快</option>
+          <Select
+            label={t('encode.picture.speed')}
+            value={draft.av1Preset}
+            onChange={(event) => patch({ av1Preset: event.target.value })}
+          >
+            <option value="4">{t('encode.picture.av1Preset4')}</option>
+            <option value="6">{t('encode.picture.av1Preset6')}</option>
+            <option value="8">{t('encode.picture.av1Preset8')}</option>
+            <option value="10">{t('encode.picture.av1Preset10')}</option>
           </Select>
           <TextField
-            label="质量 CRF"
+            label={t('encode.picture.qualityCrf')}
             value={draft.av1Crf}
             inputMode="numeric"
             onChange={(event) => patch({ av1Crf: event.target.value })}
@@ -62,18 +68,18 @@ export function EncodePicture({ draft, perFile, onChange }: EncodePictureProps) 
       {draft.codec === 'hevc' ? (
         <div className={styles.pair}>
           <Select
-            label="速度"
+            label={t('encode.picture.speed')}
             value={draft.hevcPreset}
             onChange={(event) => patch({ hevcPreset: event.target.value as HevcPreset })}
           >
-            <option value="veryFast">veryfast · 很快</option>
-            <option value="fast">fast · 较快</option>
-            <option value="medium">medium · 默认</option>
-            <option value="slow">slow · 更小</option>
-            <option value="slower">slower · 更慢</option>
+            <option value="veryFast">{t('encode.picture.hevcPresetVeryFast')}</option>
+            <option value="fast">{t('encode.picture.hevcPresetFast')}</option>
+            <option value="medium">{t('encode.picture.hevcPresetMedium')}</option>
+            <option value="slow">{t('encode.picture.hevcPresetSlow')}</option>
+            <option value="slower">{t('encode.picture.hevcPresetSlower')}</option>
           </Select>
           <TextField
-            label="质量 CRF"
+            label={t('encode.picture.qualityCrf')}
             value={draft.hevcCrf}
             inputMode="numeric"
             onChange={(event) => patch({ hevcCrf: event.target.value })}
@@ -82,14 +88,18 @@ export function EncodePicture({ draft, perFile, onChange }: EncodePictureProps) 
       ) : null}
       {draft.codec === 'vp9' ? (
         <div className={styles.pair}>
-          <Select label="速度" value={draft.vp9Speed} onChange={(event) => patch({ vp9Speed: event.target.value })}>
-            <option value="1">1 · 更小</option>
-            <option value="2">2 · 默认</option>
-            <option value="4">4 · 较快</option>
-            <option value="5">5 · 很快</option>
+          <Select
+            label={t('encode.picture.speed')}
+            value={draft.vp9Speed}
+            onChange={(event) => patch({ vp9Speed: event.target.value })}
+          >
+            <option value="1">{t('encode.picture.vp9Speed1')}</option>
+            <option value="2">{t('encode.picture.vp9Speed2')}</option>
+            <option value="4">{t('encode.picture.vp9Speed4')}</option>
+            <option value="5">{t('encode.picture.vp9Speed5')}</option>
           </Select>
           <TextField
-            label="质量 CRF"
+            label={t('encode.picture.qualityCrf')}
             value={draft.vp9Crf}
             inputMode="numeric"
             onChange={(event) => patch({ vp9Crf: event.target.value })}
@@ -98,7 +108,7 @@ export function EncodePicture({ draft, perFile, onChange }: EncodePictureProps) 
       ) : null}
       {draft.codec === 'av1' ? (
         <Select
-          label="位深"
+          label={t('encode.picture.bitDepth')}
           value={draft.av1Bit}
           onChange={(event) => patch({ av1Bit: event.target.value as BitDepth })}
         >
@@ -109,16 +119,16 @@ export function EncodePicture({ draft, perFile, onChange }: EncodePictureProps) 
       {draft.codec === 'hevc' ? (
         <div className={styles.pair}>
           <Select
-            label="调优"
+            label={t('encode.picture.tune')}
             value={draft.hevcTune}
             onChange={(event) => patch({ hevcTune: event.target.value as HevcTune })}
           >
-            <option value="none">不调优</option>
-            <option value="animation">动画</option>
-            <option value="grain">保留颗粒</option>
+            <option value="none">{t('encode.picture.tuneNone')}</option>
+            <option value="animation">{t('encode.picture.tuneAnimation')}</option>
+            <option value="grain">{t('encode.picture.tuneGrain')}</option>
           </Select>
           <Select
-            label="位深"
+            label={t('encode.picture.bitDepth')}
             value={draft.hevcBit}
             onChange={(event) => patch({ hevcBit: event.target.value as BitDepth })}
           >
@@ -129,18 +139,18 @@ export function EncodePicture({ draft, perFile, onChange }: EncodePictureProps) 
       ) : null}
       {draft.codec === 'vp9' ? (
         <Select
-          label="画面"
+          label={t('encode.picture.content')}
           value={draft.vp9Content}
           onChange={(event) => patch({ vp9Content: event.target.value as Vp9Content })}
         >
-          <option value="general">普通画面</option>
-          <option value="screen">录屏</option>
-          <option value="film">胶片颗粒</option>
+          <option value="general">{t('encode.picture.contentGeneral')}</option>
+          <option value="screen">{t('encode.picture.contentScreen')}</option>
+          <option value="film">{t('encode.picture.contentFilm')}</option>
         </Select>
       ) : null}
       {perFile ? (
         <TextField
-          label="帧率"
+          label={t('encode.picture.frameRate')}
           value={draft.fps}
           inputMode="numeric"
           onChange={(event) => patch({ fps: event.target.value })}
@@ -148,22 +158,26 @@ export function EncodePicture({ draft, perFile, onChange }: EncodePictureProps) 
       ) : null}
       <div className={styles.pair}>
         <TextField
-          label="宽度"
+          label={t('encode.picture.width')}
           value={draft.width}
           inputMode="numeric"
           onChange={(event) => patch({ width: event.target.value })}
         />
         <TextField
-          label="高度"
+          label={t('encode.picture.height')}
           value={draft.height}
           inputMode="numeric"
           onChange={(event) => patch({ height: event.target.value })}
         />
       </div>
-      <Select label="画面适配" value={draft.fit} onChange={(event) => patch({ fit: event.target.value as Fit })}>
-        <option value="contain">缩进画面，不足处补边</option>
-        <option value="fill">拉伸到目标尺寸</option>
-        <option value="cover">铺满后裁切（当前不可用）</option>
+      <Select
+        label={t('encode.picture.fit')}
+        value={draft.fit}
+        onChange={(event) => patch({ fit: event.target.value as Fit })}
+      >
+        <option value="contain">{t('encode.picture.fitContain')}</option>
+        <option value="fill">{t('encode.picture.fitFill')}</option>
+        <option value="cover">{t('encode.picture.fitCover')}</option>
       </Select>
     </div>
   );

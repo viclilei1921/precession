@@ -1,5 +1,6 @@
 import { markdownPlain } from '@/components/markdown';
-import { formatDayHeading, formatMonth, formatMonthDay } from '@/utils/day';
+import i18n from '@/i18n';
+import { formatDate, formatMonth, weekdayShort } from '@/utils/day';
 
 type Named = {
   id: string;
@@ -9,21 +10,20 @@ type Named = {
 /** 卡片左侧的日期，和阅读页上的完整日期 */
 export function journalDate(time: number) {
   const date = new Date(time);
-  const heading = formatDayHeading(time);
   return {
     day: String(date.getDate()),
     month: formatMonth(time),
-    week: heading.slice(heading.lastIndexOf(' ') + 1),
-    full: `${date.getFullYear()}年${formatMonthDay(time)}`
+    week: weekdayShort(time),
+    full: formatDate(time)
   };
 }
 
 /** 卡片上的正文摘要。封存的正文不解开 */
 export function journalExcerpt(body: string, locked: boolean) {
   if (locked) {
-    return '正文已封存。';
+    return i18n.t('journal:text.sealed');
   }
-  return markdownPlain(body) || '还没有正文。';
+  return markdownPlain(body) || i18n.t('journal:text.empty');
 }
 
 /** 去掉标记后的字数。封存时不计算 */

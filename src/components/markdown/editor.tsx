@@ -4,6 +4,7 @@ import { Milkdown, MilkdownProvider, useEditor } from '@milkdown/react';
 import clsx from 'clsx';
 import type { CSSProperties, FocusEvent, Ref, RefObject } from 'react';
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { onFileDrop, pickFiles } from '@/bridge';
 import { Scroll } from '@/components/scroll';
 import { useAppStore } from '@/store/app';
@@ -113,6 +114,7 @@ export const MarkdownEditor = forwardRef(function MarkdownEditor(
   }: MarkdownEditorProps,
   ref: Ref<MarkdownEditorHandle>
 ) {
+  const { t } = useTranslation('ui');
   const [source, setSource] = useState(false);
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -386,7 +388,7 @@ export const MarkdownEditor = forwardRef(function MarkdownEditor(
   async function acceptFile(file: File) {
     const owner = imageRef.current;
     if (!owner) {
-      throw new Error('先保存，再插入图片');
+      throw new Error(t('errors:media.saveBeforeInsert'));
     }
     const id = await importImageFile(file, owner, !useAppStore.getState().isMobile());
     sessionRef.current.add(id);
@@ -471,7 +473,10 @@ export const MarkdownEditor = forwardRef(function MarkdownEditor(
           />
         ) : (
           <Scroll className={styles.scroll} axis="vertical" edge={edge} viewportRef={viewportRef}>
-            <div className={styles.surface}>
+            <div
+              className={styles.surface}
+              style={{ '--markdown-image-caption': JSON.stringify(t('markdown.imageCaption')) } as CSSProperties}
+            >
               <MilkdownProvider>
                 <RichSurface
                   crepeRef={crepeRef}
@@ -517,6 +522,7 @@ function RichSurface({
   onUploadError,
   onReady
 }: RichSurfaceProps) {
+  const { t } = useTranslation('ui');
   const acceptRef = useRef(acceptFile);
   const errorRef = useRef(onUploadError);
   const onReadyRef = useRef(onReady);
@@ -554,7 +560,7 @@ function RichSurface({
           blockOnUpload: upload,
           inlineOnUpload: upload,
           onUpload: upload,
-          blockCaptionPlaceholderText: '图片说明',
+          blockCaptionPlaceholderText: t('markdown.imageCaption'),
           proxyDomURL: (url) => {
             const owner = imageRef.current;
             if (!owner) {

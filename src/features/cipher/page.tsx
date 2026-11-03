@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { fileSizes, taskEnqueue } from '@/bridge';
 import type { Task } from '@/bridge/task';
 import { Button } from '@/components/button';
@@ -19,9 +20,6 @@ import { decryptOutput, encryptOutput } from './path';
 
 type CipherMode = 'encryptFile' | 'decryptFile';
 
-const hint =
-  'ChaCha20 密钥流，口令用 Argon2id 派生。加密结果以 .enc 结尾，解密时去掉这个后缀。没有校验和：密码不对不会报错，只会得到另一串字节。';
-
 let fileKey = 0;
 
 function nextFileKey() {
@@ -38,6 +36,7 @@ export function CipherPage() {
 }
 
 function CipherWorkspace() {
+  const { t } = useTranslation('cipher');
   const queryClient = useQueryClient();
   const [mode, setMode] = useState<CipherMode>('encryptFile');
   const [password, setPassword] = useState('');
@@ -49,13 +48,13 @@ function CipherWorkspace() {
     mutationFn: async () => {
       const selected = files.filter((file) => file.checked);
       if (files.length === 0) {
-        throw new Error('请先添加文件。');
+        throw new Error(t('error.noFiles'));
       }
       if (selected.length === 0) {
-        throw new Error('请先选择文件。');
+        throw new Error(t('error.noSelection'));
       }
       if (!password) {
-        throw new Error('请填写密码。');
+        throw new Error(t('error.passwordRequired'));
       }
       for (const file of selected) {
         const output = mode === 'encryptFile' ? encryptOutput(file.input) : decryptOutput(file.input);
@@ -135,19 +134,19 @@ function CipherWorkspace() {
     <section className={styles.page}>
       <article className={styles.toolbar}>
         <div className={styles.tools}>
-          <fieldset className={styles.group} aria-label="加解密">
+          <fieldset className={styles.group} aria-label={t('aria.modeGroup')}>
             <SegmentButton selected={mode === 'encryptFile'} onClick={() => setMode('encryptFile')}>
-              加密
+              {t('mode.encrypt')}
             </SegmentButton>
             <SegmentButton selected={mode === 'decryptFile'} onClick={() => setMode('decryptFile')}>
-              解密
+              {t('mode.decrypt')}
             </SegmentButton>
           </fieldset>
-          <InfoTip label="加密说明" title={hint} />
+          <InfoTip label={t('page.hintLabel')} title={t('page.hint')} />
         </div>
         <PasswordInput
           className={styles.password}
-          label="密码"
+          label={t('page.password')}
           required
           value={password}
           autoComplete="off"
@@ -157,7 +156,7 @@ function CipherWorkspace() {
           }}
         />
         <div className={styles.algo}>
-          <span className={styles.algoLabel}>加密算法</span>
+          <span className={styles.algoLabel}>{t('page.algorithm')}</span>
           <span className={styles.algoValue}>ChaCha20</span>
         </div>
       </article>
@@ -168,7 +167,7 @@ function CipherWorkspace() {
             <div className={styles.toolsEnd}>
               {formError ? <p className={styles.error}>{formError}</p> : null}
               <Button disabled={enqueue.isPending} onClick={() => enqueue.mutate()}>
-                {mode === 'encryptFile' ? '开始加密' : '开始解密'}
+                {mode === 'encryptFile' ? t('page.startEncrypt') : t('page.startDecrypt')}
               </Button>
             </div>
           </div>

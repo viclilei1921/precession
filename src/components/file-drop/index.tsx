@@ -2,6 +2,7 @@ import { FileArrowDownIcon, FileIcon, FolderOpenIcon } from '@phosphor-icons/rea
 import clsx from 'clsx';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 import { collectFiles, onFileDrop, pickDirectories, pickFiles } from '@/bridge';
 import { Button } from '@/components/button';
 import { errorMessage } from '@/utils/error';
@@ -28,15 +29,9 @@ function takePaths(paths: string[], accept: string[], multiple: boolean) {
   return multiple ? matched : matched.slice(0, 1);
 }
 
-function dropCaption(count: number) {
-  if (count > 1) {
-    return `${count} 项，包含子文件夹里的文件`;
-  }
-  return '文件，以及文件夹里的文件';
-}
-
 /** 选择文件或文件夹，或把它们拖进窗口。文件夹会连同子文件夹里符合的文件一起加入。拖入时在标题栏下盖一层提示。 */
 export function FileDrop({ accept = [], multiple = true, className, onFiles }: FileDropProps) {
+  const { t } = useTranslation('ui');
   const [hovering, setHovering] = useState(false);
   const [dragCount, setDragCount] = useState(0);
   const [pending, setPending] = useState(false);
@@ -67,7 +62,7 @@ export function FileDrop({ accept = [], multiple = true, className, onFiles }: F
               return;
             }
             if (found.scannedDirectory) {
-              setNotice('这个文件夹里没有符合的文件。');
+              setNotice(t('fileDrop.noMatch'));
             }
           })
           .catch((error: unknown) => {
@@ -90,7 +85,7 @@ export function FileDrop({ accept = [], multiple = true, className, onFiles }: F
       cancelled = true;
       unlisten?.();
     };
-  }, []);
+  }, [t]);
 
   async function addDirectories() {
     const directories = await pickDirectories();
@@ -103,7 +98,7 @@ export function FileDrop({ accept = [], multiple = true, className, onFiles }: F
       const found = await collectFiles(directories, accept);
       const next = takePaths(found.files, accept, multiple);
       if (next.length === 0) {
-        setNotice('这个文件夹里没有符合的文件。');
+        setNotice(t('fileDrop.noMatch'));
         return;
       }
       onFiles(next);
@@ -122,20 +117,24 @@ export function FileDrop({ accept = [], multiple = true, className, onFiles }: F
           disabled={pending}
           onClick={() => {
             setNotice('');
-            void pickFiles({ multiple, extensions: accept }).then((paths) => {
-              const next = takePaths(paths, accept, multiple);
-              if (next.length > 0) {
-                onFiles(next);
-              }
-            });
+            void pickFiles({ multiple, extensions: accept })
+              .then((paths) => {
+                const next = takePaths(paths, accept, multiple);
+                if (next.length > 0) {
+                  onFiles(next);
+                }
+              })
+              .catch((error: unknown) => {
+                setNotice(errorMessage(error));
+              });
           }}
         >
           <FileIcon weight="regular" />
-          选择文件
+          {t('fileDrop.chooseFiles')}
         </Button>
         <Button variant="outlined" disabled={pending} onClick={() => void addDirectories()}>
           <FolderOpenIcon weight="regular" />
-          选择文件夹
+          {t('fileDrop.chooseFolder')}
         </Button>
       </div>
       {notice ? <p className={styles.notice}>{notice}</p> : null}
@@ -146,8 +145,10 @@ export function FileDrop({ accept = [], multiple = true, className, onFiles }: F
                 <span className={styles.mark} aria-hidden="true">
                   <FileArrowDownIcon className={styles.glyph} weight="regular" />
                 </span>
-                <p className={styles.lead}>松开以添加</p>
-                <p className={styles.caption}>{dropCaption(dragCount)}</p>
+                <p className={styles.lead}>{t('fileDrop.release')}</p>
+                <p className={styles.caption}>
+                  {dragCount > 1 ? t('fileDrop.caption', { count: dragCount }) : t('fileDrop.captionGeneric')}
+                </p>
               </div>
             </div>,
             document.body

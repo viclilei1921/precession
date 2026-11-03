@@ -1,0 +1,36 @@
+{
+  "page": {
+    "hint": "ChaCha20 keystream with a passphrase derived by Argon2id. Encrypted output ends with .enc, and decryption removes that suffix. There is no checksum: a wrong password does not raise an error, it just produces a different stream of bytes.",
+    "hintLabel": "Encryption help",
+    "password": "Password",
+    "algorithm": "Algorithm",
+    "startEncrypt": "Start encryption",
+    "startDecrypt": "Start decryption"
+  },
+  "mode": {
+    "encrypt": "Encrypt",
+    "decrypt": "Decrypt"
+  },
+  "list": {
+    "name": "Name",
+    "size": "Size",
+    "path": "Path",
+    "actions": "Actions",
+    "empty": "No files yet. Choose files or folders, or drop them here.",
+    "selectAll": "Select all",
+    "invert": "Invert",
+    "clear": "Clear",
+    "remove": "Remove",
+    "selectFile": "Select {{name}}",
+    "summary_one": "{{count}} selected · {{size}} total",
+    "summary_other": "{{count}} selected · {{size}} total"
+  },
+  "error": {
+    "noFiles": "Please add files first.",
+    "noSelection": "Please select at least one file.",
+    "passwordRequired": "Please enter a password."
+  },
+  "aria": {
+    "modeGroup": "Encryption and decryption"
+  }
+}

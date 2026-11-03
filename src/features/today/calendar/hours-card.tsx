@@ -1,7 +1,9 @@
 import clsx from 'clsx';
 import { useLayoutEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { AlmanacHour } from '@/bridge/calendar';
 import { Scroll } from '@/components/scroll';
+import { translateYiJiText, translateZhi } from './almanac-dict';
 import styles from './calendar.module.css';
 import { CHEN_HOUR, currentHourIndex } from './hours';
 
@@ -12,11 +14,12 @@ type HoursCardProps = {
   resetKey: string;
 };
 
-/** 今天把当前时辰滚到顶部，其他日子对齐辰时。底部留白，使亥时也能到顶。 */
 export function HoursCard({ hours, today, pending, resetKey }: HoursCardProps) {
+  const { t } = useTranslation('today');
   const viewportRef = useRef<HTMLDivElement>(null);
   const target = today ? currentHourIndex() : CHEN_HOUR;
   const ordered = [...hours].sort((left, right) => left.hourIndex - right.hourIndex);
+  const advice = (text: string) => translateYiJiText(text) || t('hours.none');
 
   useLayoutEffect(() => {
     const scroller = viewportRef.current;
@@ -41,11 +44,11 @@ export function HoursCard({ hours, today, pending, resetKey }: HoursCardProps) {
   return (
     <article className={clsx(styles.card, styles.hours)}>
       <header className={styles.hoursHead}>
-        <h2>时辰</h2>
-        <span className={styles.hoursExtra}>上下滚动看全部</span>
+        <h2>{t('hours.title')}</h2>
+        <span className={styles.hoursExtra}>{t('hours.hint')}</span>
       </header>
       <Scroll className={styles.hourScroll} axis="vertical" chain viewportRef={viewportRef}>
-        {pending ? <p className={styles.note}>正在读取…</p> : null}
+        {pending ? <p className={styles.note}>{t('common.loading')}</p> : null}
         {ordered.map((hour) => {
           const now = today && hour.hourIndex === target;
           return (
@@ -55,15 +58,15 @@ export function HoursCard({ hours, today, pending, resetKey }: HoursCardProps) {
               data-index={hour.hourIndex}
               data-now={now ? 'true' : undefined}
             >
-              <span className={styles.zhi}>{hour.zhi}</span>
+              <span className={styles.zhi}>{translateZhi(hour.zhi)}</span>
               <div>
                 <p className={styles.hourMeta}>
                   <span>{hour.timeRange}</span>
-                  {now ? <span className={styles.nowTag}>当前</span> : null}
+                  {now ? <span className={styles.nowTag}>{t('hours.current')}</span> : null}
                 </p>
                 <p className={styles.hourAdvice}>
-                  <span className={styles.yiText}>宜 {hour.yi}</span>
-                  <span className={styles.jiText}>忌 {hour.ji}</span>
+                  <span className={styles.yiText}>{t('hours.yi', { text: advice(hour.yi) })}</span>
+                  <span className={styles.jiText}>{t('hours.ji', { text: advice(hour.ji) })}</span>
                 </p>
               </div>
             </div>

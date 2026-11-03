@@ -1,4 +1,5 @@
 import type { CalendarDay, Lunar } from '@/bridge/calendar';
+import { translateSolarTerm } from './almanac-dict';
 
 export type DayKind = 'holiday' | 'term' | 'lunar';
 
@@ -27,13 +28,14 @@ export function dayFace(day: CalendarDay | undefined): DayFace {
     return { text: day.holidayName, kind: 'holiday' };
   }
   if (day.lunar?.solarTerm) {
-    return { text: day.lunar.solarTerm, kind: 'term' };
+    return { text: translateSolarTerm(day.lunar.solarTerm), kind: 'term' };
   }
   return { text: lunarDayLabel(day.lunar), kind: 'lunar' };
 }
 
 export type YearFace = DayFace & {
-  badge: '' | '休' | '班';
+  /** 稳定标识，渲染时再翻译成「休」「班」 */
+  badge: '' | 'rest' | 'work';
   rest: boolean;
 };
 
@@ -45,5 +47,5 @@ export function yearFace(day: CalendarDay | undefined): YearFace {
   }
   const makeup = day.isWeekend && day.isWorkday;
   const rest = !day.isWorkday;
-  return { ...face, badge: makeup ? '班' : rest ? '休' : '', rest };
+  return { ...face, badge: makeup ? 'work' : rest ? 'rest' : '', rest };
 }

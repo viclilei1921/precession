@@ -1,0 +1,15 @@
+{
+  "titleBar": {
+    "minimize": "最小化",
+    "restore": "还原",
+    "maximize": "最大化",
+    "close": "关闭",
+    "search": "搜索",
+    "expandSidebar": "展开侧栏",
+    "collapseSidebar": "收起侧栏",
+    "back": "后退",
+    "forward": "前进"
+  },
+  "mobile": {},
+  "common": {}
+}

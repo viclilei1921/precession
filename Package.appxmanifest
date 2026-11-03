@@ -7,7 +7,7 @@
   <Identity
     Name="viclilei.precession"
     Publisher="CN=A342B656-55E4-4555-9649-7D1585494CF3"
-    Version="0.1.1.0"
+    Version="0.1.3.0"
     ProcessorArchitecture="x64" />
   <Properties>
     <DisplayName>precession</DisplayName>

@@ -20,6 +20,7 @@
     "log:default",
     "shell:default",
     "os:default",
-    "dialog:default"
+    "dialog:default",
+    "store:default"
   ]
 }

@@ -1,0 +1,127 @@
+{
+  "page": {
+    "yearTitle": "{{year}}",
+    "monthTitle": "{{year}}.{{month}}",
+    "prevYear": "Previous year",
+    "nextYear": "Next year",
+    "prevMonth": "Previous month",
+    "nextMonth": "Next month",
+    "monthView": "Month",
+    "yearView": "Year",
+    "workday": "Workday",
+    "rest": "Rest"
+  },
+  "weekday": {
+    "sun": "Sun",
+    "mon": "Mon",
+    "tue": "Tue",
+    "wed": "Wed",
+    "thu": "Thu",
+    "fri": "Fri",
+    "sat": "Sat"
+  },
+  "weekdayShort": {
+    "mon": "M",
+    "tue": "T",
+    "wed": "W",
+    "thu": "T",
+    "fri": "F",
+    "sat": "S",
+    "sun": "S"
+  },
+  "card": {
+    "toolbox": "Toolbox",
+    "library": "Library",
+    "growth": "Growth",
+    "journal": "Journal",
+    "plan": "Plan",
+    "term": "Solar Terms"
+  },
+  "planCard": {
+    "overdue": "{{count}} overdue",
+    "complete": "Complete {{percent}}%",
+    "next": "Next · {{title}}",
+    "noNext": "No pending plans today"
+  },
+  "journalCard": {
+    "diary": "Diary",
+    "spark": "Spark",
+    "writing": "Writing"
+  },
+  "growthCard": {
+    "untitled": "Untitled",
+    "noMilestones": "No milestones yet"
+  },
+  "libraryCard": {
+    "reading": "Reading: 《{{title}}》",
+    "progress": "Read {{percent}}%",
+    "noBooks": "No books currently reading"
+  },
+  "latestCard": {
+    "title": "Latest",
+    "types": {
+      "plan": "Plan",
+      "diary": "Diary",
+      "spark": "Spark",
+      "writing": "Writing",
+      "milestone": "Milestone",
+      "moment": "Moment",
+      "excerpt": "Excerpt",
+      "note": "Note"
+    },
+    "untitled": "Untitled",
+    "noRecords": "No records today"
+  },
+  "toolboxCard": {
+    "cipher": "Encrypt",
+    "image": "Image",
+    "video": "Video"
+  },
+  "termCard": {
+    "progress": "Solar term progress"
+  },
+  "calendar": {
+    "monthCellLabel": "{{month}}/{{day}} {{lunarText}}",
+    "yearCellLabel": "{{month}}/{{day}} {{lunarText}} {{badge}}",
+    "badgeRest": "Rest",
+    "badgeWork": "Work",
+    "monthLabel": "{{month}}",
+    "term": {
+      "fallback": "Solar term",
+      "hint_one": "{{name}} in {{count}} day",
+      "hint_other": "{{name}} in {{count}} days",
+      "hintToday_one": "The term begins today · {{name}} in {{count}} day",
+      "hintToday_other": "The term begins today · {{name}} in {{count}} days"
+    },
+    "legend": {
+      "plan": "Plan",
+      "journal": "Journal",
+      "growth": "Growth",
+      "library": "Library"
+    }
+  },
+  "almanac": {
+    "noData": "No almanac for this day.",
+    "lunarMissing": "Lunar calendar data unavailable",
+    "yi": "Auspicious",
+    "ji": "Inauspicious",
+    "yearLine": "{{animal}} year",
+    "dayLine": "{{ganZhi}} day",
+    "caiShen": "Wealth: {{name}}",
+    "xiShen": "Joy: {{name}}",
+    "fuShen": "Fortune: {{name}}",
+    "pengZu": "Pengzu: {{name}}",
+    "current": "Now"
+  },
+  "hours": {
+    "title": "Hours",
+    "hint": "Scroll for all",
+    "current": "Now",
+    "yi": "Yi: {{text}}",
+    "ji": "Ji: {{text}}",
+    "none": "—"
+  },
+  "common": {
+    "loading": "Loading…"
+  }
+}

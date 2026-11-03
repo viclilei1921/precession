@@ -1,7 +1,9 @@
+import i18n from '@/i18n';
+
 /** 把字节数写成 B / KB / MB / GB */
 export function formatBytes(bytes: number) {
   if (!Number.isFinite(bytes) || bytes < 0) {
-    return '未知';
+    return i18n.t('settings:mobile.bytes.unknown');
   }
   const units = ['B', 'KB', 'MB', 'GB', 'TB'];
   let value = bytes;

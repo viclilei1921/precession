@@ -1,0 +1,84 @@
+{
+  "queue": {
+    "heading": "Queue",
+    "clearList": "Clear list",
+    "loading": "Loading…",
+    "empty": "No tasks right now.",
+    "emptyFiltered": "No matching tasks.",
+    "emptyRunning": "No running tasks.",
+    "emptyPending": "No pending tasks.",
+    "emptyDone": "Nothing finished yet.",
+    "searchPlaceholder": "Search tasks",
+    "tab": {
+      "run": "Running",
+      "wait_one": "Pending {{count}}",
+      "wait_other": "Pending {{count}}",
+      "done_one": "Done {{count}}",
+      "done_other": "Done {{count}}"
+    }
+  },
+  "status": {
+    "pending": "Pending",
+    "processing": "Processing",
+    "completed": "Completed",
+    "failed": "Failed",
+    "canceled": "Canceled"
+  },
+  "kind": {
+    "encryptFile": "Encrypt file",
+    "decryptFile": "Decrypt file",
+    "importUpload": "Import file",
+    "encryptUpload": "Encrypt uploaded file",
+    "decryptUpload": "Decrypt uploaded file",
+    "convertVideo": "Convert video",
+    "cutVideo": "Cut video",
+    "mergeVideo": "Merge video",
+    "appendVideo": "Append video",
+    "convertAvif": "Convert to AVIF",
+    "convertJxl": "Convert to JXL",
+    "short": {
+      "encrypt": "Encrypt",
+      "decrypt": "Decrypt",
+      "convert": "Convert",
+      "cut": "Cut",
+      "merge": "Merge",
+      "append": "Append",
+      "avif": "AVIF",
+      "jxl": "JXL"
+    }
+  },
+  "action": {
+    "reveal": "Show file",
+    "editAgain": "Edit again",
+    "cancel": "Cancel",
+    "delete": "Delete"
+  },
+  "aria": {
+    "queue": "Queue",
+    "open": "Open"
+  },
+  "time": {
+    "calculating": "Calculating",
+    "remaining": "{{time}} left"
+  },
+  "count": {
+    "segments_one": "{{count}} segment",
+    "segments_other": "{{count}} segments"
+  },
+  "bitDepth": "{{depth}}-bit",
+  "video": {
+    "hevc": "{{container}} · HEVC · {{preset}} · CRF {{crf}} · {{bit}}",
+    "vp9": "{{container}} · VP9 · Speed {{speed}} · CRF {{crf}}",
+    "av1": "{{container}} · AV1 · Speed {{speed}} · CRF {{crf}} · {{bit}}"
+  },
+  "avif": {
+    "summary": "Quality {{quality}} · Speed {{speed}}",
+    "lossless": "Lossless",
+    "alpha": "Alpha {{value}}"
+  },
+  "jxl": {
+    "summary": "Distance {{distance}} · Effort {{effort}}",
+    "lossless": "Lossless",
+    "decoding": "Decoding {{speed}}"
+  }
+}

@@ -4,3 +4,4 @@ pub mod commands;
 pub mod error;
 
 mod collect;
+mod materialize;

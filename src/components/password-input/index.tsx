@@ -2,6 +2,7 @@ import { EyeIcon, EyeSlashIcon } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import type { ChangeEvent, ComponentProps, KeyboardEvent, PointerEvent, InputEvent as ReactInputEvent } from 'react';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Field } from '@/components/field';
 import fieldStyles from '@/components/field/index.module.css';
 import { useRipple } from '@/components/ripple';
@@ -37,6 +38,7 @@ export function PasswordInput({
   ...props
 }: PasswordInputProps) {
   const [visible, setVisible] = useState(false);
+  const { t } = useTranslation('ui');
   const ripple = useRipple();
 
   /** 单字输入直接拦下；粘贴仍交给 onChange 去掉不合规的部分 */
@@ -130,9 +132,9 @@ export function PasswordInput({
           <button
             type="button"
             className={styles.toggle}
-            aria-label="按住显示密码"
+            aria-label={t('password.toggle')}
             aria-pressed={visible}
-            title="按住显示密码"
+            title={t('password.toggle')}
             disabled={disabled}
             onPointerDown={(event) => {
               ripple.onPointerDown(event);

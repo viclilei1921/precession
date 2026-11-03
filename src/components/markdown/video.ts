@@ -1,5 +1,6 @@
 import type { OwnerKind } from '@/bridge';
 import { taskEnqueue, uploadAttach, uploadDelete, uploadList } from '@/bridge';
+import i18n from '@/i18n';
 
 import type { MarkdownImageOwner } from './image';
 import { waitTask } from './image';
@@ -18,7 +19,7 @@ export function videoExtension(path: string): string | null {
 /** 从本机路径导入一段视频，返回上传文件 id。不转码 */
 export async function importVideoPath(path: string, owner: MarkdownImageOwner) {
   if (!videoExtension(path)) {
-    throw new Error('不支持的文件格式');
+    throw new Error(i18n.t('errors:files.unsupportedFormat'));
   }
   const task = await taskEnqueue({
     kind: 'importUpload',
@@ -31,7 +32,7 @@ export async function importVideoPath(path: string, owner: MarkdownImageOwner) {
   });
   const done = await waitTask(task.id);
   if (!done.uploadId) {
-    throw new Error('导入没有返回文件');
+    throw new Error(i18n.t('errors:files.importNoOutput'));
   }
   return done.uploadId;
 }

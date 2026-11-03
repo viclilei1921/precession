@@ -14,6 +14,7 @@ import clsx from 'clsx';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 import type { UploadCatalog } from '@/bridge/upload';
 import { IconButton } from '@/components/button/icon';
 import { ScrimButton } from '@/components/button/scrim';
@@ -115,6 +116,7 @@ function ViewerFrame({
   onVolume: (value: number) => void;
   onMuted: (value: boolean) => void;
 }) {
+  const { t } = useTranslation('files');
   const access = useMediaAccess(file);
   const stageRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -428,7 +430,7 @@ function ViewerFrame({
   return (
     <>
       <header className={styles.head}>
-        <span className={styles.kind}>{file.kind === 'video' ? '视频' : '图片'}</span>
+        <span className={styles.kind}>{file.kind === 'video' ? t('viewer.video') : t('viewer.image')}</span>
         <div className={styles.name}>
           <strong id={titleId} className={styles.title}>
             {name}
@@ -443,18 +445,28 @@ function ViewerFrame({
         <div className={styles.tools}>
           {ready && file.kind === 'image' ? (
             <div className={styles.zoom}>
-              <IconButton className={styles.tool} label="缩小" size="compact" onClick={() => zoomBy(1 / 1.25)}>
+              <IconButton
+                className={styles.tool}
+                label={t('viewer.zoomOut')}
+                size="compact"
+                onClick={() => zoomBy(1 / 1.25)}
+              >
                 <MinusIcon weight="regular" />
               </IconButton>
-              <button type="button" className={styles.zoomLabel} title="在适应和原大之间切换" onClick={toggleFit}>
-                {mode === 'fit' ? '适应' : `${Math.round(shown * 100)}%`}
+              <button type="button" className={styles.zoomLabel} title={t('viewer.fitToggle')} onClick={toggleFit}>
+                {mode === 'fit' ? t('viewer.fit') : `${Math.round(shown * 100)}%`}
               </button>
-              <IconButton className={styles.tool} label="放大" size="compact" onClick={() => zoomBy(1.25)}>
+              <IconButton
+                className={styles.tool}
+                label={t('viewer.zoomIn')}
+                size="compact"
+                onClick={() => zoomBy(1.25)}
+              >
                 <PlusIcon weight="regular" />
               </IconButton>
             </div>
           ) : null}
-          <IconButton className={styles.tool} label="关闭" onClick={onClose}>
+          <IconButton className={styles.tool} label={t('viewer.close')} onClick={onClose}>
             <XIcon weight="regular" />
           </IconButton>
         </div>
@@ -464,19 +476,21 @@ function ViewerFrame({
         {file.ownerSealed ? (
           <span className={styles.note}>
             <LockIcon className={styles.glyph} weight="regular" />
-            所属记录已封存
+            {t('viewer.sealed')}
           </span>
         ) : null}
         {playable && (phase === 'check' || (phase === 'ready' && !src && pending)) ? (
-          <span className={styles.note}>正在打开…</span>
+          <span className={styles.note}>{t('viewer.opening')}</span>
         ) : null}
-        {playable && phase === 'error' ? <span className={styles.note}>{message || '打不开'}</span> : null}
+        {playable && phase === 'error' ? <span className={styles.note}>{message || t('viewer.failed')}</span> : null}
         {playable && phase === 'need' ? (
           <div className={styles.gate}>
             <UnlockForm access={access} />
           </div>
         ) : null}
-        {playable && phase === 'ready' && !src && !pending ? <span className={styles.note}>预览暂时不可用</span> : null}
+        {playable && phase === 'ready' && !src && !pending ? (
+          <span className={styles.note}>{t('viewer.unavailable')}</span>
+        ) : null}
         {playbackError ? <span className={styles.note}>{playbackError}</span> : null}
         {ready && file.kind === 'image' ? (
           <img
@@ -502,7 +516,7 @@ function ViewerFrame({
                 rememberImage(node);
               }
             }}
-            onError={() => setPlaybackError('这张图片打不开')}
+            onError={() => setPlaybackError(t('viewer.imageFailed'))}
             onDoubleClick={(event) => {
               event.preventDefault();
               toggleFit();
@@ -547,21 +561,29 @@ function ViewerFrame({
               setCurrent(time);
             }}
             onProgress={(event) => setBuffered(bufferedEnd(event.currentTarget))}
-            onError={() => setPlaybackError('这个视频打不开')}
+            onError={() => setPlaybackError(t('viewer.videoFailed'))}
           />
         ) : null}
         {ready && file.kind === 'video' && paused && !armed ? (
-          <IconButton className={clsx(styles.tool, styles.play)} label="播放" onClick={toggle}>
+          <IconButton className={clsx(styles.tool, styles.play)} label={t('viewer.play')} onClick={toggle}>
             <PlayIcon weight="fill" />
           </IconButton>
         ) : null}
         {spot.prev ? (
-          <IconButton className={clsx(styles.tool, styles.side, styles.prev)} label="上一个" onClick={() => step(-1)}>
+          <IconButton
+            className={clsx(styles.tool, styles.side, styles.prev)}
+            label={t('viewer.previous')}
+            onClick={() => step(-1)}
+          >
             <CaretLeftIcon weight="regular" />
           </IconButton>
         ) : null}
         {spot.next ? (
-          <IconButton className={clsx(styles.tool, styles.side, styles.next)} label="下一个" onClick={() => step(1)}>
+          <IconButton
+            className={clsx(styles.tool, styles.side, styles.next)}
+            label={t('viewer.next')}
+            onClick={() => step(1)}
+          >
             <CaretRightIcon weight="regular" />
           </IconButton>
         ) : null}
@@ -569,7 +591,7 @@ function ViewerFrame({
           <div className={styles.dock}>
             <IconButton
               className={clsx(styles.tool, styles.dockPlay)}
-              label={paused ? '播放' : '暂停'}
+              label={paused ? t('viewer.play') : t('viewer.pause')}
               size="compact"
               onClick={toggle}
             >
@@ -587,7 +609,7 @@ function ViewerFrame({
             <span className={styles.clock}>{clock(duration)}</span>
             <IconButton
               className={styles.tool}
-              label={silent ? '取消静音' : '静音'}
+              label={silent ? t('viewer.unmute') : t('viewer.mute')}
               size="compact"
               onClick={() => {
                 if (silent) {
@@ -609,7 +631,7 @@ function ViewerFrame({
               max={1}
               step={0.05}
               value={silent ? 0 : volume}
-              aria-label="音量"
+              aria-label={t('viewer.volume')}
               onChange={(event) => {
                 const next = Number(event.target.value);
                 onVolume(next);

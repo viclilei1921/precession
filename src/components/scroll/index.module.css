@@ -158,3 +158,13 @@
     transition: none;
   }
 }
+
+/* 手机上不画悬浮滑块，也不为它留空。原生滚动条由全局样式关掉。 */
+:global(html[data-platform="mobile"]) .bar-y,
+:global(html[data-platform="mobile"]) .bar-x {
+  display: none;
+}
+
+:global(html[data-platform="mobile"]) .root[data-gutter="true"] .viewport {
+  padding-right: 0;
+}

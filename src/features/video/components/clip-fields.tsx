@@ -1,4 +1,5 @@
 import { TrashIcon } from '@phosphor-icons/react';
+import { useTranslation } from 'react-i18next';
 import { IconButton } from '@/components/button/icon';
 import { TimeField } from '@/components/time-field';
 import styles from './clip-fields.module.css';
@@ -14,16 +15,17 @@ type ClipFieldsProps = {
 
 /** 一段裁剪：开始、结束，排得下就和别的段并排。 */
 export function ClipFields({ start, end, canRemove, onStart, onEnd, onRemove }: ClipFieldsProps) {
+  const { t } = useTranslation('video');
   const invalid = end <= start;
   return (
-    <div className={styles.clip} title={invalid ? '结束要晚于开始' : undefined}>
-      <TimeField className={styles.time} ariaLabel="开始" value={start} onChange={onStart} />
+    <div className={styles.clip} title={invalid ? t('clip.endAfterStart') : undefined}>
+      <TimeField className={styles.time} ariaLabel={t('clip.start')} value={start} onChange={onStart} />
       <span className={styles.dash} aria-hidden="true">
         -
       </span>
-      <TimeField className={styles.time} ariaLabel="结束" value={end} invalid={invalid} onChange={onEnd} />
+      <TimeField className={styles.time} ariaLabel={t('clip.end')} value={end} invalid={invalid} onChange={onEnd} />
       {canRemove ? (
-        <IconButton label="删除这段" tone="destructive" size="compact" onClick={onRemove}>
+        <IconButton label={t('clip.remove')} tone="destructive" size="compact" onClick={onRemove}>
           <TrashIcon weight="regular" />
         </IconButton>
       ) : null}

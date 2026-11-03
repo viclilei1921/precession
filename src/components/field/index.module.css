@@ -26,7 +26,7 @@
   outline: none;
 }
 
-.floatLabel {
+.float-label {
   position: absolute;
   top: 50%;
   left: 0;
@@ -114,7 +114,7 @@
   border-color: var(--foreground);
 }
 
-.outline:focus-within .floatLabel {
+.outline:focus-within .float-label {
   top: 0;
   color: var(--primary);
   pointer-events: auto;
@@ -136,7 +136,7 @@
   opacity: 1;
 }
 
-.field[data-filled="true"] .floatLabel {
+.field[data-filled="true"] .float-label {
   top: 0;
   pointer-events: auto;
   transform: translate(0.875rem, -50%) scale(0.75);
@@ -148,7 +148,7 @@
   transition-duration: 100ms;
 }
 
-.field[data-invalid="true"] .floatLabel {
+.field[data-invalid="true"] .float-label {
   color: var(--destructive);
 }
 
@@ -156,7 +156,7 @@
   border-color: var(--destructive);
 }
 
-.field[data-disabled="true"] .floatLabel,
+.field[data-disabled="true"] .float-label,
 .field[data-disabled="true"] .control {
   color: color-mix(in oklch, var(--foreground) 38%, transparent);
 }
@@ -172,8 +172,8 @@
   color: transparent;
 }
 
-.outline:has(input.control:not(:placeholder-shown)) .floatLabel,
-.outline:has(textarea.control:not(:placeholder-shown)) .floatLabel {
+.outline:has(input.control:not(:placeholder-shown)) .float-label,
+.outline:has(textarea.control:not(:placeholder-shown)) .float-label {
   top: 0;
   pointer-events: auto;
   transform: translate(0.875rem, -50%) scale(0.75);
@@ -190,13 +190,13 @@
   border-color: var(--destructive);
 }
 
-.outline:has(textarea.control:placeholder-shown):not(:focus-within) .floatLabel {
+.outline:has(textarea.control:placeholder-shown):not(:focus-within) .float-label {
   top: 0.75rem;
   transform: translate(0.875rem, 0);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .floatLabel,
+  .float-label,
   .legend,
   .notch,
   .control::placeholder {

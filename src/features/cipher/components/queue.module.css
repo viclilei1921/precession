@@ -50,7 +50,7 @@
   border-bottom: 1px solid var(--border);
 }
 
-.itemMain {
+.item-main {
   display: flex;
   flex: 1;
   flex-direction: column;
@@ -58,7 +58,7 @@
   min-width: 0;
 }
 
-.itemName {
+.item-name {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
@@ -96,7 +96,7 @@
   justify-content: space-between;
 }
 
-.itemActions {
+.item-actions {
   display: flex;
   flex: none;
   gap: var(--space-1);

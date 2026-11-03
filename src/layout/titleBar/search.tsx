@@ -1,10 +1,12 @@
 import { MagnifyingGlassIcon } from '@phosphor-icons/react';
 import { useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { useSearchStore } from '@/store/search';
 import styles from './index.module.css';
 
 export function TitleBarSearch() {
+  const { t } = useTranslation('layout');
   const inputRef = useRef<HTMLInputElement>(null);
   const { show, placeholder, value, focusTick, setValue } = useSearchStore(
     useShallow((state) => ({
@@ -26,7 +28,7 @@ export function TitleBarSearch() {
     return null;
   }
 
-  const label = placeholder || '搜索';
+  const label = placeholder || t('titleBar.search');
 
   return (
     <label className={styles.search}>

@@ -1,0 +1,72 @@
+{
+  "progress": {
+    "label": "Progress"
+  },
+  "password": {
+    "toggle": "Hold to show password"
+  },
+  "planCheck": {
+    "done": "Completed",
+    "complete": "Complete"
+  },
+  "complete": {
+    "title": "Complete plan",
+    "result": "Result",
+    "resultPlaceholder": "Add a note about the result",
+    "submit": "Complete"
+  },
+  "fileDrop": {
+    "chooseFiles": "Choose files",
+    "chooseFolder": "Choose folder",
+    "release": "Release to add",
+    "caption": "{{count}} items, including files in subfolders",
+    "caption_one": "{{count}} item, including files in subfolders",
+    "caption_other": "{{count}} items, including files in subfolders",
+    "captionGeneric": "Files, including files in subfolders",
+    "noMatch": "No matching files in this folder."
+  },
+  "date": {
+    "pickDate": "Select date",
+    "previousYear": "Previous year",
+    "previousMonth": "Previous month",
+    "nextMonth": "Next month",
+    "nextYear": "Next year",
+    "openCalendar": "Open calendar",
+    "yearMonth": "{{month}} {{year}}"
+  },
+  "markdown": {
+    "heading1": "Heading 1",
+    "heading2": "Heading 2",
+    "heading3": "Heading 3",
+    "heading4": "Heading 4",
+    "bulletList": "Bullet list",
+    "quote": "Quote",
+    "bold": "Bold",
+    "italic": "Italic",
+    "underline": "Underline",
+    "code": "Code",
+    "strikethrough": "Strikethrough",
+    "highlight": "Highlight",
+    "link": "Link",
+    "clearFormat": "Clear formatting",
+    "imageNeedsSave": "Save before inserting images",
+    "insertImage": "Insert image",
+    "videoNeedsSave": "Save before inserting videos",
+    "insertVideo": "Insert video",
+    "table": "Table",
+    "codeBlock": "Code block",
+    "divider": "Divider",
+    "richText": "Rich text",
+    "source": "Source",
+    "imageCaption": "Image caption",
+    "imageEncrypted": "Image is encrypted",
+    "imageMissing": "Image not found",
+    "videoPreparing": "Preparing…",
+    "videoPasswordPrompt": "Enter the password to play",
+    "password": "Password",
+    "open": "Open",
+    "videoUnavailable": "Playback is unavailable right now",
+    "videoCannotOpen": "This video cannot be opened",
+    "videoMissing": "Video not found"
+  }
+}

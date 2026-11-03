@@ -1,4 +1,5 @@
 import type { OwnerKind, UploadCatalog, UploadKind } from '@/bridge/upload';
+import i18n, { currentLocale } from '@/i18n';
 import { matchesQuery } from '@/utils/search';
 
 export type FileModule = 'journal' | 'library' | 'plan' | 'growth' | 'loose';
@@ -19,34 +20,34 @@ export type FileFilters = {
   query: string;
 };
 
-export const FILE_MODULES: { id: FileModule; label: string }[] = [
-  { id: 'journal', label: '手记' },
-  { id: 'library', label: '书库' },
-  { id: 'plan', label: '计划' },
-  { id: 'growth', label: '成长' },
-  { id: 'loose', label: '未挂载' }
+export const FILE_MODULES: { id: FileModule; labelKey: string }[] = [
+  { id: 'journal', labelKey: 'types.modules.journal' },
+  { id: 'library', labelKey: 'types.modules.library' },
+  { id: 'plan', labelKey: 'types.modules.plan' },
+  { id: 'growth', labelKey: 'types.modules.growth' },
+  { id: 'loose', labelKey: 'types.modules.loose' }
 ];
 
-export const KIND_FILTERS: { id: KindFilter; label: string }[] = [
-  { id: 'all', label: '全部' },
-  { id: 'image', label: '图片' },
-  { id: 'book', label: '书籍' },
-  { id: 'video', label: '视频' },
-  { id: 'file', label: '其他' }
+export const KIND_FILTERS: { id: KindFilter; labelKey: string }[] = [
+  { id: 'all', labelKey: 'types.filters.all' },
+  { id: 'image', labelKey: 'types.filters.image' },
+  { id: 'book', labelKey: 'types.filters.book' },
+  { id: 'video', labelKey: 'types.filters.video' },
+  { id: 'file', labelKey: 'types.filters.file' }
 ];
 
 const kindLabels: Record<string, string> = {
-  diary: '日记',
-  spark: '灵感',
-  writing: '写作',
-  milestone: '里程碑',
-  moment: '瞬间',
-  want: '想读',
-  reading: '在读',
-  finished: '读完',
-  excerpt: '书摘',
-  note: '笔记',
-  avatar: '头像'
+  diary: 'types.ownerKinds.diary',
+  spark: 'types.ownerKinds.spark',
+  writing: 'types.ownerKinds.writing',
+  milestone: 'types.ownerKinds.milestone',
+  moment: 'types.ownerKinds.moment',
+  want: 'types.ownerKinds.want',
+  reading: 'types.ownerKinds.reading',
+  finished: 'types.ownerKinds.finished',
+  excerpt: 'types.ownerKinds.excerpt',
+  note: 'types.ownerKinds.note',
+  avatar: 'types.ownerKinds.avatar'
 };
 
 export function moduleOf(owner: OwnerKind): FileModule {
@@ -69,14 +70,21 @@ export function moduleOf(owner: OwnerKind): FileModule {
 }
 
 export function moduleLabel(module: FileModule) {
-  return FILE_MODULES.find((item) => item.id === module)?.label ?? module;
+  const item = FILE_MODULES.find((entry) => entry.id === module);
+  return item ? i18n.t(`files:${item.labelKey}`) : module;
+}
+
+export function kindFilterLabel(kind: KindFilter) {
+  const item = KIND_FILTERS.find((entry) => entry.id === kind);
+  return item ? i18n.t(`files:${item.labelKey}`) : kind;
 }
 
 export function kindLabel(file: UploadCatalog) {
   if (file.owner === 'plan') {
-    return '计划';
+    return i18n.t('files:types.modules.plan');
   }
-  return kindLabels[file.ownerKind] ?? '';
+  const key = kindLabels[file.ownerKind];
+  return key ? i18n.t(`files:${key}`) : '';
 }
 
 export function ownerKey(file: UploadCatalog) {
@@ -85,9 +93,9 @@ export function ownerKey(file: UploadCatalog) {
 
 export function recordTitle(file: UploadCatalog) {
   if (file.owner === 'loose') {
-    return '未挂载';
+    return i18n.t('files:types.modules.loose');
   }
-  return file.ownerTitle.trim() || '记录已不在';
+  return file.ownerTitle.trim() || i18n.t('files:record.missing');
 }
 
 export function formatBytes(bytes: number) {
@@ -126,7 +134,7 @@ export function bookFormatLabel(name: string) {
   if (ext === 'mobi' || ext === 'azw' || ext === 'azw3') {
     return 'MOBI';
   }
-  return ext ? ext.toUpperCase() : '书籍';
+  return ext ? ext.toUpperCase() : i18n.t('files:types.book');
 }
 
 function sameRecord(files: UploadCatalog[], file: UploadCatalog) {
@@ -159,33 +167,40 @@ export function canThumb(file: UploadCatalog) {
 
 export function displayName(file: UploadCatalog, files: UploadCatalog[]) {
   if (file.owner === 'member') {
-    return '头像';
+    return i18n.t('files:types.ownerKinds.avatar');
   }
   if (file.owner === 'loose' || file.kind !== 'image') {
-    return file.name || '未命名文件';
+    return file.name || i18n.t('files:types.unnamed');
   }
   const images = sameRecord(files, file)
     .filter((item) => item.kind === 'image')
     .sort((left, right) => left.sort - right.sort || left.createdAt - right.createdAt);
   if (images.length <= 1) {
-    return '正文图片';
+    return i18n.t('files:types.bodyImage');
   }
   const index = images.findIndex((item) => item.id === file.id) + 1;
-  return `正文图片 ${index}`;
+  return i18n.t('files:types.bodyImageIndex', { index });
 }
 
-export function fileRole(file: UploadCatalog, files: UploadCatalog[]) {
+export type FileRoleKind = 'current' | 'encrypted' | 'older' | '';
+
+export function fileRoleKind(file: UploadCatalog, files: UploadCatalog[]): FileRoleKind {
   if (file.kind !== 'book') {
     return '';
   }
   const current = readableBook(files, file);
   if (current?.id === file.id) {
-    return '当前正文';
+    return 'current';
   }
   if (file.encrypted) {
-    return '已加密';
+    return 'encrypted';
   }
-  return '较早的一份';
+  return 'older';
+}
+
+export function fileRole(file: UploadCatalog, files: UploadCatalog[]) {
+  const kind = fileRoleKind(file, files);
+  return kind ? i18n.t(`files:role.${kind}`) : '';
 }
 
 export function readingNote(file: UploadCatalog, files: UploadCatalog[]) {
@@ -194,15 +209,15 @@ export function readingNote(file: UploadCatalog, files: UploadCatalog[]) {
   }
   const books = bookFiles(sameRecord(files, file));
   if (books.length === 0) {
-    return '没有正文';
+    return i18n.t('files:reading.none');
   }
   if (readableBook(files, file)) {
-    return '可阅读';
+    return i18n.t('files:reading.readable');
   }
   if (books.every((item) => item.encrypted)) {
-    return '已加密，不能阅读';
+    return i18n.t('files:reading.encrypted');
   }
-  return '没有可打开的正文';
+  return i18n.t('files:reading.noReadable');
 }
 
 function matchesState(file: UploadCatalog, state: StateFilter) {
@@ -258,28 +273,28 @@ export function compareFiles(left: UploadCatalog, right: UploadCatalog, sort: Fi
     return right.size - left.size;
   }
   if (sort === 'name') {
-    return displayName(left, files).localeCompare(displayName(right, files), 'zh');
+    return displayName(left, files).localeCompare(displayName(right, files), currentLocale());
   }
   return right.createdAt - left.createdAt;
 }
 
 export function openLabel(file: UploadCatalog) {
   if (file.owner === 'book') {
-    return '打开这本书';
+    return i18n.t('files:open.book');
   }
   if (file.owner === 'book_note') {
-    return '打开这条书摘';
+    return i18n.t('files:open.bookNote');
   }
   if (file.owner === 'plan') {
-    return '打开这条计划';
+    return i18n.t('files:open.plan');
   }
   if (file.owner === 'growth_entry') {
-    return '打开这条成长';
+    return i18n.t('files:open.growth');
   }
   if (file.owner === 'member') {
-    return '打开这位家人';
+    return i18n.t('files:open.member');
   }
-  return '打开这篇手记';
+  return i18n.t('files:open.journal');
 }
 
 export function canOpen(file: UploadCatalog) {
@@ -303,18 +318,18 @@ type DeleteCopy = {
 
 function hostName(file: UploadCatalog) {
   if (file.owner === 'book_note') {
-    return '这条书摘';
+    return i18n.t('files:host.bookNote');
   }
   if (file.owner === 'plan') {
-    return '这条计划';
+    return i18n.t('files:host.plan');
   }
   if (file.owner === 'growth_entry') {
-    return '这条成长记录';
+    return i18n.t('files:host.growth');
   }
   if (file.owner === 'member') {
-    return '这位家人';
+    return i18n.t('files:host.member');
   }
-  return '这篇手记';
+  return i18n.t('files:host.journal');
 }
 
 const IMAGE_EXT = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'avif', 'heic', 'heif', 'jxl', 'tif', 'tiff']);
@@ -356,17 +371,17 @@ export function deleteCopy(file: UploadCatalog, files: UploadCatalog[]): DeleteC
   if (file.owner === 'loose') {
     return {
       blocked: false,
-      title: '删除这份文件',
-      body: '它不挂在记录上。删掉后就没有了。'
+      title: i18n.t('files:remove.looseTitle'),
+      body: i18n.t('files:remove.looseBody')
     };
   }
   const title = file.ownerTitle.trim();
-  const quoted = title ? `《${title}》` : '这条记录';
+  const quoted = title ? i18n.t('files:remove.quote', { title }) : i18n.t('files:remove.thisRecord');
   if (file.ownerSealed) {
     return {
       blocked: true,
-      title: '还不能删除',
-      body: `${quoted}已封存。正文里仍引用这个文件，先解开再删。`
+      title: i18n.t('files:remove.sealedTitle'),
+      body: i18n.t('files:remove.sealedBody', { record: quoted })
     };
   }
   if (file.kind === 'book') {
@@ -378,43 +393,47 @@ export function deleteCopy(file: UploadCatalog, files: UploadCatalog[]): DeleteC
       const encryptedLeft = rest.some((item) => item.kind === 'book' && item.encrypted);
       return {
         blocked: false,
-        title: '删除这份正文',
+        title: i18n.t('files:remove.bookCurrentTitle'),
         body: encryptedLeft
-          ? `删除后，${quoted}只剩已加密的文件。书还在书架上，阅读页会显示暂时不能阅读。进度和封面保留。`
-          : `删除后，${quoted}还在书架上，但没有可打开的正文。进度和封面保留。`
+          ? i18n.t('files:remove.bookOnlyEncrypted', { quoted })
+          : i18n.t('files:remove.bookNoReadable', { quoted })
       };
     }
     if (current && current.id !== file.id) {
       return {
         blocked: false,
-        title: '删除这份文件',
-        body: `${quoted}仍用 ${bookFormatLabel(current.name)} 打开，阅读不受影响。`
+        title: i18n.t('files:remove.bookTitle'),
+        body: i18n.t('files:remove.bookStillUses', { quoted, format: bookFormatLabel(current.name) })
       };
     }
     return {
       blocked: false,
-      title: '删除这份正文',
-      body: `删除后，${quoted}没有正文文件。书还在书架上。`
+      title: i18n.t('files:remove.bookCurrentTitle'),
+      body: i18n.t('files:remove.bookNoText', { quoted })
     };
   }
   if (file.owner === 'member') {
     const name = file.ownerTitle.trim();
     return {
       blocked: false,
-      title: '删除这张头像',
-      body: name ? `删掉后，${name}的头像会空着。家人还在。` : '删掉后，这位家人的头像会空着。家人还在。'
+      title: i18n.t('files:remove.avatarTitle'),
+      body: name ? i18n.t('files:remove.avatarBody', { name }) : i18n.t('files:remove.avatarBodyNoName')
     };
   }
   if (file.kind === 'image') {
     return {
       blocked: false,
-      title: '删除这张正文图片',
-      body: `它会从${hostName(file)}${title ? quoted : ''}里去掉。记录本身保留。`
+      title: i18n.t('files:remove.imageTitle'),
+      body: title
+        ? i18n.t('files:remove.fromHostNamed', { host: hostName(file), title })
+        : i18n.t('files:remove.fromHost', { host: hostName(file) })
     };
   }
   return {
     blocked: false,
-    title: '删除这份文件',
-    body: `它会从${hostName(file)}${title ? quoted : ''}里去掉。记录本身保留。`
+    title: i18n.t('files:remove.fileTitle'),
+    body: title
+      ? i18n.t('files:remove.fromHostNamed', { host: hostName(file), title })
+      : i18n.t('files:remove.fromHost', { host: hostName(file) })
   };
 }

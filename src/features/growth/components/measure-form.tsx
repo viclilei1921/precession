@@ -1,11 +1,13 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { GrowthMeasure, GrowthMeasureInput } from '@/bridge/growth';
 import { growthMeasureCreate, growthMeasureDelete, growthMeasureUpdate } from '@/bridge/growth';
 import { Button } from '@/components/button';
 import { DateField } from '@/components/date-field';
-import { Modal } from '@/components/modal';
+import { Modal, ModalCloseRef } from '@/components/modal';
 import { TextField } from '@/components/text-field';
+import { useBackLayer } from '@/layout/mobile/back';
 import { refreshGrowth } from '@/query/growth/query';
 import { fromDateInputValue, startOfLocalDay, toDateInputValue } from '@/utils/day';
 import { errorMessage } from '@/utils/error';
@@ -20,7 +22,9 @@ type MeasureFormProps = {
 
 /** 记一次身高体重。界面用厘米和千克，各保留一位。 */
 export function MeasureForm({ memberId, measure, onClose }: MeasureFormProps) {
+  const { t } = useTranslation('growth');
   const queryClient = useQueryClient();
+  const closeRef = useRef(onClose);
   const [occurredAt, setOccurredAt] = useState(toDateInputValue(measure?.occurredAt ?? startOfLocalDay()));
   const [height, setHeight] = useState(measure ? cmText(measure.heightMm) : '');
   const [weight, setWeight] = useState(measure ? kgText(measure.weightG) : '');
@@ -41,56 +45,58 @@ export function MeasureForm({ memberId, measure, onClose }: MeasureFormProps) {
     mutationFn: async () => {
       const next = input();
       if (!next) {
-        throw new Error('身高和体重要大于 0');
+        throw new Error(t('measure.heightWeightError'));
       }
       return measure ? growthMeasureUpdate(measure.id, next) : growthMeasureCreate(next);
     },
     onSuccess: async () => {
       await refreshGrowth(queryClient);
-      onClose();
+      closeRef.current();
     }
   });
   const remove = useMutation({
     mutationFn: () => {
       if (!measure) {
-        return Promise.reject(new Error('记录不存在'));
+        return Promise.reject(new Error(t('measure.notFound')));
       }
       return growthMeasureDelete(measure.id);
     },
     onSuccess: async () => {
       await refreshGrowth(queryClient);
-      onClose();
+      closeRef.current();
     }
   });
   const busy = save.isPending || remove.isPending;
+  useBackLayer(true, onClose);
   const error =
     formError || (save.error ? errorMessage(save.error) : '') || (remove.error ? errorMessage(remove.error) : '');
 
   return (
-    <Modal title={measure ? '修改生长' : '记一次'} onClose={onClose}>
+    <Modal title={measure ? t('measure.editTitle') : t('measure.createTitle')} onClose={onClose}>
+      <ModalCloseRef target={closeRef} />
       <form
         className={styles.stack}
         onSubmit={(event) => {
           event.preventDefault();
           if (!input()) {
-            setFormError('身高和体重要大于 0');
+            setFormError(t('measure.heightWeightError'));
             return;
           }
           setFormError('');
           save.mutate();
         }}
       >
-        <DateField label="日期" value={occurredAt} onChange={setOccurredAt} />
+        <DateField label={t('form.date')} value={occurredAt} onChange={setOccurredAt} />
         <div className={styles.pair}>
           <TextField
-            label="身高（厘米）"
+            label={t('measure.heightLabel')}
             value={height}
             required
             inputMode="decimal"
             onChange={(event) => setHeight(event.target.value)}
           />
           <TextField
-            label="体重（千克）"
+            label={t('measure.weightLabel')}
             value={weight}
             required
             inputMode="decimal"
@@ -98,7 +104,7 @@ export function MeasureForm({ memberId, measure, onClose }: MeasureFormProps) {
           />
         </div>
         {error ? <p className={styles.error}>{error}</p> : null}
-        {confirmDelete ? <p className={styles.hint}>再点一次就会删掉这次记录。</p> : null}
+        {confirmDelete ? <p className={styles.hint}>{t('measure.confirmDelete')}</p> : null}
         <div className={styles.actions}>
           {measure ? (
             <Button
@@ -113,15 +119,15 @@ export function MeasureForm({ memberId, measure, onClose }: MeasureFormProps) {
                 remove.mutate();
               }}
             >
-              {confirmDelete ? '确认删除' : '删除'}
+              {confirmDelete ? t('form.confirmDelete') : t('common:button.delete')}
             </Button>
           ) : null}
           <span className={styles.spacer} />
-          <Button variant="outlined" disabled={busy} onClick={onClose}>
-            取消
+          <Button variant="outlined" disabled={busy} onClick={() => closeRef.current()}>
+            {t('common:button.cancel')}
           </Button>
           <Button type="submit" disabled={busy}>
-            保存
+            {t('common:button.save')}
           </Button>
         </div>
       </form>

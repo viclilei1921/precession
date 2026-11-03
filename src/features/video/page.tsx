@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ffmpegProbe, fileSizes, taskEnqueue } from '@/bridge';
 import type { Task, TimeSegment, VideoEncode } from '@/bridge/task';
 import { Button } from '@/components/button';
@@ -27,21 +28,33 @@ import { nextClip, nextFileKey } from './types';
 const videoExtensions = ['mp4', 'm4v', 'mov', 'mkv', 'webm', 'ts', 'm2ts', 'mpeg', 'mpg'];
 
 const operations = [
-  { id: 'convert', label: '转码' },
-  { id: 'cut', label: '裁剪' },
-  { id: 'merge', label: '合并' },
-  { id: 'append', label: '追加' }
+  { id: 'convert', label: 'page.operations.convert' },
+  { id: 'cut', label: 'page.operations.cut' },
+  { id: 'merge', label: 'page.operations.merge' },
+  { id: 'append', label: 'page.operations.append' }
 ] as const;
 
 const startLabel: Record<VideoOp, string> = {
-  convert: '开始转码',
-  cut: '开始裁剪',
-  merge: '开始合并',
-  append: '开始追加'
+  convert: 'page.start.convert',
+  cut: 'page.start.cut',
+  merge: 'page.start.merge',
+  append: 'page.start.append'
 };
 
-const hint =
-  '转码、裁剪各自输出到原文件旁边，文件名加 _converted 或 _cut。合并、追加把勾选的视频合成一个文件，至少两个；追加时第一个勾选的是基准。默认编码是 MP4、AV1、速度 6、CRF 35、10-bit。自定义时按画面、音频、标题、字幕填写。';
+const hint = 'page.hint';
+
+type FormError = { key: string } | { text: string };
+
+/** 前端校验错误用稳定的 key 表示，避免比较翻译后的文本。 */
+class ValidationError extends Error {
+  readonly key: string;
+
+  constructor(key: string) {
+    super(key);
+    this.name = 'ValidationError';
+    this.key = key;
+  }
+}
 
 export function VideoPage() {
   const mobile = useAppStore((state) => state.isMobile());
@@ -52,6 +65,7 @@ export function VideoPage() {
 }
 
 function VideoWorkspace() {
+  const { t } = useTranslation('video');
   const queryClient = useQueryClient();
   const [op, setOp] = useState<VideoOp>('convert');
   const [mode, setMode] = useState<'default' | 'custom'>('default');
@@ -60,7 +74,7 @@ function VideoWorkspace() {
   const [output, setOutput] = useState('');
   const [outputEdited, setOutputEdited] = useState(false);
   const [drawFilename, setDrawFilename] = useState(false);
-  const [formError, setFormError] = useState('');
+  const [formError, setFormError] = useState<FormError | null>(null);
   const [tab, setTab] = useState<VideoTab>('run');
   const extension = outputExtension(mode, draft.container, draft.codec);
   const perFile = op === 'convert' || op === 'cut';
@@ -161,7 +175,7 @@ function VideoWorkspace() {
     setMode(form.mode);
     setDraft(form.draft);
     setDrawFilename(form.drawFilename);
-    setFormError('');
+    setFormError(null);
     if (saved.kind === 'convertVideo' || saved.kind === 'cutVideo') {
       setOp(saved.kind === 'cutVideo' ? 'cut' : 'convert');
       const file = fileFrom(saved.input, saved.output, saved.kind === 'cutVideo' ? saved.segments : []);
@@ -214,7 +228,7 @@ function VideoWorkspace() {
       const next = added.filter((file) => !present.has(file.input));
       return next.length === 0 ? current : [...current, ...next];
     });
-    setFormError('');
+    setFormError(null);
     added.forEach(watch);
   }
 
@@ -232,16 +246,16 @@ function VideoWorkspace() {
     mutationFn: async () => {
       const selected = files.filter((file) => file.checked);
       if (files.length === 0) {
-        throw new Error('请先添加视频。');
+        throw new ValidationError('page.errors.noFiles');
       }
       if (selected.length === 0) {
-        throw new Error('请先选择视频。');
+        throw new ValidationError('page.errors.noSelection');
       }
       const profile = encode();
       if (op === 'convert') {
         for (const file of selected) {
           if (!file.output.trim()) {
-            throw new Error('请填写输出路径。');
+            throw new ValidationError('page.errors.outputRequired');
           }
           await taskEnqueue({ kind: 'convertVideo', input: file.input, output: file.output.trim(), encode: profile });
         }
@@ -250,10 +264,10 @@ function VideoWorkspace() {
       if (op === 'cut') {
         for (const file of selected) {
           if (!file.output.trim() || file.segments.length === 0) {
-            throw new Error('每个视频都要有输出路径和至少一个片段。');
+            throw new ValidationError('page.errors.clipOutputRequired');
           }
           if (file.segments.some((segment) => segment.end <= segment.start)) {
-            throw new Error('片段的结束时间要晚于开始时间。');
+            throw new ValidationError('page.errors.clipRange');
           }
           const segments: TimeSegment[] = file.segments.map(({ start, end }) => ({
             start: formatTime(start),
@@ -270,10 +284,10 @@ function VideoWorkspace() {
         return;
       }
       if (selected.length < 2) {
-        throw new Error(op === 'merge' ? '合并至少需要两个视频。' : '追加至少需要基准和一段新视频。');
+        throw new ValidationError(op === 'merge' ? 'page.errors.mergeMin' : 'page.errors.appendMin');
       }
       if (!output.trim()) {
-        throw new Error('请填写输出路径。');
+        throw new ValidationError('page.errors.outputRequired');
       }
       if (op === 'merge') {
         await taskEnqueue({
@@ -286,7 +300,7 @@ function VideoWorkspace() {
       }
       const [base, ...rest] = selected;
       if (!base) {
-        throw new Error('追加至少需要基准和一段新视频。');
+        throw new ValidationError('page.errors.appendMin');
       }
       await taskEnqueue({
         kind: 'appendVideo',
@@ -300,12 +314,12 @@ function VideoWorkspace() {
       setFiles((current) => current.filter((file) => !file.checked));
       setOutput('');
       setOutputEdited(false);
-      setFormError('');
+      setFormError(null);
       setTab('wait');
       await refreshTasks(queryClient);
     },
     onError: (error) => {
-      setFormError(errorMessage(error));
+      setFormError(error instanceof ValidationError ? { key: error.key } : { text: errorMessage(error) });
     }
   });
 
@@ -331,26 +345,26 @@ function VideoWorkspace() {
         <div className={styles.column}>
           <article className={styles.formatCard}>
             <div className={styles.formatRow}>
-              <div className={styles.group} role="tablist" aria-label="处理方式">
+              <div className={styles.group} role="tablist" aria-label={t('page.processingMode')}>
                 {operations.map((item) => (
                   <SegmentButton key={item.id} selected={op === item.id} onClick={() => setOp(item.id)}>
-                    {item.label}
+                    {t(item.label)}
                   </SegmentButton>
                 ))}
               </div>
-              <InfoTip label="处理说明" title={hint} />
-              <div className={styles.group} role="tablist" aria-label="编码模式">
+              <InfoTip label={t('page.processingHint')} title={t(hint)} />
+              <div className={styles.group} role="tablist" aria-label={t('page.encodeMode')}>
                 <SegmentButton selected={mode === 'default'} onClick={() => setMode('default')}>
-                  默认
+                  {t('page.modeDefault')}
                 </SegmentButton>
                 <SegmentButton selected={mode === 'custom'} onClick={() => setMode('custom')}>
-                  自定义
+                  {t('page.modeCustom')}
                 </SegmentButton>
               </div>
             </div>
             <Scroll className={styles.formatRest} axis="vertical" gutter>
               {mode === 'default' ? (
-                <p className={styles.defaults}>默认：{defaultEncodeSummary}</p>
+                <p className={styles.defaults}>{t('page.defaultSummary', { summary: defaultEncodeSummary() })}</p>
               ) : (
                 <EncodePanel draft={draft} perFile={perFile} tracks={tracks} onChange={setDraft} />
               )}
@@ -366,26 +380,24 @@ function VideoWorkspace() {
             <div className={styles.output}>
               {mode === 'default' ? (
                 <Checkbox
-                  label="在画面上写文件名"
+                  label={t('page.drawFilename')}
                   checked={drawFilename}
                   onChange={(event) => setDrawFilename(event.target.checked)}
                 />
               ) : null}
               <TextField
-                label="输出路径"
+                label={t('page.outputPath')}
                 value={output}
                 required
                 onChange={(event) => {
                   setOutput(event.target.value);
                   setOutputEdited(true);
-                  if (formError === '请填写输出路径。') {
-                    setFormError('');
+                  if (formError && 'key' in formError && formError.key === 'page.errors.outputRequired') {
+                    setFormError(null);
                   }
                 }}
               />
-              <p className={styles.hint}>
-                {op === 'append' ? '只把勾选的视频接在基准后面。第一个勾选的是基准。' : '只按列表顺序拼接勾选的视频。'}
-              </p>
+              <p className={styles.hint}>{op === 'append' ? t('page.appendHint') : t('page.mergeHint')}</p>
             </div>
           )}
           <FileList
@@ -394,8 +406,8 @@ function VideoWorkspace() {
             perFile={perFile}
             onChecked={(key, checked) => {
               setFiles((current) => current.map((file) => (file.key === key ? { ...file, checked } : file)));
-              if (formError === '请先选择视频。') {
-                setFormError('');
+              if (formError && 'key' in formError && formError.key === 'page.errors.noSelection') {
+                setFormError(null);
               }
             }}
             onChange={(next) => setFiles((current) => current.map((file) => (file.key === next.key ? next : file)))}
@@ -403,16 +415,18 @@ function VideoWorkspace() {
             onRemove={(key) => setFiles((current) => current.filter((file) => file.key !== key))}
             onSelectAll={() => {
               setFiles((current) => current.map((file) => ({ ...file, checked: true })));
-              setFormError('');
+              setFormError(null);
             }}
             onInvert={() => setFiles((current) => current.map((file) => ({ ...file, checked: !file.checked })))}
             onClear={() => setFiles([])}
             onDeleteSelected={() => setFiles((current) => current.filter((file) => !file.checked))}
             start={
               <>
-                {formError ? <p className={styles.error}>{formError}</p> : null}
+                {formError ? (
+                  <p className={styles.error}>{'key' in formError ? t(formError.key) : formError.text}</p>
+                ) : null}
                 <Button disabled={enqueue.isPending} onClick={() => enqueue.mutate()}>
-                  {startLabel[op]}
+                  {t(startLabel[op])}
                 </Button>
               </>
             }

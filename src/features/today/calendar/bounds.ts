@@ -1,3 +1,4 @@
+import i18n from '@/i18n';
 import { addLocalDays, startOfLocalDay, toDateInputValue } from '@/utils/day';
 
 export type DayCell = {
@@ -32,7 +33,7 @@ export function yearGrid(yearStart: number): { from: number; to: number; months:
   const months = Array.from({ length: 12 }, (_, month) => {
     const monthStart = new Date(year, month, 1).getTime();
     const grid = monthGrid(monthStart);
-    return { monthStart, label: `${month + 1}月`, cells: grid.cells };
+    return { monthStart, label: i18n.t('today:calendar.monthLabel', { month: month + 1 }), cells: grid.cells };
   });
   const last = months[11].cells;
   return { from: months[0].cells[0].time, to: last[last.length - 1].time, months };

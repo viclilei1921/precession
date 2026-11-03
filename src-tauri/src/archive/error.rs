@@ -13,6 +13,7 @@ use serde::Serialize;
 /// - `Invalid`: 压缩包不是本应用的档案
 /// - `Io`: 读写文件失败
 /// - `Internal`: 打包或恢复失败
+/// - `Share`: 系统分享打不开
 #[derive(Debug, thiserror::Error)]
 pub enum ArchiveError {
   /// 没有选择位置
@@ -39,6 +40,9 @@ pub enum ArchiveError {
   /// 打包或恢复失败
   #[error("操作失败")]
   Internal,
+  /// 系统分享打不开
+  #[error("无法打开系统分享")]
+  Share,
 }
 
 impl From<crate::db::error::DbError> for ArchiveError {

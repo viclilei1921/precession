@@ -64,32 +64,32 @@
   transform: none;
 }
 
-.toolbarRow {
+.toolbar-row {
   display: flex;
   gap: var(--space-3);
   align-items: center;
   min-width: 0;
 }
 
-.toolbarTitle {
+.toolbar-title {
   display: flex;
   flex: 1;
   flex-direction: column;
   min-width: 0;
 }
 
-.toolbarTitle strong,
-.toolbarTitle span {
+.toolbar-title strong,
+.toolbar-title span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.toolbarTitle strong {
+.toolbar-title strong {
   font-weight: 600;
 }
 
-.toolbarTitle span,
+.toolbar-title span,
 .percents {
   font-size: var(--text-xs);
   color: var(--muted-foreground);
@@ -123,9 +123,38 @@
   transform-origin: left center;
 }
 
-.fillChapter {
+.fill-chapter {
   background: color-mix(in srgb, var(--foreground) 62%, var(--card));
   transform: scaleX(var(--chapter-progress));
+}
+
+.reading-progress {
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 26;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  justify-content: flex-end;
+  height: var(--inset-top);
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.reading-progress .track {
+  height: 3px;
+  background: color-mix(in srgb, var(--reader-fg) 18%, transparent);
+  border-radius: 0;
+}
+
+.reading-progress .fill {
+  background: var(--reader-fg);
+}
+
+.reading-progress .fill-chapter {
+  background: color-mix(in srgb, var(--reader-fg) 62%, transparent);
 }
 
 .body {
@@ -150,7 +179,7 @@
   height: 0;
 }
 
-.chapterBlock {
+.chapter-block {
   min-width: 0;
 }
 
@@ -177,6 +206,18 @@
   text-align: start;
 }
 
+.content h1 {
+  font-size: var(--text-2xl);
+}
+
+.content h2 {
+  font-size: var(--text-xl);
+}
+
+.content h3 {
+  font-size: var(--text-lg);
+}
+
 .content :is(p, li) {
   margin: 0 0 var(--reader-gap, 1em);
 }
@@ -186,21 +227,21 @@
   height: auto;
 }
 
-.chapterEnd {
+.chapter-end {
   max-width: var(--reader-max-width, 90%);
   padding: var(--space-6) var(--space-4) 4.5rem;
   margin: 0 auto;
   text-align: center;
 }
 
-.chapterEndMark {
+.chapter-end-mark {
   margin: 0;
   font-size: var(--text-sm);
   color: color-mix(in srgb, var(--reader-fg) 64%, var(--reader-bg));
   letter-spacing: 0.18em;
 }
 
-.chapterEndTitle {
+.chapter-end-title {
   margin: var(--space-2) 0 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -208,7 +249,7 @@
   white-space: nowrap;
 }
 
-.chapterEndHint {
+.chapter-end-hint {
   margin: var(--space-2) 0 0;
   font-size: var(--text-sm);
   color: color-mix(in srgb, var(--reader-fg) 64%, var(--reader-bg));
@@ -270,13 +311,13 @@
     visibility var(--transition);
 }
 
-.drawerLeft {
+.drawer-left {
   left: 0;
   box-shadow: 12px 0 32px oklch(from var(--foreground) l c h / 8%);
   transform: translateX(-100%);
 }
 
-.drawerRight {
+.drawer-right {
   right: 0;
   box-shadow: -12px 0 32px oklch(from var(--foreground) l c h / 8%);
   transform: translateX(100%);
@@ -287,7 +328,7 @@
   transform: none;
 }
 
-.drawerHead {
+.drawer-head {
   display: flex;
   flex: none;
   gap: var(--space-2);
@@ -296,14 +337,14 @@
   border-bottom: 1px solid var(--border);
 }
 
-.drawerHead h2 {
+.drawer-head h2 {
   flex: 1;
   margin: 0;
   font-size: var(--text-lg);
   font-weight: 400;
 }
 
-.drawerBody {
+.drawer-body {
   display: flex;
   flex: 1;
   flex-direction: column;
@@ -321,7 +362,7 @@
   overflow: auto;
 }
 
-.tocItem {
+.toc-item {
   flex: none;
   min-height: 36px;
   padding: 0 var(--space-2);
@@ -331,11 +372,11 @@
   border-radius: var(--radius-sm);
 }
 
-.tocItem:hover {
+.toc-item:hover {
   background: var(--muted);
 }
 
-.tocItem[data-on="true"] {
+.toc-item[data-on="true"] {
   background: var(--card);
   box-shadow: inset 0 0 0 1px var(--border);
 }

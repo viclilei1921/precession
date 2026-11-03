@@ -1,3 +1,10 @@
+/// 同步前端当前语言到后端，并重建托盘菜单
+#[tauri::command]
+pub fn set_app_locale(app: tauri::AppHandle, language: String) {
+  crate::i18n::set(&language);
+  crate::tray::refresh_tray_menu(&app);
+}
+
 /// 返回前端可调用的命令分发函数
 ///
 /// # 返回值
@@ -12,6 +19,7 @@
 /// ```
 pub fn handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Sync + 'static {
   tauri::generate_handler![
+    set_app_locale,
     crate::about::commands::app_versions,
     crate::db::commands::db_status,
     crate::db::commands::db_create,
@@ -22,6 +30,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Syn
     crate::db::commands::db_disable_device_unlock,
     crate::archive::commands::archive_info,
     crate::archive::commands::archive_export,
+    crate::archive::commands::archive_export_share,
     crate::archive::commands::archive_import,
     crate::member::commands::member_list,
     crate::member::commands::member_get,
@@ -51,6 +60,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Syn
     crate::ffmpeg::commands::ffmpeg_probe,
     crate::files::commands::collect_files,
     crate::files::commands::file_sizes,
+    crate::files::commands::materialize_picked,
     crate::task::commands::task_enqueue,
     crate::task::commands::task_list,
     crate::task::commands::task_cancel,

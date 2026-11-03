@@ -1,12 +1,13 @@
 import { LockIcon } from '@phosphor-icons/react';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { UploadCatalog } from '@/bridge/upload';
 import { mediaSrc, uploadOpen } from '@/bridge/upload';
 import { Button } from '@/components/button';
 import { PasswordInput } from '@/components/password-input';
 import { mediaInfoQuery } from '@/query/files/query';
-import { errorMessage } from '@/utils/error';
+import { errorMessage, rawErrorMessage } from '@/utils/error';
 import styles from './access.module.css';
 
 type Phase = 'check' | 'need' | 'ready' | 'error';
@@ -71,7 +72,7 @@ export function useMediaAccess(file: UploadCatalog): MediaAccess {
           return;
         }
         const text = errorMessage(error);
-        if (text === '请输入密码') {
+        if (rawErrorMessage(error) === '请输入密码') {
           setPhase('need');
           return;
         }
@@ -115,6 +116,7 @@ export function useMediaAccess(file: UploadCatalog): MediaAccess {
 
 /** 加密文件的密码。解开后由调用方显示画面。 */
 export function UnlockForm({ access }: { access: MediaAccess }) {
+  const { t } = useTranslation('files');
   return (
     <form
       className={styles.form}
@@ -124,16 +126,16 @@ export function UnlockForm({ access }: { access: MediaAccess }) {
       }}
     >
       <LockIcon className={styles.lock} weight="regular" />
-      <span>输入密码后可以预览</span>
+      <span>{t('viewer.passwordPrompt')}</span>
       <PasswordInput
-        label="密码"
+        label={t('viewer.passwordLabel')}
         value={access.password}
         autoFocus
         onChange={(event) => access.setPassword(event.target.value)}
       />
       {access.message ? <span className={styles.fail}>{access.message}</span> : null}
       <Button type="submit" disabled={access.opening || access.password.length === 0}>
-        {access.opening ? '正在打开…' : '打开'}
+        {access.opening ? t('viewer.unlocking') : t('viewer.unlock')}
       </Button>
     </form>
   );

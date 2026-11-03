@@ -1,5 +1,7 @@
 import type { CalendarDay } from '@/bridge/calendar';
+import i18n from '@/i18n';
 import { fromDateInputValue, toDateInputValue } from '@/utils/day';
+import { translateSolarTerm } from './almanac-dict';
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -27,7 +29,7 @@ export function termView(days: CalendarDay[], selected: number, fallbackName: st
   const selectedKey = toDateInputValue(selected);
   const terms = days
     .filter((day) => day.lunar?.solarTerm)
-    .map((day) => ({ date: day.date, name: day.lunar?.solarTerm ?? '' }))
+    .map((day) => ({ date: day.date, name: translateSolarTerm(day.lunar?.solarTerm ?? '') }))
     .sort((left, right) => left.date.localeCompare(right.date));
 
   let currentIndex = -1;
@@ -38,13 +40,18 @@ export function termView(days: CalendarDay[], selected: number, fallbackName: st
   }
   const current = currentIndex >= 0 ? terms[currentIndex] : undefined;
   const next = currentIndex >= 0 ? terms[currentIndex + 1] : terms.find((item) => item.date > selectedKey);
-  const name = current?.name || fallbackName || '节气';
+  const name = current?.name || translateSolarTerm(fallbackName) || i18n.t('today:calendar.term.fallback');
   if (!current || !next) {
-    const hint = next ? `距${next.name}还有 ${daysBetween(selectedKey, next.date)} 天` : '';
+    const hint = next
+      ? i18n.t('today:calendar.term.hint', { count: daysBetween(selectedKey, next.date), name: next.name })
+      : '';
     return { name, hint, percent: 0 };
   }
   const span = Math.max(1, daysBetween(current.date, next.date));
   const elapsed = Math.min(span, Math.max(0, daysBetween(current.date, selectedKey)));
-  const hint = elapsed === 0 ? `当日交节 · 距${next.name}还有 ${span} 天` : `距${next.name}还有 ${span - elapsed} 天`;
+  const hint =
+    elapsed === 0
+      ? i18n.t('today:calendar.term.hintToday', { count: span, name: next.name })
+      : i18n.t('today:calendar.term.hint', { count: span - elapsed, name: next.name });
   return { name, hint, percent: Math.round((elapsed / span) * 100) };
 }

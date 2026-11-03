@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { MarkdownImageOwner } from '@/components/markdown';
 import { uploadDisplayUrl } from '@/components/markdown/image';
+import i18n from '@/i18n';
 import styles from './face.module.css';
 
 type MemberFaceProps = {
@@ -17,7 +18,7 @@ function showable(url: string) {
 /** 家人头像。没有图片时用名字的第一个字 */
 export function MemberFace({ name, imageId, owner, size = 'md' }: MemberFaceProps) {
   const [src, setSrc] = useState('');
-  const mark = Array.from(name.trim())[0] ?? '人';
+  const mark = Array.from(name.trim())[0] ?? i18n.t('growth:page.personFallback');
   const ownerKind = owner.owner;
   const ownerId = owner.ownerId;
 

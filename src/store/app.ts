@@ -88,3 +88,20 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   },
   toggleSidebar: () => get().setSidebarCollapsed(!get().sidebarCollapsed)
 }));
+
+/**
+ * 用 Store 里读到的外观偏好刷新状态。
+ *
+ * 模块加载时 Store 还没预载，`loadAppearance` 会先用默认值。启动流程在
+ * `preloadPreferences` 之后调用这里，避免首屏闪主题。
+ */
+export function hydrateAppearance() {
+  const appearance = loadAppearance();
+  applyAppearance(appearance);
+  useAppStore.setState({
+    themePreference: appearance.theme,
+    theme: resolveTheme(appearance.theme),
+    reduceMotion: appearance.reduceMotion,
+    sidebarCollapsed: appearance.sidebarCollapsed
+  });
+}

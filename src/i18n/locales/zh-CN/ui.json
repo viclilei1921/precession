@@ -1,0 +1,72 @@
+{
+  "progress": {
+    "label": "进度"
+  },
+  "password": {
+    "toggle": "按住显示密码"
+  },
+  "planCheck": {
+    "done": "已完成",
+    "complete": "完成"
+  },
+  "complete": {
+    "title": "完成计划",
+    "result": "结果",
+    "resultPlaceholder": "可以补一句结果",
+    "submit": "完成"
+  },
+  "fileDrop": {
+    "chooseFiles": "选择文件",
+    "chooseFolder": "选择文件夹",
+    "release": "松开以添加",
+    "caption": "{{count}} 项，包含子文件夹里的文件",
+    "caption_one": "{{count}} 项，包含子文件夹里的文件",
+    "caption_other": "{{count}} 项，包含子文件夹里的文件",
+    "captionGeneric": "文件，以及文件夹里的文件",
+    "noMatch": "这个文件夹里没有符合的文件。"
+  },
+  "date": {
+    "pickDate": "选择日期",
+    "previousYear": "上一年",
+    "previousMonth": "上个月",
+    "nextMonth": "下个月",
+    "nextYear": "下一年",
+    "openCalendar": "打开日历",
+    "yearMonth": "{{year}}年{{month}}"
+  },
+  "markdown": {
+    "heading1": "标题 1",
+    "heading2": "标题 2",
+    "heading3": "标题 3",
+    "heading4": "标题 4",
+    "bulletList": "列表",
+    "quote": "引用",
+    "bold": "加粗",
+    "italic": "斜体",
+    "underline": "下划线",
+    "code": "代码",
+    "strikethrough": "删除线",
+    "highlight": "高亮",
+    "link": "超链接",
+    "clearFormat": "清空格式",
+    "imageNeedsSave": "先保存，再插入图片",
+    "insertImage": "插入图片",
+    "videoNeedsSave": "先保存，再插入视频",
+    "insertVideo": "插入视频",
+    "table": "表格",
+    "codeBlock": "代码块",
+    "divider": "分割线",
+    "richText": "排版",
+    "source": "源码",
+    "imageCaption": "图片说明",
+    "imageEncrypted": "图片已加密",
+    "imageMissing": "图片找不到",
+    "videoPreparing": "正在准备…",
+    "videoPasswordPrompt": "输入密码后可以播放",
+    "password": "密码",
+    "open": "打开",
+    "videoUnavailable": "播放暂时不可用",
+    "videoCannotOpen": "这个视频打不开",
+    "videoMissing": "视频找不到"
+  }
+}

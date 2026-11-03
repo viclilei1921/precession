@@ -1,0 +1,136 @@
+{
+  "screenTitle": "Plans",
+  "view": {
+    "year": "Year",
+    "month": "Month",
+    "week": "Week",
+    "day": "Day",
+    "agenda": "Agenda"
+  },
+  "title": {
+    "year": "{{year}}",
+    "month": "{{month}}/{{year}}",
+    "monthOnly": "{{month}}"
+  },
+  "nav": {
+    "prevYear": "Previous year",
+    "nextYear": "Next year",
+    "prevMonth": "Previous month",
+    "nextMonth": "Next month",
+    "prevWeek": "Previous week",
+    "nextWeek": "Next week",
+    "prevDay": "Previous day",
+    "nextDay": "Next day"
+  },
+  "weekday": {
+    "mon": "Mon",
+    "tue": "Tue",
+    "wed": "Wed",
+    "thu": "Thu",
+    "fri": "Fri",
+    "sat": "Sat",
+    "sun": "Sun"
+  },
+  "weekdayShort": {
+    "mon": "M",
+    "tue": "T",
+    "wed": "W",
+    "thu": "T",
+    "fri": "F",
+    "sat": "S",
+    "sun": "S"
+  },
+  "allDay": "All day",
+  "noon": "Noon",
+  "inbox": "Inbox",
+  "searchPlaceholder": "Search plans",
+  "newPlan": "New plan",
+  "today": "Today",
+  "empty": "No plans",
+  "dayEmpty": "No plans on this day",
+  "undated": "Unscheduled",
+  "showMore": "Show more",
+  "showingUntil": "Showing until {{date}}",
+  "aria": {
+    "addPlan": "Add a plan on {{date}}",
+    "addAllDay": "Add an all-day plan on {{date}}",
+    "markDone": "Mark as done",
+    "markUndone": "Mark as not done",
+    "close": "Close",
+    "expandMonth": "Expand month view",
+    "collapseMonth": "Collapse month view",
+    "openLists": "Manage lists",
+    "search": "Search plans"
+  },
+  "count": {
+    "items_one": "{{count}} item",
+    "items_other": "{{count}} items",
+    "schedule_one": "{{count}} item",
+    "schedule_other": "{{count}} items"
+  },
+  "mobile": {
+    "searchInput": "Search plan titles or details",
+    "all": "All",
+    "scheduleLine": "{{count}} items on {{date}}",
+    "dayCount": "{{count}} items",
+    "empty": "Nothing planned for this day. Tap the button below to add one.",
+    "planMissing": "This plan no longer exists"
+  },
+  "agenda": {
+    "monthLabel": "{{month}}/{{year}}"
+  },
+  "drawer": {
+    "lists": "Lists",
+    "planDetail": "Plan details",
+    "newPlan": "New plan",
+    "plan": "Plan",
+    "close": "Collapse {{title}}",
+    "defaultList": "Default",
+    "deleteList": "Delete list",
+    "confirmDelete": "Confirm delete",
+    "deleteListHint": "Tap again to delete “{{name}}”. Its plans will return to the default list.",
+    "listName": "List name",
+    "addList": "+ List"
+  },
+  "priority": {
+    "normal": "Normal",
+    "important": "Important",
+    "urgent": "Urgent"
+  },
+  "field": {
+    "title": "Title",
+    "detail": "Details",
+    "step": "Step",
+    "date": "Date",
+    "endDate": "End date",
+    "allDay": "All day",
+    "start": "Start",
+    "end": "End",
+    "list": "List",
+    "priority": "Priority"
+  },
+  "action": {
+    "done": "Done",
+    "addStep": "Add step",
+    "moveStepUp": "Move step up",
+    "moveStepDown": "Move step down",
+    "deleteStep": "Delete step",
+    "delete": "Delete",
+    "confirmDelete": "Confirm delete",
+    "cancel": "Cancel",
+    "save": "Save"
+  },
+  "form": {
+    "titleRequired": "Title cannot be empty",
+    "planMissing": "This plan no longer exists",
+    "dateHint": "Leave the date empty to keep it unscheduled. Leave the end date empty to use a single day."
+  },
+  "when": {
+    "unscheduled": "Unscheduled",
+    "allDay": "All day",
+    "today": "Today"
+  },
+  "common": {
+    "loading": "Loading…"
+  }
+}

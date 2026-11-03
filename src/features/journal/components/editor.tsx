@@ -10,6 +10,7 @@ import {
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
 import { useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { JournalEntry, JournalEntryInput, JournalKind } from '@/bridge/journal';
 import { journalEntryCreate, journalEntryDelete, journalEntryUpdate } from '@/bridge/journal';
 import { placeCreate } from '@/bridge/place';
@@ -20,6 +21,7 @@ import { Checkbox } from '@/components/checkbox';
 import { DateField } from '@/components/date-field';
 import type { MarkdownEditorHandle } from '@/components/markdown';
 import { looseImageOwner, MarkdownEditor, mountLooseImages, retainBodyImages } from '@/components/markdown';
+import { useBackLayer } from '@/layout/mobile/back';
 import { refreshFiles } from '@/query/files/query';
 import { refreshJournal } from '@/query/journal/query';
 import { refreshPlaces } from '@/query/place/query';
@@ -34,17 +36,17 @@ import { MetaChips } from './meta-chips';
 import { Promote } from './promote';
 import { Seal } from './seal';
 
-const kindLabel: Record<JournalKind, string> = {
-  diary: '日记',
-  spark: '灵感',
-  writing: '写作'
-};
-
 type Panel = 'date' | 'seal' | 'place' | 'tag' | 'cite' | 'member';
 
 function AddToggle({ label, open, onClick }: { label: string; open: boolean; onClick: () => void }) {
+  const { t } = useTranslation('journal');
   return (
-    <IconButton label={open ? '完成' : `添加${label}`} size="compact" selected={open} onClick={onClick}>
+    <IconButton
+      label={open ? t('editor.done') : t('editor.addWith', { target: label })}
+      size="compact"
+      selected={open}
+      onClick={onClick}
+    >
       <PlusIcon weight="regular" />
     </IconButton>
   );
@@ -60,6 +62,7 @@ type JournalEditorProps = {
 
 /** 手记编辑。类型在新建时定下，正文占满页面，设置从右侧盖住内容区。 */
 export function JournalEditor({ entry, kind, onClose, onSaved, onDeleted }: JournalEditorProps) {
+  const { t } = useTranslation(['journal', 'common']);
   const queryClient = useQueryClient();
   const names = useJournalNames();
   const markdownRef = useRef<MarkdownEditorHandle>(null);
@@ -81,6 +84,20 @@ export function JournalEditor({ entry, kind, onClose, onSaved, onDeleted }: Jour
     setPanel(null);
     setConfirmDelete(false);
   }
+
+  function stepBack() {
+    if (panel) {
+      setPanel(null);
+      return;
+    }
+    if (settingsOpen) {
+      closeSettings();
+      return;
+    }
+    onClose();
+  }
+
+  useBackLayer(true, stepBack);
 
   function toggle(next: Panel) {
     setPanel((current) => (current === next ? null : next));
@@ -133,7 +150,7 @@ export function JournalEditor({ entry, kind, onClose, onSaved, onDeleted }: Jour
   const remove = useMutation({
     mutationFn: () => {
       if (!entry) {
-        return Promise.reject(new Error('手记不存在'));
+        return Promise.reject(new Error(t('errors.notFound')));
       }
       return journalEntryDelete(entry.id);
     },
@@ -153,26 +170,23 @@ export function JournalEditor({ entry, kind, onClose, onSaved, onDeleted }: Jour
       }}
     >
       <header className={styles.bar}>
-        <IconButton label="返回" disabled={busy} onClick={onClose}>
+        <IconButton label={t('common:button.back')} disabled={busy} onClick={stepBack}>
           <CaretLeftIcon weight="regular" />
         </IconButton>
-        {entry == null ? (
-          <Button
-            type="submit"
-            className={styles.push}
-            disabled={busy}
-            onClick={() => {
-              if (title.trim() === '') {
-                closeSettings();
-              }
-            }}
-          >
-            保存
-          </Button>
-        ) : null}
+        <Button
+          type="submit"
+          className={styles.push}
+          disabled={busy}
+          onClick={() => {
+            if (title.trim() === '') {
+              closeSettings();
+            }
+          }}
+        >
+          {t('common:button.save')}
+        </Button>
         <IconButton
-          className={entry == null ? undefined : styles.push}
-          label={settingsOpen ? '收起设置' : '打开设置'}
+          label={settingsOpen ? t('editor.collapseSettings') : t('editor.openSettings')}
           expanded={settingsOpen}
           disabled={busy}
           onClick={() => (settingsOpen ? closeSettings() : setSettingsOpen(true))}
@@ -186,13 +200,11 @@ export function JournalEditor({ entry, kind, onClose, onSaved, onDeleted }: Jour
             className={styles.title}
             value={title}
             required
-            placeholder="标题"
-            aria-label="标题"
+            placeholder={t('editor.title')}
+            aria-label={t('editor.title')}
             onChange={(event) => setTitle(event.target.value)}
           />
-          {entry?.locked ? (
-            <p className={clsx(styles.notice, styles.sheetNotice)}>正文已封存。解开之后才能改。</p>
-          ) : null}
+          {entry?.locked ? <p className={clsx(styles.notice, styles.sheetNotice)}>{t('editor.lockedNotice')}</p> : null}
           {!settingsOpen && save.error ? (
             <p className={clsx(styles.error, styles.sheetNotice)}>{errorMessage(save.error)}</p>
           ) : null}
@@ -204,7 +216,7 @@ export function JournalEditor({ entry, kind, onClose, onSaved, onDeleted }: Jour
               edge
               value={body}
               disabled={Boolean(entry?.locked)}
-              placeholder="写下来"
+              placeholder={t('editor.bodyPlaceholder')}
               image={
                 entry?.locked ? undefined : entry ? { owner: 'journal_entry', ownerId: entry.id } : looseImageOwner
               }
@@ -218,22 +230,22 @@ export function JournalEditor({ entry, kind, onClose, onSaved, onDeleted }: Jour
         className={styles.scrim}
         data-open={settingsOpen ? 'true' : undefined}
         tabIndex={-1}
-        aria-label="收起设置"
+        aria-label={t('editor.collapseSettings')}
         onClick={closeSettings}
       />
-      <aside className={styles.drawer} data-open={settingsOpen ? 'true' : undefined} aria-label="设置">
+      <aside className={styles.drawer} data-open={settingsOpen ? 'true' : undefined} aria-label={t('editor.settings')}>
         <div className={styles.drawerHead}>
           <div className={styles.drawerTitle}>
-            <h2 className={styles.drawerHeading}>设置</h2>
-            <p className={styles.kindName}>{kindLabel[entryKind]}</p>
+            <h2 className={styles.drawerHeading}>{t('editor.settings')}</h2>
+            <p className={styles.kindName}>{t(`page.${entryKind}`)}</p>
           </div>
         </div>
         <div className={styles.drawerBody}>
           <section className={styles.group}>
             <div className={styles.groupHead}>
-              <h2 className={styles.groupTitle}>日期</h2>
+              <h2 className={styles.groupTitle}>{t('section.date')}</h2>
               <IconButton
-                label={panel === 'date' ? '完成' : '修改日期'}
+                label={panel === 'date' ? t('editor.done') : t('editor.editDate')}
                 size="compact"
                 selected={panel === 'date'}
                 onClick={() => toggle('date')}
@@ -242,7 +254,7 @@ export function JournalEditor({ entry, kind, onClose, onSaved, onDeleted }: Jour
               </IconButton>
             </div>
             {panel === 'date' ? (
-              <DateField label="发生时间" value={occurredAt} onChange={setOccurredAt} />
+              <DateField label={t('editor.occurredAt')} value={occurredAt} onChange={setOccurredAt} />
             ) : (
               <p className={styles.value}>{journalDate(occurredTime).full}</p>
             )}
@@ -250,10 +262,10 @@ export function JournalEditor({ entry, kind, onClose, onSaved, onDeleted }: Jour
           {entryKind === 'diary' ? (
             <section className={styles.group}>
               <div className={styles.groupHead}>
-                <h2 className={styles.groupTitle}>封存</h2>
+                <h2 className={styles.groupTitle}>{t('section.seal')}</h2>
                 {entry ? (
                   <IconButton
-                    label={panel === 'seal' ? '完成' : entry.locked ? '解开' : '封存'}
+                    label={panel === 'seal' ? t('editor.done') : entry.locked ? t('seal.unseal') : t('seal.seal')}
                     size="compact"
                     selected={panel === 'seal'}
                     onClick={() => toggle('seal')}
@@ -263,7 +275,7 @@ export function JournalEditor({ entry, kind, onClose, onSaved, onDeleted }: Jour
                 ) : null}
               </div>
               <p className={styles.value}>
-                {entry ? (entry.locked ? '正文已封存。' : '正文还没有封存。') : '保存之后可以封存。'}
+                {entry ? (entry.locked ? t('editor.sealLocked') : t('editor.sealUnlocked')) : t('editor.sealAfterSave')}
               </p>
               {entry && panel === 'seal' ? (
                 <Seal entry={entry} readBody={currentBody} onKept={() => markdownRef.current?.saved()} />
@@ -272,15 +284,15 @@ export function JournalEditor({ entry, kind, onClose, onSaved, onDeleted }: Jour
           ) : null}
           <section className={styles.group}>
             <div className={styles.groupHead}>
-              <h2 className={styles.groupTitle}>地点</h2>
-              <AddToggle label="地点" open={panel === 'place'} onClick={() => toggle('place')} />
+              <h2 className={styles.groupTitle}>{t('section.place')}</h2>
+              <AddToggle label={t('section.place')} open={panel === 'place'} onClick={() => toggle('place')} />
             </div>
             <MetaChips
               items={names.places}
               selected={placeIds}
               adding={panel === 'place'}
-              empty="还没有地点。"
-              addLabel="新地点"
+              empty={t('editor.emptyPlaces')}
+              addLabel={t('editor.newPlace')}
               listError={names.placeError ? errorMessage(names.placeError) : ''}
               onChange={setPlaceIds}
               onAdd={async (name) => {
@@ -292,15 +304,15 @@ export function JournalEditor({ entry, kind, onClose, onSaved, onDeleted }: Jour
           </section>
           <section className={styles.group}>
             <div className={styles.groupHead}>
-              <h2 className={styles.groupTitle}>标签</h2>
-              <AddToggle label="标签" open={panel === 'tag'} onClick={() => toggle('tag')} />
+              <h2 className={styles.groupTitle}>{t('section.tag')}</h2>
+              <AddToggle label={t('section.tag')} open={panel === 'tag'} onClick={() => toggle('tag')} />
             </div>
             <MetaChips
               items={names.tags}
               selected={tagIds}
               adding={panel === 'tag'}
-              empty="还没有标签。"
-              addLabel="新标签"
+              empty={t('editor.emptyTags')}
+              addLabel={t('editor.newTag')}
               listError={names.tagError ? errorMessage(names.tagError) : ''}
               onChange={setTagIds}
               onAdd={async (name) => {
@@ -312,27 +324,33 @@ export function JournalEditor({ entry, kind, onClose, onSaved, onDeleted }: Jour
           </section>
           <section className={styles.group}>
             <div className={styles.groupHead}>
-              <h2 className={styles.groupTitle}>引用</h2>
-              {entry ? <AddToggle label="引用" open={panel === 'cite'} onClick={() => toggle('cite')} /> : null}
+              <h2 className={styles.groupTitle}>{t('section.citation')}</h2>
+              {entry ? (
+                <AddToggle label={t('section.citation')} open={panel === 'cite'} onClick={() => toggle('cite')} />
+              ) : null}
             </div>
             {entry ? (
               <Citations entryId={entry.id} adding={panel === 'cite'} onAdded={() => setPanel(null)} />
             ) : (
-              <p className={styles.value}>保存之后可以引用。</p>
+              <p className={styles.value}>{t('editor.citationAfterSave')}</p>
             )}
           </section>
           <section className={styles.group}>
-            <h2 className={styles.groupTitle}>其他</h2>
-            <Checkbox label="标为高光" checked={highlight} onChange={(event) => setHighlight(event.target.checked)} />
+            <h2 className={styles.groupTitle}>{t('section.other')}</h2>
+            <Checkbox
+              label={t('editor.highlight')}
+              checked={highlight}
+              onChange={(event) => setHighlight(event.target.checked)}
+            />
             <div className={styles.groupHead}>
-              <h3 className={styles.groupTitle}>成员</h3>
-              <AddToggle label="成员" open={panel === 'member'} onClick={() => toggle('member')} />
+              <h3 className={styles.groupTitle}>{t('section.member')}</h3>
+              <AddToggle label={t('section.member')} open={panel === 'member'} onClick={() => toggle('member')} />
             </div>
             <MetaChips
               items={names.members}
               selected={memberIds}
               adding={panel === 'member'}
-              empty="还没有成员。"
+              empty={t('editor.emptyMembers')}
               listError={names.memberError ? errorMessage(names.memberError) : ''}
               onChange={setMemberIds}
             />
@@ -342,7 +360,7 @@ export function JournalEditor({ entry, kind, onClose, onSaved, onDeleted }: Jour
         <footer className={styles.drawerFoot}>
           {save.error ? <p className={styles.error}>{errorMessage(save.error)}</p> : null}
           {remove.error ? <p className={styles.error}>{errorMessage(remove.error)}</p> : null}
-          {confirmDelete ? <p className={styles.hint}>再点一次就会删掉这篇。</p> : null}
+          {confirmDelete ? <p className={styles.hint}>{t('editor.deleteHint')}</p> : null}
           <div className={styles.footActions}>
             {entry && onDeleted ? (
               <Button
@@ -358,7 +376,7 @@ export function JournalEditor({ entry, kind, onClose, onSaved, onDeleted }: Jour
                   remove.mutate();
                 }}
               >
-                {confirmDelete ? '确认删除' : '删除'}
+                {confirmDelete ? t('editor.confirmDelete') : t('common:button.delete')}
               </Button>
             ) : null}
             <Button
@@ -371,7 +389,7 @@ export function JournalEditor({ entry, kind, onClose, onSaved, onDeleted }: Jour
                 }
               }}
             >
-              保存
+              {t('common:button.save')}
             </Button>
           </div>
         </footer>

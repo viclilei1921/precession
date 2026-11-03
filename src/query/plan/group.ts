@@ -1,4 +1,5 @@
 import type { Plan } from '@/bridge/plan';
+import i18n from '@/i18n';
 import { addLocalDays, formatClock, isSameLocalDay, startOfLocalDay, startOfLocalWeek } from '@/utils/day';
 
 export type PlanGroups = {
@@ -117,10 +118,10 @@ export function markedDays(plans: Plan[]): Set<number> {
 /** 行尾：已完成看结果，过期看「逾期」，其余看钟点 */
 export function planMeta(plan: Plan, todayStart: number): string {
   if (plan.status === 'done') {
-    return plan.result.trim() || '已完成';
+    return plan.result.trim() || i18n.t('common:planStatus.done');
   }
   if (plan.scheduledAt != null && plan.scheduledAt < todayStart) {
-    return '逾期';
+    return i18n.t('common:planStatus.overdue');
   }
   if (plan.scheduledAt != null) {
     return formatClock(plan.scheduledAt);

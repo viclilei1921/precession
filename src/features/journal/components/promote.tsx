@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
+import { useTranslation } from 'react-i18next';
 import type { JournalEntry } from '@/bridge/journal';
 import { journalEntryCreate, journalLinkCreate } from '@/bridge/journal';
 import { Button } from '@/components/button';
@@ -11,6 +12,7 @@ import { errorMessage } from '@/utils/error';
 
 /** 把手记流转到下一种类型。 */
 export function Promote({ entry }: { entry: JournalEntry }) {
+  const { t } = useTranslation('journal');
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const linksQuery = useQuery(journalLinkListQuery(entry.id));
@@ -47,17 +49,19 @@ export function Promote({ entry }: { entry: JournalEntry }) {
             key={link.id}
             onClick={() => void navigate({ to: PATH.journalEntry, params: { entryId: otherId } })}
           >
-            <span className={styles.rowTitle}>{link.kind === 'spark_to_writing' ? '灵感到写作' : '写作到日记'}</span>
-            <span className={styles.meta}>打开关联</span>
+            <span className={styles.rowTitle}>
+              {link.kind === 'spark_to_writing' ? t('promote.sparkToWriting') : t('promote.writingToDiary')}
+            </span>
+            <span className={styles.meta}>{t('promote.openLink')}</span>
           </RowButton>
         );
       })}
       {entry.kind === 'writing' || entry.kind === 'spark' ? (
         <Button disabled={promote.isPending} onClick={() => promote.mutate()}>
-          {entry.kind === 'spark' ? '扩写成写作' : '归入日记'}
+          {entry.kind === 'spark' ? t('promote.expand') : t('promote.toDiary')}
         </Button>
       ) : (
-        <p className={styles.note}>日记是这条流转的尽头。</p>
+        <p className={styles.note}>{t('promote.end')}</p>
       )}
       {promote.error ? <p className={styles.error}>{errorMessage(promote.error)}</p> : null}
     </div>

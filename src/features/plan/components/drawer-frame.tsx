@@ -1,6 +1,7 @@
 import { CaretDoubleRightIcon } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { IconButton } from '@/components/button/icon';
 import { rippleHost, useRipple } from '@/components/ripple';
 import styles from '../drawer.module.css';
@@ -12,13 +13,14 @@ type DrawerScrimProps = {
 
 /** 很浅的遮罩，用来点空白处关闭抽屉 */
 export function DrawerScrim({ open, onClose }: DrawerScrimProps) {
+  const { t } = useTranslation('plan');
   return (
     <button
       type="button"
       className={styles.scrim}
       data-open={open ? 'true' : undefined}
       tabIndex={-1}
-      aria-label="关闭"
+      aria-label={t('aria.close')}
       onClick={onClose}
     />
   );
@@ -36,6 +38,7 @@ type DrawerPanelProps = {
 
 /** 从右侧滑出的抽屉 */
 export function DrawerPanel({ open, wide, title, label, children, onClose }: DrawerPanelProps) {
+  const { t } = useTranslation('plan');
   return (
     <aside
       className={styles.panel}
@@ -45,7 +48,7 @@ export function DrawerPanel({ open, wide, title, label, children, onClose }: Dra
     >
       <div className={styles.head}>
         <h2>{title}</h2>
-        <IconButton label={`收起${title}`} onClick={onClose}>
+        <IconButton label={t('drawer.close', { title })} onClick={onClose}>
           <CaretDoubleRightIcon weight="regular" />
         </IconButton>
       </div>

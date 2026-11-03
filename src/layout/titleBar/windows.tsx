@@ -1,4 +1,5 @@
 import { CopySimpleIcon, MinusIcon, SquareIcon, XIcon } from '@phosphor-icons/react';
+import { useTranslation } from 'react-i18next';
 import { windowClose, windowMinimize, windowToggleMaximize } from '@/bridge';
 import { IconButton } from '@/components/button/icon';
 import { Icon } from '@/components/icon';
@@ -14,6 +15,8 @@ type TitleBarWindowsProps = {
 
 /** windows 系统标题栏 */
 export function TitleBarWindows({ maximized }: TitleBarWindowsProps) {
+  const { t } = useTranslation('layout');
+
   return (
     <header className={styles.titleBar} data-tauri-drag-region>
       <div className={styles.leading}>
@@ -24,13 +27,17 @@ export function TitleBarWindows({ maximized }: TitleBarWindowsProps) {
         <TitleBarSearch />
       </div>
       <div className={styles.controls}>
-        <IconButton label="最小化" size="compact" onClick={() => windowMinimize()}>
+        <IconButton label={t('titleBar.minimize')} size="compact" onClick={() => windowMinimize()}>
           <MinusIcon weight="regular" />
         </IconButton>
-        <IconButton label={maximized ? '还原' : '最大化'} size="compact" onClick={() => windowToggleMaximize()}>
+        <IconButton
+          label={maximized ? t('titleBar.restore') : t('titleBar.maximize')}
+          size="compact"
+          onClick={() => windowToggleMaximize()}
+        >
           {maximized ? <CopySimpleIcon weight="regular" /> : <SquareIcon weight="regular" />}
         </IconButton>
-        <IconButton label="关闭" size="compact" tone="destructive" onClick={() => windowClose()}>
+        <IconButton label={t('titleBar.close')} size="compact" tone="destructive" onClick={() => windowClose()}>
           <XIcon weight="regular" />
         </IconButton>
       </div>

@@ -8,13 +8,15 @@ pub(crate) struct Android;
 
 #[cfg(target_os = "android")]
 impl super::Platform for Android {
-  /// 挂上设备槽插件
+  /// 挂上设备槽和文件选择插件
+  ///
+  /// 文件选择给档案导入和添加书用。导出分享走设备槽里的系统分享，不使用保存对话框。
   ///
   /// # 参数
   /// - `builder`: 待挂插件的 Tauri 构建器
   ///
   /// # 返回值
-  /// 挂上 `precession_device_slot` 后的构建器
+  /// 挂上 `precession_device_slot` 和 `tauri_plugin_dialog` 后的构建器
   ///
   /// # Panics
   /// 不会主动 panic
@@ -24,7 +26,7 @@ impl super::Platform for Android {
   /// let builder = Android::plugins(builder);
   /// ```
   fn plugins(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wry> {
-    builder.plugin(precession_device_slot::init())
+    builder.plugin(precession_device_slot::init()).plugin(tauri_plugin_dialog::init())
   }
 
   /// 把 Android 设备槽接到数据库句柄

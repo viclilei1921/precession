@@ -1,6 +1,8 @@
 import { BookOpenIcon } from '@phosphor-icons/react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
+import { useTranslation } from 'react-i18next';
+import { displayTitle } from '@/features/library/book';
 import { noteBody } from '@/features/library/components/note-form';
 import { useCardLayout } from '@/features/today/board/board';
 import { bookListQuery } from '@/query/library/query';
@@ -11,6 +13,7 @@ import styles from './tile.module.css';
 import { TileHead } from './tile-head';
 
 export function LibraryCard() {
+  const { t } = useTranslation('today');
   const navigate = useNavigate();
   const booksQuery = useQuery(bookListQuery);
   const excerptsQuery = useQuery(timelineListQuery(undefined, undefined, ['excerpt']));
@@ -26,17 +29,17 @@ export function LibraryCard() {
 
   return (
     <button type="button" className={styles.card} onClick={() => void navigate({ to: PATH.library })}>
-      <TileHead tone="library" icon={BookOpenIcon} title="书库" />
+      <TileHead tone="library" icon={BookOpenIcon} title={t('card.library')} />
       {error ? <p className={styles.error}>{errorMessage(error)}</p> : null}
       {reading ? (
         <>
-          <p className={styles.lead}>在读《{reading.title}》</p>
-          <div className={styles.bar} role="img" aria-label={`已读 ${percent}%`}>
+          <p className={styles.lead}>{t('libraryCard.reading', { title: displayTitle(reading.title) })}</p>
+          <div className={styles.bar} role="img" aria-label={t('libraryCard.progress', { percent })}>
             <span data-tone="library" style={{ width: `${percent}%` }} />
           </div>
         </>
       ) : (
-        <p className={styles.note}>{booksQuery.isPending ? '正在读取…' : '没有在读的书'}</p>
+        <p className={styles.note}>{booksQuery.isPending ? t('common.loading') : t('libraryCard.noBooks')}</p>
       )}
       {quote ? <p className={styles.quote}>「{quote}」</p> : null}
     </button>

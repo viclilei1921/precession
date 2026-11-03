@@ -1,6 +1,7 @@
 import { ArrowSquareOutIcon, PencilSimpleIcon, TrashIcon } from '@phosphor-icons/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Task, TaskKind } from '@/bridge/task';
 import { onTaskQueueUpdated, onTaskUpdate, taskCancel, taskRemove, taskReveal } from '@/bridge/task';
 import { Button } from '@/components/button';
@@ -8,6 +9,7 @@ import { IconButton } from '@/components/button/icon';
 import { SegmentButton } from '@/components/button/segment';
 import { Progress } from '@/components/progress';
 import { usePageSearch } from '@/hooks/search';
+import i18n from '@/i18n';
 import { applyTaskUpdate, refreshTasks, taskListQuery } from '@/query/task/query';
 import { errorMessage } from '@/utils/error';
 import { formatRemaining, ProgressETA } from '@/utils/progress-eta';
@@ -30,7 +32,7 @@ type Clock = {
 };
 
 function kindText(task: Task) {
-  return task.kind === 'decryptFile' ? '解密' : '加密';
+  return i18n.t(task.kind === 'decryptFile' ? 'task:kind.short.decrypt' : 'task:kind.short.encrypt');
 }
 
 function sourcePath(task: Task) {
@@ -52,9 +54,10 @@ function matches(task: Task, query: string) {
 }
 
 export function CipherQueue({ tab, onTab, onEdit }: QueueProps) {
+  const { t } = useTranslation('task');
   const queryClient = useQueryClient();
   const tasksQuery = useQuery(taskListQuery);
-  const query = usePageSearch('搜索任务');
+  const query = usePageSearch(t('queue.searchPlaceholder'));
   const eta = useRef(new ProgressETA());
   const processingId = useRef<string | null>(null);
   const [clock, setClock] = useState<Clock | null>(null);
@@ -137,19 +140,19 @@ export function CipherQueue({ tab, onTab, onEdit }: QueueProps) {
 
   return (
     <article className={styles.queue}>
-      <div className={styles.group} role="tablist" aria-label="队列">
+      <div className={styles.group} role="tablist" aria-label={t('aria.queue')}>
         <SegmentButton className={styles.tab} selected={tab === 'run'} onClick={() => onTab('run')}>
-          进行中
+          {t('queue.tab.run')}
         </SegmentButton>
         <SegmentButton className={styles.tab} selected={tab === 'wait'} onClick={() => onTab('wait')}>
-          待处理 {pending.length}
+          {t('queue.tab.wait', { count: pending.length })}
         </SegmentButton>
         <SegmentButton className={styles.tab} selected={tab === 'done'} onClick={() => onTab('done')}>
-          已完成 {done.length}
+          {t('queue.tab.done', { count: done.length })}
         </SegmentButton>
       </div>
       <div className={styles.panel}>
-        {tasksQuery.isPending ? <p className={styles.note}>正在读取…</p> : null}
+        {tasksQuery.isPending ? <p className={styles.note}>{t('queue.loading')}</p> : null}
         {!tasksQuery.isPending && listed.length === 0 ? <p className={styles.note}>{emptyNote(tab, query)}</p> : null}
         {tab === 'run'
           ? running.map((task) => (
@@ -165,11 +168,15 @@ export function CipherQueue({ tab, onTab, onEdit }: QueueProps) {
                 <div className={styles.meta}>
                   <span>{task.message || `${Math.round(task.progress)}%`}</span>
                   {clock?.id === task.id ? (
-                    <span>{clock.remaining == null ? '计算中' : `剩余 ${formatRemaining(clock.remaining)}`}</span>
+                    <span>
+                      {clock.remaining == null
+                        ? t('time.calculating')
+                        : t('time.remaining', { time: formatRemaining(clock.remaining) })}
+                    </span>
                   ) : null}
                 </div>
                 <Button variant="outlined" disabled={cancel.isPending} onClick={() => cancel.mutate(task.id)}>
-                  取消
+                  {t('action.cancel')}
                 </Button>
               </div>
             ))
@@ -210,7 +217,7 @@ export function CipherQueue({ tab, onTab, onEdit }: QueueProps) {
             disabled={listed.length === 0 || remove.isPending}
             onClick={() => remove.mutate(listed.map((task) => task.id))}
           >
-            清空列表
+            {t('queue.clearList')}
           </Button>
         )}
       </div>
@@ -220,15 +227,15 @@ export function CipherQueue({ tab, onTab, onEdit }: QueueProps) {
 
 function emptyNote(tab: CipherTab, query: string) {
   if (query.trim()) {
-    return '没有匹配的任务。';
+    return i18n.t('task:queue.emptyFiltered');
   }
   if (tab === 'run') {
-    return '没有正在处理的任务。';
+    return i18n.t('task:queue.emptyRunning');
   }
   if (tab === 'wait') {
-    return '没有待处理的任务。';
+    return i18n.t('task:queue.emptyPending');
   }
-  return '还没有完成的任务。';
+  return i18n.t('task:queue.emptyDone');
 }
 
 type QueueItemProps = {
@@ -240,6 +247,7 @@ type QueueItemProps = {
 };
 
 function QueueItem({ task, onRemove, removing, onOpen, onEdit }: QueueItemProps) {
+  const { t } = useTranslation('task');
   const path = shownPath(task);
   return (
     <div className={styles.item}>
@@ -247,8 +255,8 @@ function QueueItem({ task, onRemove, removing, onOpen, onEdit }: QueueItemProps)
         <div className={styles.itemName}>
           <span className={styles.title}>{task.title || kindText(task)}</span>
           <span className={styles.kind}>{kindText(task)}</span>
-          {task.status === 'failed' ? <span className={styles.kind}>失败</span> : null}
-          {task.status === 'canceled' ? <span className={styles.kind}>已取消</span> : null}
+          {task.status === 'failed' ? <span className={styles.kind}>{t('status.failed')}</span> : null}
+          {task.status === 'canceled' ? <span className={styles.kind}>{t('status.canceled')}</span> : null}
         </div>
         {path ? (
           <p className={styles.path} title={path}>
@@ -259,16 +267,16 @@ function QueueItem({ task, onRemove, removing, onOpen, onEdit }: QueueItemProps)
       </div>
       <div className={styles.itemActions}>
         {onOpen ? (
-          <IconButton label="打开" size="compact" onClick={onOpen}>
+          <IconButton label={t('aria.open')} size="compact" onClick={onOpen}>
             <ArrowSquareOutIcon weight="regular" />
           </IconButton>
         ) : null}
         {onEdit ? (
-          <IconButton label="再次编辑" size="compact" onClick={onEdit}>
+          <IconButton label={t('action.editAgain')} size="compact" onClick={onEdit}>
             <PencilSimpleIcon weight="regular" />
           </IconButton>
         ) : null}
-        <IconButton label="删除" tone="destructive" size="compact" disabled={removing} onClick={onRemove}>
+        <IconButton label={t('action.delete')} tone="destructive" size="compact" disabled={removing} onClick={onRemove}>
           <TrashIcon weight="regular" />
         </IconButton>
       </div>

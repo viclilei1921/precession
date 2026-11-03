@@ -1,6 +1,7 @@
 import { ArrowRightIcon, CopyIcon, DownloadSimpleIcon, ShieldCheckIcon, UploadSimpleIcon } from '@phosphor-icons/react';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { archiveExport, archiveImport, pickArchiveOpen, pickArchiveSave } from '@/bridge/archive';
 import { dbStatus } from '@/bridge/db';
 import { Button } from '@/components/button';
@@ -24,6 +25,7 @@ type SecuritySectionProps = {
 };
 
 export function SecuritySection({ onNotice }: SecuritySectionProps) {
+  const { t } = useTranslation('settings');
   const setDbStatus = useAppStore((state) => state.setDbStatus);
   const info = useQuery(archiveInfoQuery);
   const [busy, setBusy] = useState<'export' | 'import' | ''>('');
@@ -31,10 +33,10 @@ export function SecuritySection({ onNotice }: SecuritySectionProps) {
   const [error, setError] = useState('');
 
   const fileHint = info.data
-    ? `${info.data.fileCount} 个 · ${formatBytes(info.data.fileBytes)} · 记录上的附件都存在本机。`
+    ? t('security.fileRow.hintFormat', { count: info.data.fileCount, size: formatBytes(info.data.fileBytes) })
     : info.isPending
-      ? '正在读取…'
-      : '记录上的附件都存在本机。';
+      ? t('security.fileRow.hintLoading')
+      : t('security.fileRow.hintDefault');
 
   async function copyPath() {
     if (!info.data?.path) {
@@ -42,7 +44,7 @@ export function SecuritySection({ onNotice }: SecuritySectionProps) {
     }
     try {
       await navigator.clipboard.writeText(info.data.path);
-      onNotice('已复制档案路径');
+      onNotice(t('security.noticeCopied'));
     } catch (err) {
       setError(errorMessage(err));
     }
@@ -57,8 +59,8 @@ export function SecuritySection({ onNotice }: SecuritySectionProps) {
     setBusy('export');
     try {
       const packed = await archiveExport(path);
-      const name = packed.path.split(/[/\\]/).pop() || '档案';
-      onNotice(`已导出 ${name} · ${formatBytes(packed.bytes)}`);
+      const name = packed.path.split(/[/\\]/).pop() || t('security.defaultArchiveName');
+      onNotice(t('security.noticeExported', { name, size: formatBytes(packed.bytes) }));
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -92,32 +94,47 @@ export function SecuritySection({ onNotice }: SecuritySectionProps) {
 
   return (
     <Card id="security" className={styles.section}>
-      <CardHead tone="plan" icon={ShieldCheckIcon} title="数据与安全" detail="档案锁定与设备解锁" extra="仅本机" />
+      <CardHead
+        tone="plan"
+        icon={ShieldCheckIcon}
+        title={t('security.title')}
+        detail={t('security.detail')}
+        extra={t('security.extra')}
+      />
       <div className={styles.rows}>
         <LockArchive />
         <DeviceUnlock />
-        <SettingRow title="文件" hint={fileHint}>
+        <SettingRow title={t('security.fileRow.title')} hint={fileHint}>
           <LinkButton to={PATH.files} variant="text">
-            打开文件
+            {t('security.fileRow.open')}
             <ArrowRightIcon weight="regular" />
           </LinkButton>
         </SettingRow>
-        <SettingRow title="导入导出" hint="把数据库和全部文件打成一个压缩包，或从压缩包恢复。">
+        <SettingRow title={t('security.ioRow.title')} hint={t('security.ioRow.hint')}>
           <Button variant="outlined" disabled={busy !== ''} onClick={() => void onExport()}>
             <DownloadSimpleIcon weight="regular" />
-            {busy === 'export' ? '正在导出…' : '导出'}
+            {busy === 'export' ? t('security.ioRow.exporting') : t('security.ioRow.export')}
           </Button>
           <Button variant="outlined" disabled={busy !== ''} onClick={() => void chooseImport()}>
             <UploadSimpleIcon weight="regular" />
-            {busy === 'import' ? '正在导入…' : '导入'}
+            {busy === 'import' ? t('security.ioRow.importing') : t('security.ioRow.import')}
           </Button>
         </SettingRow>
         <SettingRow
-          title="档案位置"
-          hint={<code className={styles.path}>{info.data?.path ?? (info.isPending ? '正在读取…' : '未知')}</code>}
+          title={t('security.pathRow.title')}
+          hint={
+            <code className={styles.path}>
+              {info.data?.path ?? (info.isPending ? t('common.loading') : t('security.pathRow.unknown'))}
+            </code>
+          }
           hintTitle={info.data?.path}
         >
-          <IconButton label="复制档案路径" size="compact" disabled={!info.data} onClick={() => void copyPath()}>
+          <IconButton
+            label={t('security.pathRow.copy')}
+            size="compact"
+            disabled={!info.data}
+            onClick={() => void copyPath()}
+          >
             <CopyIcon weight="regular" />
           </IconButton>
         </SettingRow>
@@ -126,23 +143,21 @@ export function SecuritySection({ onNotice }: SecuritySectionProps) {
       {!pending && error ? <p className={styles.error}>{error}</p> : null}
       {pending ? (
         <Modal
-          title="导入档案？"
+          title={t('security.importModal.title')}
           onClose={() => {
             if (busy !== 'import') {
               setPending('');
             }
           }}
         >
-          <p className={styles.dialogBody}>
-            这会用所选压缩包里的数据库和文件替换这台设备上的内容。设备解锁会关闭，之后要用这份档案的密码重新打开。
-          </p>
+          <p className={styles.dialogBody}>{t('security.importModal.body')}</p>
           {error ? <p className={styles.error}>{error}</p> : null}
           <div className={styles.dialogActions}>
             <Button variant="text" disabled={busy === 'import'} onClick={() => setPending('')}>
-              取消
+              {t('security.importModal.cancel')}
             </Button>
             <Button disabled={busy === 'import'} onClick={() => void confirmImport()}>
-              {busy === 'import' ? '正在导入…' : '导入'}
+              {busy === 'import' ? t('security.importModal.importing') : t('security.importModal.confirm')}
             </Button>
           </div>
         </Modal>

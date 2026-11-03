@@ -51,7 +51,7 @@
   height: var(--icon-lg);
 }
 
-.bookMark {
+.book-mark {
   font-size: var(--text-2xl);
   font-weight: 700;
   color: var(--library);
@@ -88,7 +88,7 @@
   margin-left: 2px;
 }
 
-.miniBar {
+.mini-bar {
   z-index: 2;
   place-self: end stretch;
   padding: var(--space-1) var(--space-3);

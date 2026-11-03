@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import type { CSSProperties } from 'react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Book, BookOutlineItem } from '@/bridge/library';
 import { bookChapter, bookUpdate } from '@/bridge/library';
 import { Button } from '@/components/button';
@@ -10,6 +11,7 @@ import { IconButton } from '@/components/button/icon';
 import { Select } from '@/components/select';
 import { Slider } from '@/components/slider';
 import { TextField } from '@/components/text-field';
+import { popRoute, useBackLayer } from '@/layout/mobile/back';
 import { bookListQuery, bookOutlineQuery, bookQuery } from '@/query/library/query';
 import { PATH } from '@/router/path';
 import { useAppStore } from '@/store/app';
@@ -78,6 +80,17 @@ function chapterMarkup(title: string, content: string, html: boolean) {
   return heading + paragraphs;
 }
 
+function isDarkBackground(color: string) {
+  const match = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+  if (!match) {
+    return false;
+  }
+  const red = Number(match[1]);
+  const green = Number(match[2]);
+  const blue = Number(match[3]);
+  return (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255 < 0.45;
+}
+
 function formatPercent(ratio: number) {
   return `${Number((Math.min(1, Math.max(0, ratio)) * 100).toFixed(1))}%`;
 }
@@ -87,6 +100,7 @@ function isInteractiveTarget(target: EventTarget | null) {
 }
 
 export function ReadPage() {
+  const { t } = useTranslation(['library', 'common']);
   const { bookId } = useParams({ from: '/library/$bookId/read' });
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -122,6 +136,7 @@ export function ReadPage() {
   const progressFrame = useRef<number | null>(null);
   const bookPercentRef = useRef<HTMLSpanElement | null>(null);
   const chapterPercentRef = useRef<HTMLSpanElement | null>(null);
+  const tocCurrentRef = useRef<HTMLButtonElement | null>(null);
   const restoringRef = useRef(false);
   chapterIndexRef.current = chapterIndex;
   if (book && bookRef.current?.id !== book.id) {
@@ -216,32 +231,39 @@ export function ReadPage() {
     if (!handle || !viewport || chapters.length === 0) {
       return;
     }
-    const blocks = handle.measureBlocks();
-    blocksRef.current = blocks;
-    const viewportHeight = viewport.clientHeight;
     const pending = pendingRef.current;
-    restoringRef.current = true;
-    if (pending) {
-      const block = blocks.find((item) => item.index === pending.index);
-      pendingRef.current = null;
-      if (block) {
-        if (pending.kind === 'start') {
-          handle.setOffset(block.top);
-        } else if (pending.kind === 'end') {
-          handle.setOffset(Math.max(block.top, block.top + block.height - viewportHeight));
-        } else {
-          handle.setOffset(scrollTopForChapterPercent(viewportHeight, block, pending.percent));
+    const anchor = anchorRef.current;
+    pendingRef.current = null;
+    anchorRef.current = null;
+    let frame = 0;
+    const apply = () => {
+      const blocks = handle.measureBlocks();
+      blocksRef.current = blocks;
+      const viewportHeight = viewport.clientHeight;
+      restoringRef.current = true;
+      if (pending) {
+        const block = blocks.find((item) => item.index === pending.index);
+        if (block) {
+          if (pending.kind === 'start') {
+            handle.setOffset(block.top);
+          } else if (pending.kind === 'end') {
+            handle.setOffset(Math.max(block.top, block.top + block.height - viewportHeight));
+          } else {
+            handle.setOffset(scrollTopForChapterPercent(viewportHeight, block, pending.percent));
+          }
+        }
+      } else if (anchor) {
+        const top = restoreScrollTop(anchor, blocks);
+        if (top != null) {
+          handle.setOffset(top);
         }
       }
-    } else if (anchorRef.current) {
-      const top = restoreScrollTop(anchorRef.current, blocks);
-      anchorRef.current = null;
-      if (top != null) {
-        handle.setOffset(top);
-      }
-    }
-    restoringRef.current = false;
-    paintProgress();
+      restoringRef.current = false;
+      paintProgress();
+    };
+    apply();
+    frame = requestAnimationFrame(apply);
+    return () => cancelAnimationFrame(frame);
   }, [chapters]);
 
   function paintProgress() {
@@ -361,6 +383,13 @@ export function ReadPage() {
     return () => window.removeEventListener('keydown', onKey);
   }, [excerptOpen, settingsOpen, tocOpen]);
 
+  useEffect(() => {
+    if (!tocOpen) {
+      return;
+    }
+    tocCurrentRef.current?.scrollIntoView({ block: 'center' });
+  }, [tocOpen]);
+
   const tocItems = useMemo(() => {
     const query = tocSearch.trim().toLowerCase();
     if (!query) {
@@ -389,6 +418,8 @@ export function ReadPage() {
     setSettingsOpen(false);
     setExcerptOpen(false);
   }
+
+  useBackLayer(tocOpen || settingsOpen || excerptOpen, closeDrawers);
 
   useEffect(() => {
     if (!desktop) {
@@ -429,6 +460,22 @@ export function ReadPage() {
     setChrome((open) => !open);
   }
 
+  useLayoutEffect(() => {
+    const node = readerRef.current;
+    if (!node) {
+      return;
+    }
+    node.dataset.theme = settings.readerTheme;
+    const root = document.documentElement;
+    const background = getComputedStyle(node).backgroundColor;
+    root.style.setProperty('--shell-bg', background);
+    root.style.colorScheme = isDarkBackground(background) ? 'dark' : 'light';
+    return () => {
+      root.style.removeProperty('--shell-bg');
+      root.style.colorScheme = '';
+    };
+  }, [settings.readerTheme]);
+
   const readerStyle = {
     '--reader-font-size': `${settings.fontSize}px`,
     '--reader-line-height': String(settings.lineHeight),
@@ -449,38 +496,61 @@ export function ReadPage() {
       data-selectable={desktop ? 'true' : undefined}
       style={readerStyle}
     >
+      {desktop ? null : (
+        <div className={styles.readingProgress}>
+          <div className={styles.track} role="progressbar" aria-label={t('reader.bookProgress')}>
+            <span className={styles.fill} />
+          </div>
+          <div className={styles.track} role="progressbar" aria-label={t('reader.chapterProgress')}>
+            <span className={`${styles.fill} ${styles.fillChapter}`} />
+          </div>
+        </div>
+      )}
       <header className={styles.toolbar}>
         <div className={styles.toolbarRow}>
-          <Button variant="outlined" onClick={() => void navigate({ to: PATH.library, search: {} })}>
+          <Button
+            variant="outlined"
+            onClick={() => {
+              if (!desktop) {
+                popRoute(() => {
+                  void navigate({ to: PATH.bookReader, params: { bookId }, search: {} });
+                });
+                return;
+              }
+              void navigate({ to: PATH.library, search: {} });
+            }}
+          >
             <CaretLeftIcon weight="regular" />
-            返回
+            {t('reader.back')}
           </Button>
           <div className={styles.toolbarTitle}>
-            <strong>{book?.title ?? '阅读'}</strong>
+            <strong>{book?.title ?? t('reader.reading')}</strong>
             <span>{chapterTitle || outline[chapterIndex]?.title}</span>
           </div>
           <div className={styles.percents}>
             <span>
-              全书 <span ref={bookPercentRef}>0%</span>
+              {t('reader.bookLabel')} <span ref={bookPercentRef}>0%</span>
             </span>
             <span>
-              本章 <span ref={chapterPercentRef}>0%</span>
+              {t('reader.chapterLabel')} <span ref={chapterPercentRef}>0%</span>
             </span>
           </div>
         </div>
-        <div className={styles.tracks}>
-          <div className={styles.track} role="progressbar" aria-label="全书进度">
-            <span className={styles.fill} />
+        {desktop ? (
+          <div className={styles.tracks}>
+            <div className={styles.track} role="progressbar" aria-label={t('reader.progressBookAria')}>
+              <span className={styles.fill} />
+            </div>
+            <div className={styles.track} role="progressbar" aria-label={t('reader.progressChapterAria')}>
+              <span className={`${styles.fill} ${styles.fillChapter}`} />
+            </div>
           </div>
-          <div className={styles.track} role="progressbar" aria-label="本章进度">
-            <span className={`${styles.fill} ${styles.fillChapter}`} />
-          </div>
-        </div>
+        ) : null}
       </header>
       {error ? <p className={styles.error}>{error}</p> : null}
       <div className={styles.body}>
         {outlineQuery.isSuccess && outline.length === 0 && !error ? (
-          <p className={styles.muted}>没有可阅读的章节。</p>
+          <p className={styles.muted}>{t('reader.noChapters')}</p>
         ) : (
           <ScrollColumn
             chapters={chapters}
@@ -493,10 +563,10 @@ export function ReadPage() {
           />
         )}
       </div>
-      <nav className={styles.dock} aria-label="阅读工具">
+      <nav className={styles.dock} aria-label={t('reader.toolsAria')}>
         <Button variant="outlined" disabled={!canPrev} onClick={() => void goToChapter(chapterIndex - 1)}>
           <CaretLeftIcon weight="regular" />
-          上一章
+          {t('reader.prevChapter')}
         </Button>
         <Button
           onClick={() => {
@@ -507,15 +577,15 @@ export function ReadPage() {
           }}
         >
           <ListIcon weight="regular" />
-          目录
+          {t('reader.toc')}
         </Button>
         <Button variant="outlined" disabled={!canNext} onClick={() => void goToChapter(chapterIndex + 1)}>
           <CaretRightIcon weight="regular" />
-          下一章
+          {t('reader.nextChapter')}
         </Button>
         <Button variant="outlined" onClick={() => openExcerpt()}>
           <QuotesIcon weight="regular" />
-          书摘
+          {t('reader.excerpt')}
         </Button>
         <Button
           variant="outlined"
@@ -527,7 +597,7 @@ export function ReadPage() {
           }}
         >
           <GearIcon weight="regular" />
-          设置
+          {t('reader.settings')}
         </Button>
       </nav>
       <button
@@ -536,22 +606,26 @@ export function ReadPage() {
         data-open={tocOpen || settingsOpen || excerptOpen ? 'true' : undefined}
         tabIndex={tocOpen || settingsOpen || excerptOpen ? 0 : -1}
         aria-hidden={tocOpen || settingsOpen || excerptOpen ? undefined : true}
-        aria-label="关闭"
+        aria-label={t('reader.close')}
         onClick={closeDrawers}
       />
       <aside
         className={`${styles.drawer} ${styles.drawerLeft}`}
         data-open={tocOpen ? 'true' : undefined}
-        aria-label="目录"
+        aria-label={t('reader.tocAria')}
       >
         <header className={styles.drawerHead}>
-          <h2>目录</h2>
-          <IconButton label="关闭目录" onClick={() => setTocOpen(false)}>
+          <h2>{t('reader.toc')}</h2>
+          <IconButton label={t('reader.closeToc')} onClick={() => setTocOpen(false)}>
             <XIcon weight="regular" />
           </IconButton>
         </header>
         <div className={styles.drawerBody}>
-          <TextField label="搜索章节" value={tocSearch} onChange={(event) => setTocSearch(event.target.value)} />
+          <TextField
+            label={t('reader.searchChapters')}
+            value={tocSearch}
+            onChange={(event) => setTocSearch(event.target.value)}
+          />
           <nav className={styles.toc}>
             {tocItems.map((item) => (
               <button
@@ -559,12 +633,13 @@ export function ReadPage() {
                 type="button"
                 className={styles.tocItem}
                 data-on={item.index === chapterIndex ? 'true' : undefined}
+                ref={item.index === chapterIndex ? tocCurrentRef : undefined}
                 onClick={() => {
                   void goToChapter(item.index);
                   setTocOpen(false);
                 }}
               >
-                {item.title || `第 ${item.index + 1} 章`}
+                {item.title || t('reader.chapterFallback', { index: item.index + 1 })}
               </button>
             ))}
           </nav>
@@ -573,24 +648,24 @@ export function ReadPage() {
       <aside
         className={`${styles.drawer} ${styles.drawerRight}`}
         data-open={settingsOpen ? 'true' : undefined}
-        aria-label="阅读设置"
+        aria-label={t('reader.settingsAria')}
       >
         <header className={styles.drawerHead}>
-          <h2>阅读设置</h2>
-          <IconButton label="关闭阅读设置" onClick={() => setSettingsOpen(false)}>
+          <h2>{t('reader.settingsTitle')}</h2>
+          <IconButton label={t('reader.closeSettings')} onClick={() => setSettingsOpen(false)}>
             <XIcon weight="regular" />
           </IconButton>
         </header>
         <div className={styles.settings}>
           <Slider
-            label="字号"
+            label={t('reader.fontSize')}
             min={16}
             max={40}
             value={settings.fontSize}
             onChange={(fontSize) => updateSettings({ fontSize })}
           />
           <Select
-            label="字体"
+            label={t('reader.fontFamily')}
             value={settings.fontFamily}
             onChange={(event) => updateSettings({ fontFamily: event.target.value as ReadingSettings['fontFamily'] })}
           >
@@ -601,7 +676,7 @@ export function ReadPage() {
             ))}
           </Select>
           <Select
-            label="主题"
+            label={t('reader.theme')}
             value={settings.readerTheme}
             onChange={(event) => updateSettings({ readerTheme: event.target.value as ReadingSettings['readerTheme'] })}
           >
@@ -612,7 +687,7 @@ export function ReadPage() {
             ))}
           </Select>
           <Select
-            label="版心"
+            label={t('reader.pageWidth')}
             value={String(settings.pageMaxWidth)}
             onChange={(event) =>
               updateSettings({ pageMaxWidth: Number(event.target.value) as ReadingSettings['pageMaxWidth'] })
@@ -625,7 +700,7 @@ export function ReadPage() {
             ))}
           </Select>
           <Select
-            label="段距"
+            label={t('reader.paragraphGap')}
             value={settings.paragraphGap}
             onChange={(event) =>
               updateSettings({ paragraphGap: event.target.value as ReadingSettings['paragraphGap'] })
@@ -642,11 +717,11 @@ export function ReadPage() {
       <aside
         className={`${styles.drawer} ${styles.drawerRight}`}
         data-open={excerptOpen ? 'true' : undefined}
-        aria-label="书摘"
+        aria-label={t('reader.excerptAria')}
       >
         <header className={styles.drawerHead}>
-          <h2>书摘</h2>
-          <IconButton label="关闭书摘" onClick={() => setExcerptOpen(false)}>
+          <h2>{t('reader.excerpt')}</h2>
+          <IconButton label={t('reader.closeExcerpt')} onClick={() => setExcerptOpen(false)}>
             <XIcon weight="regular" />
           </IconButton>
         </header>

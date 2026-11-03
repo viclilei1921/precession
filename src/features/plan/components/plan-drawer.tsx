@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
 import type { FormEvent, ReactNode } from 'react';
 import { useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Plan, PlanGroup, PlanInput, PlanPatch, PlanStatus } from '@/bridge/plan';
 import { planComplete, planCreate, planDelete, planUpdate } from '@/bridge/plan';
 import { Button } from '@/components/button';
@@ -24,11 +25,7 @@ import type { PlanPreset } from '../layout';
 import { atClock } from '../layout';
 import { DrawerAdd } from './drawer-frame';
 
-const PRIORITIES = [
-  { value: 0, label: '普通' },
-  { value: 1, label: '重要' },
-  { value: 2, label: '紧急' }
-] as const;
+const PRIORITIES = [0, 1, 2] as const;
 
 type StepDraft = {
   key: string;
@@ -46,6 +43,7 @@ type PlanDrawerProps = {
 
 /** 新建或编辑计划。平时只写标题、详情和步骤，其余先看结果 */
 export function PlanDrawer({ plan, preset, groups, onClose, onSaved }: PlanDrawerProps) {
+  const { t } = useTranslation('plan');
   const queryClient = useQueryClient();
   const markdownRef = useRef<MarkdownEditorHandle>(null);
   const [title, setTitle] = useState(plan?.title ?? '');
@@ -65,8 +63,17 @@ export function PlanDrawer({ plan, preset, groups, onClose, onSaved }: PlanDrawe
   );
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [whenOpen, setWhenOpen] = useState(false);
-  const knownPriority = PRIORITIES.some((item) => item.value === priority);
+  const knownPriority = PRIORITIES.some((value) => value === priority);
   const today = startOfLocalDay();
+  const priorityLabel = (value: number): string => {
+    if (value === 1) {
+      return t('priority.important');
+    }
+    if (value === 2) {
+      return t('priority.urgent');
+    }
+    return t('priority.normal');
+  };
 
   const save = useMutation({
     mutationFn: async () => {
@@ -84,7 +91,7 @@ export function PlanDrawer({ plan, preset, groups, onClose, onSaved }: PlanDrawe
         steps
       });
       if (!fields.title) {
-        throw new Error('标题不能为空');
+        throw new Error(t('form.titleRequired'));
       }
       if (!plan) {
         const created = await planCreate(fields.input);
@@ -113,7 +120,7 @@ export function PlanDrawer({ plan, preset, groups, onClose, onSaved }: PlanDrawe
     }
   });
   const remove = useMutation({
-    mutationFn: () => (plan ? planDelete(plan.id) : Promise.reject(new Error('计划不存在'))),
+    mutationFn: () => (plan ? planDelete(plan.id) : Promise.reject(new Error(t('form.planMissing')))),
     onSuccess: async () => {
       await refreshPlanViews(queryClient);
       onClose();
@@ -151,7 +158,7 @@ export function PlanDrawer({ plan, preset, groups, onClose, onSaved }: PlanDrawe
         <div className={styles.main}>
           <div className={styles.titleRow}>
             <TextField
-              label="标题"
+              label={t('field.title')}
               required
               maxLength={40}
               value={title}
@@ -174,13 +181,13 @@ export function PlanDrawer({ plan, preset, groups, onClose, onSaved }: PlanDrawe
                     <path d="M3.5 8.2 6.6 11.3 12.5 4.7" />
                   </svg>
                 </span>
-                已完成
+                {t('action.done')}
               </button>
             ) : null}
           </div>
           <MarkdownField
             ref={markdownRef}
-            label="详情"
+            label={t('field.detail')}
             value={body}
             image={plan ? { owner: 'plan', ownerId: plan.id } : looseImageOwner}
             onChange={setBody}
@@ -193,7 +200,7 @@ export function PlanDrawer({ plan, preset, groups, onClose, onSaved }: PlanDrawe
                   className={styles.check}
                   data-on={step.done ? 'true' : undefined}
                   aria-pressed={step.done}
-                  aria-label={step.done ? '标为未完成' : '标为完成'}
+                  aria-label={step.done ? t('aria.markUndone') : t('aria.markDone')}
                   onClick={() =>
                     setSteps((current) =>
                       current.map((item) => (item.key === step.key ? { ...item, done: !item.done } : item))
@@ -206,7 +213,7 @@ export function PlanDrawer({ plan, preset, groups, onClose, onSaved }: PlanDrawe
                 </button>
                 <TextField
                   className={styles.stepTitle}
-                  label="步骤"
+                  label={t('field.step')}
                   value={step.title}
                   onChange={(event) =>
                     setSteps((current) =>
@@ -219,11 +226,16 @@ export function PlanDrawer({ plan, preset, groups, onClose, onSaved }: PlanDrawe
                     }
                   }}
                 />
-                <IconButton label="上移步骤" size="compact" disabled={index === 0} onClick={() => moveStep(index, -1)}>
+                <IconButton
+                  label={t('action.moveStepUp')}
+                  size="compact"
+                  disabled={index === 0}
+                  onClick={() => moveStep(index, -1)}
+                >
                   <CaretUpIcon weight="regular" />
                 </IconButton>
                 <IconButton
-                  label="下移步骤"
+                  label={t('action.moveStepDown')}
                   size="compact"
                   disabled={index === steps.length - 1}
                   onClick={() => moveStep(index, 1)}
@@ -232,7 +244,7 @@ export function PlanDrawer({ plan, preset, groups, onClose, onSaved }: PlanDrawe
                 </IconButton>
                 <IconButton
                   className={styles.remove}
-                  label="删除步骤"
+                  label={t('action.deleteStep')}
                   size="compact"
                   onClick={() => setSteps((current) => current.filter((item) => item.key !== step.key))}
                 >
@@ -244,31 +256,35 @@ export function PlanDrawer({ plan, preset, groups, onClose, onSaved }: PlanDrawe
               onClick={() => setSteps((current) => [...current, { key: crypto.randomUUID(), title: '', done: false }])}
             >
               <PlusIcon weight="regular" />
-              添加步骤
+              {t('action.addStep')}
             </DrawerAdd>
           </div>
           <Fact open={whenOpen} set={date !== ''} onClick={() => setWhenOpen((open) => !open)}>
             <CalendarBlankIcon weight="regular" />
-            {describeWhen(date, end, allDay, time, timeEnd, today)}
+            {describeWhen(date, end, allDay, time, timeEnd, today, t)}
           </Fact>
           {whenOpen ? (
             <div className={styles.editor}>
               <div className={styles.pair}>
-                <DateField label="日期" value={date} onChange={setDate} />
-                <DateField label="结束日期" value={end} onChange={setEnd} />
+                <DateField label={t('field.date')} value={date} onChange={setDate} />
+                <DateField label={t('field.endDate')} value={end} onChange={setEnd} />
               </div>
-              <Checkbox label="全天" checked={allDay} onChange={(event) => setAllDay(event.target.checked)} />
+              <Checkbox
+                label={t('field.allDay')}
+                checked={allDay}
+                onChange={(event) => setAllDay(event.target.checked)}
+              />
               {allDay ? null : (
                 <div className={styles.pair}>
                   <TextField
-                    label="开始"
+                    label={t('field.start')}
                     type="time"
                     value={time}
                     step={60}
                     onChange={(event) => setTime(event.target.value)}
                   />
                   <TextField
-                    label="结束"
+                    label={t('field.end')}
                     type="time"
                     value={timeEnd}
                     step={60}
@@ -276,22 +292,26 @@ export function PlanDrawer({ plan, preset, groups, onClose, onSaved }: PlanDrawe
                   />
                 </div>
               )}
-              <p className={styles.hint}>日期留空，就放进未安排。结束日期留空，就只占开始这一天。</p>
+              <p className={styles.hint}>{t('form.dateHint')}</p>
             </div>
           ) : null}
           <div className={styles.pair}>
-            <Select label="清单" value={groupId} onChange={(event) => setGroupId(event.target.value)}>
+            <Select label={t('field.list')} value={groupId} onChange={(event) => setGroupId(event.target.value)}>
               {groups.map((item) => (
                 <option key={item.id} value={item.id}>
-                  {item.name}
+                  {item.system ? t('inbox') : item.name}
                 </option>
               ))}
             </Select>
-            <Select label="优先级" value={priority} onChange={(event) => setPriority(Number(event.target.value))}>
+            <Select
+              label={t('field.priority')}
+              value={priority}
+              onChange={(event) => setPriority(Number(event.target.value))}
+            >
               {knownPriority ? null : <option value={priority}>{priority}</option>}
-              {PRIORITIES.map((item) => (
-                <option key={item.value} value={item.value}>
-                  {item.label}
+              {PRIORITIES.map((value) => (
+                <option key={value} value={value}>
+                  {priorityLabel(value)}
                 </option>
               ))}
             </Select>
@@ -315,15 +335,15 @@ export function PlanDrawer({ plan, preset, groups, onClose, onSaved }: PlanDrawe
                 remove.mutate();
               }}
             >
-              {confirmDelete ? '确认删除' : '删除'}
+              {confirmDelete ? t('action.confirmDelete') : t('action.delete')}
             </Button>
           ) : null}
           <span className={styles.spacer} />
           <Button variant="outlined" disabled={pending} onClick={onClose}>
-            取消
+            {t('action.cancel')}
           </Button>
           <Button type="submit" disabled={pending}>
-            保存
+            {t('action.save')}
           </Button>
         </div>
       </div>
@@ -361,23 +381,26 @@ function Fact({
   );
 }
 
+type Translate = (key: string, options?: Record<string, unknown>) => string;
+
 function describeWhen(
   date: string,
   end: string,
   allDay: boolean,
   time: string,
   timeEnd: string,
-  today: number
+  today: number,
+  t: Translate
 ): string {
   const start = fromDateInputValue(date);
   if (start == null) {
-    return '未安排';
+    return t('when.unscheduled');
   }
   const finish = fromDateInputValue(end);
-  const startText = dayText(start, today);
-  const endText = finish != null && startOfLocalDay(finish) !== startOfLocalDay(start) ? dayText(finish, today) : '';
+  const startText = dayText(start, today, t);
+  const endText = finish != null && startOfLocalDay(finish) !== startOfLocalDay(start) ? dayText(finish, today, t) : '';
   if (allDay) {
-    return endText ? `${startText} – ${endText}` : `${startText} 全天`;
+    return endText ? `${startText} – ${endText}` : `${startText} ${t('when.allDay')}`;
   }
   const clock = time || '09:00';
   if (endText) {
@@ -386,9 +409,9 @@ function describeWhen(
   return timeEnd ? `${startText} ${clock}–${timeEnd}` : `${startText} ${clock}`;
 }
 
-function dayText(day: number, today: number): string {
+function dayText(day: number, today: number, t: Translate): string {
   const label = formatMonthDay(day);
-  return startOfLocalDay(day) === startOfLocalDay(today) ? `${label} 今天` : label;
+  return startOfLocalDay(day) === startOfLocalDay(today) ? `${label} ${t('when.today')}` : label;
 }
 
 function initialEnd(plan: Plan | null, preset: PlanPreset): string {

@@ -1,0 +1,38 @@
+{
+  "button": {
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "save": "Save",
+    "back": "Back",
+    "next": "Next",
+    "close": "Close",
+    "search": "Search",
+    "clear": "Clear",
+    "retry": "Retry",
+    "loadMore": "Load more"
+  },
+  "state": {
+    "loading": "Loading…",
+    "empty": "No data",
+    "error": "Something went wrong",
+    "noResult": "No results found"
+  },
+  "time": {
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "tomorrow": "Tomorrow"
+  },
+  "planStatus": {
+    "done": "Done",
+    "overdue": "Overdue"
+  },
+  "age": {
+    "months_one": "{{count}} month",
+    "months_other": "{{count}} months",
+    "years_one": "{{count}} year",
+    "years_other": "{{count}} years",
+    "yearsMonths": "{{years}} yr {{months}} mo",
+    "birthDay": "Birth day"
+  }
+}

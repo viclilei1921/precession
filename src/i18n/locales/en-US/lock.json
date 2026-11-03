@@ -1,0 +1,58 @@
+{
+  "app": {
+    "title": "Life Archive",
+    "loading": "Loading…"
+  },
+  "unlock": {
+    "title": "Unlock Archive",
+    "subtitlePassword": "Enter your password to open your life archive.",
+    "subtitleDevice": "Enter your archive password, or unlock directly.",
+    "subtitleDeviceLocked": "Enter your archive password, or try system verification again.",
+    "subtitleLocked": "Locked. Tap unlock to use system verification.",
+    "subtitleOpening": "Opening archive…",
+    "unlocking": "Unlocking…",
+    "unlock": "Unlock",
+    "unlockWithPassword": "Unlock with password",
+    "unlockWithDevice": "Unlock with system verification",
+    "unlockDirect": "Unlock directly",
+    "removeDevice": "Remove device unlock",
+    "password": "Password"
+  },
+  "create": {
+    "title": "Set Archive Password",
+    "subtitle": "Set a password for your first launch. It must be at least 8 characters.",
+    "password": "Password",
+    "confirm": "Enter it again",
+    "creating": "Creating…",
+    "create": "Create Archive"
+  },
+  "errors": {
+    "passwordWrong": "Incorrect password",
+    "passwordEmpty": "Password cannot be empty",
+    "passwordShort": "Password must be at least 8 characters",
+    "passwordMismatch": "The passwords do not match",
+    "passwordRequired": "Enter your archive password.",
+    "deviceExpired": "Device unlock has expired"
+  },
+  "archive": {
+    "rowTitle": "Archive",
+    "rowHint": "Unlocked · locking returns to the lock screen.",
+    "action": "Lock Archive",
+    "modalTitle": "Lock archive?",
+    "modalBody": "You will return to the lock screen. If device unlock is enabled, reopening needs system verification; otherwise you must enter the archive password again.",
+    "locking": "Locking…",
+    "cancel": "Cancel"
+  },
+  "device": {
+    "rowTitle": "Device Unlock",
+    "label": "Device Unlock",
+    "hintOn": "Enabled · system verification replaces the archive password when opening the app.",
+    "hintOff": "When enabled, system verification replaces the archive password when opening the app.",
+    "password": "Archive Password",
+    "placeholder": "Enter archive password",
+    "cancel": "Cancel",
+    "enable": "Enable",
+    "enabling": "Enabling…",
+    "errorPasswordRequired": "Enter your archive password."
+  }
+}

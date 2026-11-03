@@ -1,0 +1,240 @@
+{
+  "page": {
+    "formatLabel": "Output format",
+    "formatAria": "Image format",
+    "modeLabel": "Parameters",
+    "modeAria": "Encoding mode",
+    "default": "Default",
+    "custom": "Custom",
+    "hint": "AVIF defaults to quality 60 and speed 6. JPEG XL defaults to distance 1 and effort 7. Results are written next to the original file with the extension changed to .avif or .jxl. The default uses fixed parameters; switch to custom to fill in the groups below.",
+    "hintLabel": "Conversion help",
+    "start": "Start conversion",
+    "error": {
+      "noFiles": "Add images first.",
+      "noSelection": "Select images first."
+    }
+  },
+  "params": {
+    "sections": {
+      "quality": "Quality",
+      "pixel": "Pixel",
+      "file": "File",
+      "color": "Color",
+      "container": "Container"
+    },
+    "groupsAria": "Parameter groups",
+    "notesAria": "{{section}} notes",
+    "labels": {
+      "colorQuality": "Color quality",
+      "alphaQuality": "Alpha quality",
+      "speed": "Speed",
+      "targetSize": "Target size",
+      "lossless": "Lossless",
+      "losslessJpeg": "Lossless JPEG reconstruction",
+      "distance": "Distance",
+      "effort": "effort",
+      "decodingSpeed": "Decoding speed",
+      "alphaDistance": "Alpha distance",
+      "photonNoise": "Photon noise",
+      "depth": "Bit depth",
+      "chroma": "Chroma",
+      "range": "Range",
+      "sharpYuv": "SharpYUV",
+      "premultipliedAlpha": "Premultiplied alpha",
+      "colorEncoding": "Color encoding",
+      "targetIntensity": "Target intensity",
+      "encodingMethod": "Encoding mode",
+      "chromaSampling": "Chroma subsampling",
+      "threads": "Threads",
+      "tileRows": "Tile rows",
+      "tileCols": "Tile columns",
+      "ignoreExif": "Ignore EXIF",
+      "ignoreXmp": "Ignore XMP",
+      "ignoreIcc": "Ignore ICC",
+      "autoTiling": "Auto tiling",
+      "progressive": "Progressive",
+      "useContainer": "Use container"
+    },
+    "options": {
+      "auto": "Auto",
+      "full": "Full",
+      "limited": "Limited",
+      "keepSource": "Keep source",
+      "linearSrgb": "Linear sRGB",
+      "srgbLuma": "sRGB grayscale",
+      "linearSrgbLuma": "Linear grayscale",
+      "noDownscale": "No downscale",
+      "notPremultiplied": "Not premultiplied",
+      "premultiplied": "Premultiplied",
+      "followSource": "Follow source",
+      "modular": "Modular",
+      "varDct": "VarDCT"
+    },
+    "placeholder": {
+      "empty": "Leave blank",
+      "tileRange": "0–6"
+    },
+    "summary": {
+      "defaultAvif": "Default: quality 60 · alpha quality 60 · speed 6 · 8-bit",
+      "defaultJxl": "Default: distance 1 · effort 7",
+      "avif": "AVIF · Quality {{qcolor}} · Speed {{speed}} · {{depth}}{{loss}}",
+      "jxl": "JPEG XL · Distance {{quality}} · effort {{effort}}{{loss}}{{mode}}{{sample}}{{depth}}",
+      "lossless": " · lossless",
+      "modular": " · modular",
+      "varDct": " · VarDCT",
+      "noSampling": " · no subsampling",
+      "sampling": " · subsampling {{factor}}×",
+      "bitDepth": " · {{bits}}-bit"
+    }
+  },
+  "files": {
+    "fileName": "Name",
+    "size": "Size",
+    "path": "Path",
+    "action": "Actions",
+    "empty": "No images yet. Choose files or folders, or drop them here.",
+    "selectAria": "Select {{name}}",
+    "remove": "Remove",
+    "selectAll": "Select all",
+    "invert": "Invert",
+    "clear": "Clear",
+    "delete": "Delete",
+    "selected_one": "{{count}} image selected · {{size}} total",
+    "selected_other": "{{count}} images selected · {{size}} total"
+  },
+  "notes": {
+    "avifQuality": {
+      "name": "Color quality",
+      "text": "Higher is closer to the original; 100 is lossless, 0 is the worst. 60 suits everyday photos, differences are hard to see above 80, and blocking and smearing become obvious below 40. It does not affect encoding speed."
+    },
+    "avifAlpha": {
+      "name": "Alpha quality",
+      "text": "Same 0–100 scale, applied only to the alpha channel. Images without transparency can ignore it. Match it to color quality for soft edges; simple silhouettes can go lower."
+    },
+    "avifSpeed": {
+      "name": "Speed",
+      "text": "0 is slowest, 10 fastest, default 6. At the same quality, slower usually gives smaller files while the visual target stays the same. Want more clarity? Raise quality rather than treating a lower speed as extra sharpness."
+    },
+    "avifTargetSize": {
+      "name": "Target size",
+      "text": "In bytes, for example 200000 is about 200 KB. The encoder tries quality values back and forth to approach this size, at up to 7× slower. Leave blank to use the quality settings above."
+    },
+    "avifLossless": {
+      "name": "Lossless",
+      "text": "Ticking this demands pixel losslessness. Color quality and alpha quality should then be 100, chroma 4:4:4, and range full. Otherwise the encoder warns and falls back to lossy."
+    },
+    "avifDepth": {
+      "name": "Bit depth",
+      "text": "Use 8-bit for ordinary photos and screenshots. 10-bit or 12-bit smooths gradients in skies and shadows. If the source is only 8-bit you gain no detail, files get bigger, and some viewers only show 8-bit anyway."
+    },
+    "avifYuv": {
+      "name": "Chroma",
+      "text": "On auto, JPEG sources keep their own subsampling where possible, grayscale uses 4:0:0, and everything else uses 4:4:4. 4:4:4 keeps all color, good for text and screenshots. 4:2:0 is common for photos and smaller, but colored text edges may blur. 4:0:0 discards color entirely, leaving grayscale."
+    },
+    "avifRange": {
+      "name": "Range",
+      "text": "Still images use full (0–255). Limited is the video range 16–235; ordinary pictures will look washed out with it. When unsure leave auto; photos and PNGs use full."
+    },
+    "avifSharpYuv": {
+      "name": "SharpYUV",
+      "text": "Only takes effect when chroma is 4:2:0, keeping color edges from bleeding. Tick it when text and icons must be subsampled to 4:2:0. Ignored on auto or 4:4:4."
+    },
+    "avifPremultiply": {
+      "name": "Premultiplied alpha",
+      "text": "Tick only when the source's colors are already multiplied by alpha, for example some render exports. On a normal PNG, transparent edges will darken."
+    },
+    "avifExif": {
+      "name": "Ignore EXIF",
+      "text": "Shooting information and orientation tags. When ignored they are not written to the new file. If orientation is only recorded in EXIF, some images may end up sideways."
+    },
+    "avifXmp": {
+      "name": "Ignore XMP",
+      "text": "Supplementary metadata. When ignored it is not written to the new file; the image stays the same."
+    },
+    "avifIcc": {
+      "name": "Ignore ICC",
+      "text": "Color profile. When ignored, colors may shift if the source is not sRGB."
+    },
+    "avifTiles": {
+      "name": "Auto tiling",
+      "text": "Decodes large images in tiles; leaving it on is fine. Turn it off and the tile rows and columns fields below take effect."
+    },
+    "avifTileCount": {
+      "name": "Tile rows, tile columns",
+      "text": "Splits into 2 to the power of N tiles: 0 is 1 tile, 1 is 2, 6 is 64. More tiles mean smaller individual tiles."
+    },
+    "avifProgressive": {
+      "name": "Progressive",
+      "text": "Shows a rough image first, then refines it. Good for viewing over the network. Skip it for local archives."
+    },
+    "avifJobs": {
+      "name": "Threads",
+      "text": "How many threads to encode with. Leave blank to use as many cores as possible. Lower it when the machine has other work to do."
+    },
+    "jxlDistance": {
+      "name": "Distance",
+      "text": "This is not a 0–100 quality percentage but the visual distance from the original: lower is closer. 0 is pixel-lossless. 1 is the default; cjxl calls it visually indistinguishable, roughly JPEG quality 90. 2 to 3 give smaller files and smooth areas may show slight loss. The official recommendation is 0.5 to 3 for everyday use; up to 25 is allowed, but beyond that it looks noticeably blurry. For identical pixels enter 0, or tick lossless."
+    },
+    "jxlEffort": {
+      "name": "effort",
+      "text": "Does not change the distance you set; it only decides how much time the encoder spends approaching it. 7 is the default. 9 is slower: usually more accurate and smaller when lossy, and often smaller when lossless too. 1 to 4 are only for producing a quick preview."
+    },
+    "jxlDecoding": {
+      "name": "Decoding speed",
+      "text": "0 is the default: smaller files, slightly slower to open. 2 or 4 open faster, but files get larger and quality may drop slightly. If you only archive and open occasionally, keep 0."
+    },
+    "jxlAlphaDistance": {
+      "name": "Alpha distance",
+      "text": "Applies only to the alpha channel; the scale matches distance, and lower means more precise edges. Leave blank to follow the color distance. Use 0 for clean cutout and logo edges. Soft translucency can go a bit above the color distance, but staying within 0.5 to 3 is still recommended."
+    },
+    "jxlLossless": {
+      "name": "Lossless",
+      "text": "When ticked, encodes at distance 0 and matches the original pixel for pixel, with a noticeably larger file. If you already plan to compress with distance, do not tick it."
+    },
+    "jxlLosslessJpeg": {
+      "name": "Lossless JPEG reconstruction",
+      "text": "Only meaningful for JPEG sources: saves the original JPEG bitstream so that same JPEG can be reconstructed later, not just something that looks alike. Ticking it for PNG has no such effect. When ticked, distance no longer determines this JPEG's image."
+    },
+    "jxlColor": {
+      "name": "Color encoding",
+      "text": "Keep as-is. sRGB is a normal screen. Linear sRGB is only for data that is already linear light; ordinary photos tagged linear look wrong. Grayscale discards color."
+    },
+    "jxlIntensity": {
+      "name": "Target intensity",
+      "text": "Peak brightness for HDR, in nits. Leave blank for ordinary photos and the encoder picks based on color space. Only HDR masters need it, for example 1000 or 4000. A wrong value changes how highlights are compressed."
+    },
+    "jxlModular": {
+      "name": "Encoding mode",
+      "text": "On auto, photos mostly use VarDCT while illustrations, screenshots and lossless mostly use modular. VarDCT suits photos. Modular suits graphics with crisp edges. When unsure leave auto."
+    },
+    "jxlResampling": {
+      "name": "Chroma subsampling",
+      "text": "Downscales color before encoding, then upscales on open. Auto only downscales at very low quality. 1 means no downscaling, good for text and screenshots. 2, 4, 8 give smaller files but blurrier color edges."
+    },
+    "jxlBitDepth": {
+      "name": "Bit depth",
+      "text": "Following the source is right. This is the bit depth written to the file; it will not give an 8-bit photo finer gradients. If the source is only 8-bit, choosing 10, 12 or 16 adds no detail and may enlarge the file. Only change it when the source itself has that many levels, for example a 16-bit PNG."
+    },
+    "jxlPremultiply": {
+      "name": "Premultiplied alpha",
+      "text": "Choose premultiplied only when the source's colors are already multiplied by alpha, for example some render exports. On a normal PNG, premultiplied makes transparent edges darken. When unsure leave auto."
+    },
+    "jxlPhoton": {
+      "name": "Photon noise",
+      "text": "Adds camera-ISO-like grain to offset the plastic look of smooth areas at large distances. 100 is little, 3200 is a lot. Blank or 0 adds none. This changes pixels."
+    },
+    "jxlThreads": {
+      "name": "Threads",
+      "text": "How many threads to encode with. Leave blank for this machine's default, usually all cores. 1 forces single-threaded encoding."
+    },
+    "jxlContainer": {
+      "name": "Use container",
+      "text": "When ticked, always uses the JPEG XL container, which holds shooting information and JPEG reconstruction data. Unticked, it is only enabled automatically when EXIF is to be written. This is not a quality switch."
+    },
+    "jxlProgressive": {
+      "name": "Progressive",
+      "text": "Decodes coarse to fine so a rough preview appears sooner on the network. Compression is slightly less efficient. Not needed for archives."
+    }
+  },
+  "queue": {}
+}

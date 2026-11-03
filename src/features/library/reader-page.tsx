@@ -2,6 +2,7 @@ import { CaretLeftIcon } from '@phosphor-icons/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { pickFiles } from '@/bridge/files';
 import type { Book, BookNote, BookStatus } from '@/bridge/library';
 import { bookDelete, bookUpdate } from '@/bridge/library';
@@ -10,11 +11,13 @@ import { Button } from '@/components/button';
 import { SegmentButton } from '@/components/button/segment';
 import { Scroll } from '@/components/scroll';
 import { DrawerPanel, DrawerScrim } from '@/features/plan/components/drawer-frame';
+import { performMobileBack, useBackLayer } from '@/layout/mobile/back';
 import { bookNoteListQuery, bookQuery, refreshLibrary } from '@/query/library/query';
 import { PATH } from '@/router/path';
+import { useAppStore } from '@/store/app';
 import { formatMonthDay } from '@/utils/day';
 import { errorMessage } from '@/utils/error';
-import { bookEncrypted, bookFile, bookStatusLabel, toInput } from './book';
+import { bookEncrypted, bookFile, bookStatusLabel, displayTitle, toInput } from './book';
 import styles from './book.module.css';
 import { Cover } from './components/cover';
 import { NoteForm, noteBody } from './components/note-form';
@@ -23,14 +26,18 @@ const STATUSES: BookStatus[] = ['reading', 'want', 'finished'];
 const EXTENSIONS = ['epub', 'mobi', 'txt', 'azw', 'azw3'];
 
 export function ReaderPage() {
+  const { t } = useTranslation('library');
   const { bookId } = useParams({ from: '/library/$bookId' });
   const search = useSearch({ from: '/library/$bookId' });
   const navigate = useNavigate();
+  const mobile = useAppStore((state) => state.isMobile());
   const queryClient = useQueryClient();
   const bookQueryResult = useQuery(bookQuery(bookId));
   const notesQuery = useQuery(bookNoteListQuery(bookId));
   const [note, setNote] = useState<BookNote | null | 'new'>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  useBackLayer(note !== null, () => setNote(null));
+  useBackLayer(confirmDelete, () => setConfirmDelete(false));
   const book = bookQueryResult.data;
   const file = book ? bookFile(book) : undefined;
   const importing = Boolean(search.task) && !file;
@@ -45,7 +52,7 @@ export function ReaderPage() {
     mutationFn: () => bookDelete(bookId),
     onSuccess: async () => {
       await refreshLibrary(queryClient);
-      void navigate({ to: PATH.library });
+      void navigate({ to: PATH.library, replace: true });
     }
   });
   const attach = useMutation({
@@ -144,9 +151,18 @@ export function ReaderPage() {
 
   return (
     <section className={styles.page}>
-      <Button variant="outlined" onClick={() => void navigate({ to: PATH.library })}>
+      <Button
+        variant="outlined"
+        onClick={() => {
+          if (mobile) {
+            performMobileBack();
+            return;
+          }
+          void navigate({ to: PATH.library });
+        }}
+      >
         <CaretLeftIcon weight="regular" />
-        返回书架
+        {t('detail.backToShelf')}
       </Button>
       <Scroll className={styles.scroll}>
         {bookQueryResult.error ? <p className={styles.note}>{errorMessage(bookQueryResult.error)}</p> : null}
@@ -154,12 +170,12 @@ export function ReaderPage() {
           <div className={styles.layout}>
             <div className={styles.dossier}>
               <Cover book={book} />
-              <h1>{book.title}</h1>
-              <p className={styles.meta}>{book.author || '佚名'}</p>
+              <h1>{displayTitle(book.title)}</h1>
+              <p className={styles.meta}>{book.author || t('page.anonymous')}</p>
               <div className={styles.segments}>
                 {STATUSES.map((status) => (
                   <SegmentButton key={status} selected={book.status === status} onClick={() => patch({ status })}>
-                    {bookStatusLabel[status]}
+                    {bookStatusLabel(status)}
                   </SegmentButton>
                 ))}
               </div>
@@ -169,7 +185,7 @@ export function ReaderPage() {
                     key={star}
                     type="button"
                     data-on={(book.rating ?? 0) >= star ? 'true' : undefined}
-                    aria-label={`${star} 星`}
+                    aria-label={t('detail.starAria', { count: star })}
                     onClick={() => patch({ rating: book.rating === star ? null : star })}
                   >
                     ★
@@ -177,19 +193,19 @@ export function ReaderPage() {
                 ))}
               </div>
               <label className={styles.range}>
-                进度 {Math.round(book.progress * 100)}%
+                {t('detail.progress', { percent: Math.round(book.progress * 100) })}
                 <input
                   type="range"
                   min={0}
                   max={100}
                   value={Math.round(book.progress * 100)}
-                  aria-label="阅读进度"
+                  aria-label={t('detail.progressAria')}
                   onChange={(event) => patch({ progress: Number(event.target.value) / 100 })}
                 />
               </label>
-              {importing ? <p className={styles.note}>正在导入</p> : null}
+              {importing ? <p className={styles.note}>{t('detail.importing')}</p> : null}
               {file || importing ? null : (
-                <p className={styles.note}>{bookEncrypted(book) ? '这本书已加密，暂时不能阅读' : '还没有正文'}</p>
+                <p className={styles.note}>{bookEncrypted(book) ? t('detail.encrypted') : t('detail.noContent')}</p>
               )}
               <div className={styles.actions}>
                 {file ? (
@@ -197,12 +213,12 @@ export function ReaderPage() {
                     className={styles.action}
                     onClick={() => void navigate({ to: PATH.bookRead, params: { bookId } })}
                   >
-                    继续阅读
+                    {t('detail.continueReading')}
                   </Button>
                 ) : null}
                 {!file && !importing && !bookEncrypted(book) ? (
                   <Button className={styles.action} disabled={attach.isPending} onClick={() => attach.mutate()}>
-                    导入正文
+                    {t('detail.importText')}
                   </Button>
                 ) : null}
                 <Button
@@ -218,7 +234,7 @@ export function ReaderPage() {
                     remove.mutate();
                   }}
                 >
-                  {confirmDelete ? '确认删除' : '删除这本书'}
+                  {confirmDelete ? t('detail.confirmDelete') : t('detail.deleteBook')}
                 </Button>
               </div>
               {update.error ? <p className={styles.error}>{errorMessage(update.error)}</p> : null}
@@ -227,8 +243,8 @@ export function ReaderPage() {
             </div>
             <div className={styles.notes}>
               <div className={styles.notesHead}>
-                <h2>书摘和笔记</h2>
-                <Button onClick={() => setNote('new')}>记一笔</Button>
+                <h2>{t('detail.notesTitle')}</h2>
+                <Button onClick={() => setNote('new')}>{t('detail.newNote')}</Button>
               </div>
               <div className={styles.list}>
                 {notes.map((item) => (
@@ -240,7 +256,7 @@ export function ReaderPage() {
                     onClick={() => setNote(item)}
                   >
                     <span className={styles.noteTop}>
-                      <span>{item.kind === 'excerpt' ? '书摘' : '笔记'}</span>
+                      <span>{item.kind === 'excerpt' ? t('detail.excerpt') : t('detail.note')}</span>
                       <span>{formatMonthDay(item.occurredAt)}</span>
                     </span>
                     <span className={styles.body}>{noteBody(item)}</span>
@@ -252,8 +268,8 @@ export function ReaderPage() {
                 ))}
                 {!notesQuery.isPending && notes.length === 0 ? (
                   <div className={styles.emptyNotes}>
-                    <p>还没有留下句子</p>
-                    <span>读到想记住的地方，记一笔就好。</span>
+                    <p>{t('detail.emptyNotesTitle')}</p>
+                    <span>{t('detail.emptyNotesHint')}</span>
                   </div>
                 ) : null}
               </div>
@@ -264,8 +280,8 @@ export function ReaderPage() {
       <DrawerScrim open={note !== null} onClose={() => setNote(null)} />
       <DrawerPanel
         open={note !== null}
-        title={note && note !== 'new' ? '修改' : '记一笔'}
-        label="书摘或笔记"
+        title={note && note !== 'new' ? t('detail.editNote') : t('detail.newNote')}
+        label={t('detail.noteDrawerLabel')}
         onClose={() => setNote(null)}
       >
         {book && note !== null ? (

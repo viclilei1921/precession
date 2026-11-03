@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Task, UploadKind } from '@/bridge';
 import { onTaskUpdate, taskEnqueue, taskList } from '@/bridge';
 import { Button } from '@/components/button';
@@ -7,16 +8,17 @@ import { Modal } from '@/components/modal';
 import { PasswordInput } from '@/components/password-input';
 import { Select } from '@/components/select';
 import { TextField } from '@/components/text-field';
+import i18n from '@/i18n';
 import { refreshFiles } from '@/query/files/query';
 import { errorMessage } from '@/utils/error';
 import styles from './page.module.css';
 import { LOOSE_OWNER } from './text';
 
-const kinds: { id: UploadKind; label: string }[] = [
-  { id: 'image', label: '图片' },
-  { id: 'video', label: '视频' },
-  { id: 'book', label: '书籍' },
-  { id: 'file', label: '其他' }
+const kinds: { id: UploadKind; labelKey: string }[] = [
+  { id: 'image', labelKey: 'types.filters.image' },
+  { id: 'video', labelKey: 'types.filters.video' },
+  { id: 'book', labelKey: 'types.filters.book' },
+  { id: 'file', labelKey: 'types.filters.file' }
 ];
 
 export type ImportDraft = {
@@ -40,7 +42,7 @@ function waitTask(id: string) {
         resolve(task);
         return;
       }
-      reject(new Error(task.message || '导入失败'));
+      reject(new Error(task.message || i18n.t('files:import.failed')));
     };
     void onTaskUpdate(finish)
       .then((unlisten) => {
@@ -61,7 +63,7 @@ function waitTask(id: string) {
         if (!settled) {
           settled = true;
           stop?.();
-          reject(error instanceof Error ? error : new Error('导入失败'));
+          reject(error instanceof Error ? error : new Error(i18n.t('files:import.failed')));
         }
       });
   });
@@ -77,6 +79,7 @@ export function ImportDialog({
   onImported: (id: string | null) => void;
 }) {
   const queryClient = useQueryClient();
+  const { t } = useTranslation(['files', 'common']);
   const [drafts, setDrafts] = useState(files);
   const [password, setPassword] = useState('');
   const sealedCount = drafts.filter((file) => file.sealed).length;
@@ -87,7 +90,7 @@ export function ImportDialog({
       for (const file of drafts) {
         const name = file.name.trim();
         if (!name) {
-          throw new Error('请填写文件名。');
+          throw new Error(t('import.needName'));
         }
         const task = await taskEnqueue({
           kind: 'importUpload',
@@ -116,12 +119,12 @@ export function ImportDialog({
   });
 
   return (
-    <Modal title="上传" wide onClose={onClose}>
+    <Modal title={t('import.title')} wide onClose={onClose}>
       <div className={styles.importList}>
         {drafts.map((file, index) => (
           <div key={file.path} className={styles.importRow}>
             <TextField
-              label="名称"
+              label={t('import.name')}
               value={file.sealed || password.length > 0 ? `${file.name}.env` : file.name}
               onChange={(event) => {
                 const raw = event.target.value;
@@ -133,7 +136,7 @@ export function ImportDialog({
               }}
             />
             <Select
-              label="类型"
+              label={t('import.type')}
               value={file.kind}
               onChange={(event) => {
                 const kind = event.target.value as UploadKind;
@@ -144,29 +147,29 @@ export function ImportDialog({
             >
               {kinds.map((item) => (
                 <option key={item.id} value={item.id}>
-                  {item.label}
+                  {t(item.labelKey)}
                 </option>
               ))}
             </Select>
           </div>
         ))}
       </div>
-      {sealedCount > 0 ? <p className={styles.importNote}>已经加密的文件会原样入库，并标成加密文件。</p> : null}
+      {sealedCount > 0 ? <p className={styles.importNote}>{t('import.sealedNote')}</p> : null}
       {allSealed ? null : (
         <PasswordInput
-          label="密码"
+          label={t('import.password')}
           value={password}
-          placeholder={sealedCount > 0 ? '只加密还没加密的文件' : '留空则不加密，填写后名称加上 .env'}
+          placeholder={sealedCount > 0 ? t('import.passwordPlaceholderSome') : t('import.passwordPlaceholderAll')}
           onChange={(event) => setPassword(event.target.value)}
         />
       )}
       {save.error ? <p className={styles.error}>{errorMessage(save.error)}</p> : null}
       <div className={styles.dialogActions}>
         <Button variant="text" onClick={onClose}>
-          取消
+          {t('common:button.cancel')}
         </Button>
         <Button disabled={save.isPending || drafts.length === 0} onClick={() => save.mutate()}>
-          {save.isPending ? '正在导入…' : '导入'}
+          {save.isPending ? t('import.submitting') : t('import.submit')}
         </Button>
       </div>
     </Modal>

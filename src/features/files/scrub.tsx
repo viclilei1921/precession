@@ -1,5 +1,6 @@
 import clsx from 'clsx';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { clock } from './preview';
 import styles from './scrub.module.css';
 
@@ -27,10 +28,12 @@ export function Scrub({
   buffered = 0,
   tip = false,
   invert = false,
-  label = '进度',
+  label,
   className,
   onSeek
 }: ScrubProps) {
+  const { t } = useTranslation('files');
+  const ariaLabel = label ?? t('viewer.progress');
   const [hover, setHover] = useState<{ ratio: number; time: number } | null>(null);
   const played = duration > 0 ? Math.min(100, (current / duration) * 100) : 0;
   const loaded = duration > 0 ? Math.min(100, (buffered / duration) * 100) : 0;
@@ -70,7 +73,7 @@ export function Scrub({
         max={duration || 0}
         step={0.01}
         value={Number.isFinite(current) ? current : 0}
-        aria-label={label}
+        aria-label={ariaLabel}
         disabled={!duration}
         onChange={(event) => {
           const time = Number(event.target.value);

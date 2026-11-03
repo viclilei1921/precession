@@ -4,6 +4,7 @@ import type { RefObject } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import type { UploadCatalog } from '@/bridge/upload';
 import { uploadImage } from '@/bridge/upload';
+import i18n from '@/i18n';
 import styles from './page.module.css';
 import { bookFormatLabel, canThumb } from './text';
 
@@ -85,7 +86,7 @@ function ThumbFace({
   if (file.kind !== 'image') {
     return (
       <span ref={nodeRef} className={styles.thumb}>
-        {file.kind === 'video' ? '视频' : '文件'}
+        {file.kind === 'video' ? i18n.t('files:types.filters.video') : i18n.t('files:types.fileLabel')}
       </span>
     );
   }

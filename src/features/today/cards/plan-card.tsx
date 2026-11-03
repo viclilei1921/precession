@@ -1,6 +1,7 @@
 import { ListChecksIcon } from '@phosphor-icons/react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
+import { useTranslation } from 'react-i18next';
 import { useCardLayout } from '@/features/today/board/board';
 import { todayCompletion, todayPlanPanel } from '@/query/plan/group';
 import { planListQuery } from '@/query/plan/query';
@@ -11,6 +12,7 @@ import styles from './tile.module.css';
 import { TileHead } from './tile-head';
 
 export function PlanCard() {
+  const { t } = useTranslation('today');
   const navigate = useNavigate();
   const plansQuery = useQuery(planListQuery);
   const today = startOfLocalDay();
@@ -33,8 +35,8 @@ export function PlanCard() {
       <TileHead
         tone="plan"
         icon={ListChecksIcon}
-        title="计划"
-        extra={overdue > 0 ? `${overdue} 项逾期` : undefined}
+        title={t('card.plan')}
+        extra={overdue > 0 ? t('planCard.overdue', { count: overdue }) : undefined}
         warn={overdue > 0}
       />
       {plansQuery.error ? <p className={styles.error}>{errorMessage(plansQuery.error)}</p> : null}
@@ -42,10 +44,10 @@ export function PlanCard() {
         {completion.done}
         <small> / {completion.total}</small>
       </p>
-      <div className={styles.bar} role="img" aria-label={`完成 ${percent}%`}>
+      <div className={styles.bar} role="img" aria-label={t('planCard.complete', { percent })}>
         <span style={{ width: `${percent}%` }} />
       </div>
-      <p className={styles.next}>{next ? `下一件 · ${next.title}` : '今天没有未完成的计划'}</p>
+      <p className={styles.next}>{next ? t('planCard.next', { title: next.title }) : t('planCard.noNext')}</p>
     </button>
   );
 }

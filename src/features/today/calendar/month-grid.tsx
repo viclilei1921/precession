@@ -1,17 +1,10 @@
+import { useTranslation } from 'react-i18next';
 import type { CalendarDay } from '@/bridge/calendar';
 import { isSameLocalDay, toDateInputValue } from '@/utils/day';
 import type { DayCell } from './bounds';
 import styles from './calendar.module.css';
 import { dayFace } from './day-face';
 import type { MarkTone } from './marks';
-
-const WEEKDAYS = ['一', '二', '三', '四', '五', '六', '日'];
-const LEGEND: { tone: MarkTone; label: string }[] = [
-  { tone: 'plan', label: '计划' },
-  { tone: 'journal', label: '手记' },
-  { tone: 'growth', label: '成长' },
-  { tone: 'library', label: '书库' }
-];
 
 type MonthGridProps = {
   cells: DayCell[];
@@ -21,14 +14,24 @@ type MonthGridProps = {
   onSelect: (time: number) => void;
 };
 
+const WEEKDAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
+
 export function MonthGrid({ cells, days, marks, selected, onSelect }: MonthGridProps) {
+  const { t } = useTranslation('today');
   const today = Date.now();
+
+  const LEGEND: { tone: MarkTone; label: string }[] = [
+    { tone: 'plan', label: t('calendar.legend.plan') },
+    { tone: 'journal', label: t('calendar.legend.journal') },
+    { tone: 'growth', label: t('calendar.legend.growth') },
+    { tone: 'library', label: t('calendar.legend.library') }
+  ];
 
   return (
     <>
       <div className={styles.weekdays}>
-        {WEEKDAYS.map((label) => (
-          <span key={label}>{label}</span>
+        {WEEKDAY_KEYS.map((key) => (
+          <span key={key}>{t(`weekdayShort.${key}`)}</span>
         ))}
       </div>
       <div className={styles.days}>
@@ -37,7 +40,11 @@ export function MonthGrid({ cells, days, marks, selected, onSelect }: MonthGridP
           const face = dayFace(info);
           const tones = marks.get(toDateInputValue(cell.time)) ?? [];
           const date = new Date(cell.time);
-          const label = `${date.getMonth() + 1}月${date.getDate()}日 ${face.text}`;
+          const label = t('calendar.monthCellLabel', {
+            month: date.getMonth() + 1,
+            day: date.getDate(),
+            lunarText: face.text
+          });
           return (
             <button
               key={cell.time}

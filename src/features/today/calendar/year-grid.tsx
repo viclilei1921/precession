@@ -1,10 +1,9 @@
+import { useTranslation } from 'react-i18next';
 import type { CalendarDay } from '@/bridge/calendar';
 import { isSameLocalDay, toDateInputValue } from '@/utils/day';
 import type { YearMonth } from './bounds';
 import styles from './calendar.module.css';
 import { yearFace } from './day-face';
-
-const WEEKDAYS = ['一', '二', '三', '四', '五', '六', '日'];
 
 type YearGridProps = {
   months: YearMonth[];
@@ -15,7 +14,15 @@ type YearGridProps = {
   onOpenMonth: (monthStart: number) => void;
 };
 
+const WEEKDAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
+
+const BADGE_KEYS = {
+  rest: 'calendar.badgeRest',
+  work: 'calendar.badgeWork'
+} as const;
+
 export function YearGrid({ months, columns, days, selected, onSelect, onOpenMonth }: YearGridProps) {
+  const { t } = useTranslation('today');
   const today = Date.now();
 
   return (
@@ -26,8 +33,8 @@ export function YearGrid({ months, columns, days, selected, onSelect, onOpenMont
             {month.label}
           </button>
           <div className={styles.weekdays}>
-            {WEEKDAYS.map((label) => (
-              <span key={label}>{label}</span>
+            {WEEKDAY_KEYS.map((key) => (
+              <span key={key}>{t(`weekdayShort.${key}`)}</span>
             ))}
           </div>
           <div className={styles.miniDays}>
@@ -35,7 +42,13 @@ export function YearGrid({ months, columns, days, selected, onSelect, onOpenMont
               const info = days.get(toDateInputValue(cell.time));
               const face = yearFace(info);
               const date = new Date(cell.time);
-              const label = `${date.getMonth() + 1}月${date.getDate()}日 ${face.text} ${face.badge}`.trim();
+              const badge = face.badge ? t(BADGE_KEYS[face.badge]) : '';
+              const label = t('calendar.yearCellLabel', {
+                month: date.getMonth() + 1,
+                day: date.getDate(),
+                lunarText: face.text,
+                badge
+              }).trim();
               return (
                 <button
                   key={cell.time}
@@ -49,7 +62,7 @@ export function YearGrid({ months, columns, days, selected, onSelect, onOpenMont
                   onClick={() => onSelect(cell.time)}
                 >
                   <span className={styles.ydayNum}>{date.getDate()}</span>
-                  <span className={styles.ydayBadge}>{face.badge}</span>
+                  <span className={styles.ydayBadge}>{badge}</span>
                   <span className={styles.ydaySub} data-kind={face.kind}>
                     {face.text}
                   </span>

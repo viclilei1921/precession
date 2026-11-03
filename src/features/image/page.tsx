@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { fileSizes, taskEnqueue } from '@/bridge';
 import type { Task } from '@/bridge/task';
 import { Button } from '@/components/button';
@@ -21,10 +22,20 @@ import { imageOutput } from './path';
 
 const imageExtensions = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tif', 'tiff'];
 
-const hint =
-  'AVIF 默认质量 60、速度 6。JPEG XL 默认距离 1、effort 7。结果写在原文件旁边，扩展名换成 .avif 或 .jxl。默认用固定参数，自定义后按下面各组填写。';
-
 type ImageFormat = 'avif' | 'jxl';
+
+type FormError = { key: string } | { text: string };
+
+/** 前端校验错误用稳定的 key 表示，避免比较翻译后的文本。 */
+class ValidationError extends Error {
+  readonly key: string;
+
+  constructor(key: string) {
+    super(key);
+    this.name = 'ValidationError';
+    this.key = key;
+  }
+}
 
 let fileKey = 0;
 
@@ -42,12 +53,13 @@ export function ImagePage() {
 }
 
 function ImageWorkspace() {
+  const { t } = useTranslation('image');
   const queryClient = useQueryClient();
   const [format, setFormat] = useState<ImageFormat>('avif');
   const [mode, setMode] = useState<'default' | 'custom'>('default');
   const [draft, setDraft] = useState(initialImageDraft);
   const [files, setFiles] = useState<ImageFile[]>([]);
-  const [formError, setFormError] = useState('');
+  const [formError, setFormError] = useState<FormError | null>(null);
   const [tab, setTab] = useState<ImageTab>('run');
   const extension = format === 'avif' ? '.avif' : '.jxl';
 
@@ -55,10 +67,10 @@ function ImageWorkspace() {
     mutationFn: async () => {
       const selected = files.filter((file) => file.checked);
       if (files.length === 0) {
-        throw new Error('请先添加图片。');
+        throw new ValidationError('page.error.noFiles');
       }
       if (selected.length === 0) {
-        throw new Error('请先选择图片。');
+        throw new ValidationError('page.error.noSelection');
       }
       for (const file of selected) {
         const output = imageOutput(file.input, extension);
@@ -81,12 +93,12 @@ function ImageWorkspace() {
     },
     onSuccess: async () => {
       setFiles((current) => current.filter((file) => !file.checked));
-      setFormError('');
+      setFormError(null);
       setTab('wait');
       await refreshTasks(queryClient);
     },
     onError: (error) => {
-      setFormError(errorMessage(error));
+      setFormError(error instanceof ValidationError ? { key: error.key } : { text: errorMessage(error) });
     }
   });
 
@@ -116,7 +128,7 @@ function ImageWorkspace() {
         }));
       return next.length === 0 ? current : [...current, ...next];
     });
-    setFormError('');
+    setFormError(null);
   }
 
   function restore(task: Task) {
@@ -136,7 +148,7 @@ function ImageWorkspace() {
         checked: true
       }
     ]);
-    setFormError('');
+    setFormError(null);
     void fileSizes([saved.input])
       .then((found) => {
         const size = found.find((item) => item.path === saved.input)?.size ?? null;
@@ -152,8 +164,8 @@ function ImageWorkspace() {
           <article className={styles.formatCard}>
             <div className={styles.formatRow}>
               <div className={styles.formatItem}>
-                <span className={styles.formatLabel}>输出格式</span>
-                <div className={styles.group} role="tablist" aria-label="图片格式">
+                <span className={styles.formatLabel}>{t('page.formatLabel')}</span>
+                <div className={styles.group} role="tablist" aria-label={t('page.formatAria')}>
                   <SegmentButton selected={format === 'avif'} onClick={() => setFormat('avif')}>
                     AVIF
                   </SegmentButton>
@@ -161,22 +173,22 @@ function ImageWorkspace() {
                     JXL
                   </SegmentButton>
                 </div>
-                <InfoTip label="转码说明" title={hint} />
+                <InfoTip label={t('page.hintLabel')} title={t('page.hint')} />
               </div>
               <div className={styles.formatItem}>
-                <span className={styles.formatLabel}>参数</span>
-                <div className={styles.group} role="tablist" aria-label="编码模式">
+                <span className={styles.formatLabel}>{t('page.modeLabel')}</span>
+                <div className={styles.group} role="tablist" aria-label={t('page.modeAria')}>
                   <SegmentButton selected={mode === 'default'} onClick={() => setMode('default')}>
-                    默认
+                    {t('page.default')}
                   </SegmentButton>
                   <SegmentButton selected={mode === 'custom'} onClick={() => setMode('custom')}>
-                    自定义
+                    {t('page.custom')}
                   </SegmentButton>
                 </div>
               </div>
             </div>
             {mode === 'default' ? (
-              <p className={styles.defaults}>{format === 'avif' ? defaultAvifSummary : defaultJxlSummary}</p>
+              <p className={styles.defaults}>{format === 'avif' ? defaultAvifSummary() : defaultJxlSummary()}</p>
             ) : (
               <ParamsPanel format={format} draft={draft} onChange={setDraft} />
             )}
@@ -185,9 +197,11 @@ function ImageWorkspace() {
             <div className={styles.fileTools}>
               <FileDrop accept={imageExtensions} onFiles={(paths) => void addFiles(paths)} />
               <div className={styles.toolsEnd}>
-                {formError ? <p className={styles.error}>{formError}</p> : null}
+                {formError ? (
+                  <p className={styles.error}>{'key' in formError ? t(formError.key) : formError.text}</p>
+                ) : null}
                 <Button disabled={enqueue.isPending} onClick={() => enqueue.mutate()}>
-                  开始转码
+                  {t('page.start')}
                 </Button>
               </div>
             </div>
@@ -195,8 +209,8 @@ function ImageWorkspace() {
               files={files}
               onChecked={(key, checked) => {
                 setFiles((current) => current.map((file) => (file.key === key ? { ...file, checked } : file)));
-                if (formError === '请先选择图片。') {
-                  setFormError('');
+                if (formError && 'key' in formError && formError.key === 'page.error.noSelection') {
+                  setFormError(null);
                 }
               }}
               onRemove={(key) => {
@@ -204,7 +218,7 @@ function ImageWorkspace() {
               }}
               onSelectAll={() => {
                 setFiles((current) => current.map((file) => ({ ...file, checked: true })));
-                setFormError('');
+                setFormError(null);
               }}
               onInvert={() => {
                 setFiles((current) => current.map((file) => ({ ...file, checked: !file.checked })));

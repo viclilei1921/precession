@@ -14,40 +14,19 @@
   border-bottom: 1px solid var(--border);
 }
 
-/* 分隔线放在每组左侧槽里。整行左移一槽后，行首那条被裁掉，换行后的组也不会带一条线头。 */
 .bar {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.25rem 0;
-  align-items: center;
-  width: calc(100% + 0.5rem + 1px);
-  margin-left: calc(-0.5rem - 1px);
-}
-
-.group {
-  position: relative;
-  display: flex;
-  flex: 0 1 auto;
-  flex-wrap: wrap;
   gap: 0.125rem;
   align-items: center;
-  min-width: 0;
-  max-width: 100%;
-  padding-left: calc(0.5rem + 1px);
 }
 
-.group::before {
-  position: absolute;
-  top: 0.375rem;
-  left: calc(0.25rem - 1px);
+.split {
+  flex: none;
   width: 1px;
   height: 1rem;
-  content: "";
+  margin: 0 0.125rem;
   background: var(--border);
-}
-
-.group:first-child::before {
-  content: none;
 }
 
 .tools button {
@@ -331,7 +310,7 @@
   content: "";
 }
 
-.surface :global(.milkdown .milkdown-table-block .selectedCell::after) {
+.surface :global(.milkdown .milkdown-table-block .selected-cell::after) {
   background-color: color-mix(in oklch, var(--primary) 28%, transparent);
   opacity: 1;
 }
@@ -389,8 +368,15 @@
   border-left-color: var(--primary);
 }
 
+.surface :global(.milkdown .milkdown-image-block.selected > .image-wrapper) {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-md);
+}
+
 .surface :global(.milkdown .milkdown-image-block.selected > .image-wrapper::before) {
   pointer-events: none;
+  background: transparent;
 }
 
 .surface :global(.milkdown .milkdown-image-block .image-wrapper .operation) {
@@ -417,5 +403,5 @@
 }
 
 .surface :global(.milkdown .milkdown-image-block .image-wrapper .operation > .operation-item::after) {
-  content: "说明";
+  content: var(--markdown-image-caption);
 }

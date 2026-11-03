@@ -1,0 +1,19 @@
+{
+  "today": "今天",
+  "plan": "计划",
+  "journal": "手记",
+  "growth": "成长",
+  "library": "书库",
+  "cipher": "文件加密",
+  "image": "图片转码",
+  "video": "视频处理",
+  "files": "文件",
+  "settings": "设置",
+  "more": "更多",
+  "collapse": "收起",
+  "group": {
+    "record": "记录",
+    "toolbox": "工具箱",
+    "system": "系统"
+  }
+}

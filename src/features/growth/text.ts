@@ -1,5 +1,6 @@
 import type { GrowthEntry } from '@/bridge/growth';
-import { ageLabel } from '@/utils/day';
+import i18n from '@/i18n';
+import { ageLabel, ageParts } from '@/utils/day';
 
 const CHILD_MONTHS = 18 * 12;
 
@@ -10,23 +11,12 @@ export type GrowthChapter = {
   entries: GrowthEntry[];
 };
 
-/** 从生日到某一天相差的整月，未出生为负数 */
-function ageMonths(birthday: number, at: number): number {
-  const birth = new Date(birthday);
-  const when = new Date(at);
-  let months = (when.getFullYear() - birth.getFullYear()) * 12 + (when.getMonth() - birth.getMonth());
-  if (when.getDate() < birth.getDate()) {
-    months -= 1;
-  }
-  return months;
-}
-
 /** 有生日且现在不满 18 岁，轨迹按周岁分章 */
 export function isYoung(birthday: number | null, at = Date.now()): boolean {
   if (birthday == null) {
     return false;
   }
-  const months = ageMonths(birthday, at);
+  const { months } = ageParts(birthday, at);
   return months >= 0 && months < CHILD_MONTHS;
 }
 
@@ -35,14 +25,15 @@ export function cardAge(birthday: number | null, at: number, young: boolean): st
   if (birthday == null) {
     return '';
   }
-  const label = ageLabel(birthday, at);
-  if (label === '') {
+  const { months } = ageParts(birthday, at);
+  if (months < 0) {
     return '';
   }
-  if (label === '0 个月') {
-    return '出生当天';
+  if (months === 0) {
+    return i18n.t('growth:text.birthDay');
   }
-  return young ? `当时 ${label}` : label;
+  const label = ageLabel(birthday, at);
+  return young ? i18n.t('growth:text.thenAge', { label }) : label;
 }
 
 /** 章节副标题。0 个月写成出生当天 */
@@ -50,11 +41,14 @@ function chapterSubtitle(birthday: number | null, at: number): string {
   if (birthday == null) {
     return '';
   }
-  const label = ageLabel(birthday, at);
-  if (label === '' || label === '0 个月') {
-    return label === '0 个月' ? '出生当天' : '';
+  const { months } = ageParts(birthday, at);
+  if (months < 0) {
+    return '';
   }
-  return label;
+  if (months === 0) {
+    return i18n.t('growth:text.birthDay');
+  }
+  return ageLabel(birthday, at);
 }
 
 function chapterOf(birthday: number | null, occurredAt: number, young: boolean) {
@@ -62,11 +56,11 @@ function chapterOf(birthday: number | null, occurredAt: number, young: boolean) 
     const year = new Date(occurredAt).getFullYear();
     return { key: `year-${year}`, title: String(year) };
   }
-  const years = Math.floor(Math.max(0, ageMonths(birthday, occurredAt)) / 12);
+  const years = Math.floor(Math.max(0, ageParts(birthday, occurredAt).months) / 12);
   if (years <= 0) {
-    return { key: 'age-0', title: '不满一岁' };
+    return { key: 'age-0', title: i18n.t('growth:text.age0') };
   }
-  return { key: `age-${years}`, title: `${years} 岁` };
+  return { key: `age-${years}`, title: i18n.t('growth:text.ageYears', { count: years, years }) };
 }
 
 /** 把已经按时间倒序的记录分成章。小孩子按周岁，其他人按公历年 */

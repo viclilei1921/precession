@@ -1,4 +1,5 @@
 import type { BitDepth, Fit, HevcPreset, HevcTune, TitleAnchor, VideoContainer, Vp9Content } from '@/bridge/task';
+import i18n from '@/i18n';
 
 export type EncodeDraft = {
   container: VideoContainer;
@@ -82,16 +83,32 @@ const bitLabel: Record<BitDepth, string> = {
 };
 
 /** 默认模式固定使用的编码。 */
-export const defaultEncodeSummary = 'MP4 · AV1 · 速度 6 · CRF 35 · 10-bit';
+export function defaultEncodeSummary() {
+  return i18n.t('video:encode.defaultSummary');
+}
 
 /** 自定义模式当前会提交的画面参数。 */
 export function encodeSummary(draft: EncodeDraft) {
   const container = draft.codec === 'vp9' && draft.container === 'mpegTs' ? 'MP4' : containerLabel[draft.container];
   if (draft.codec === 'hevc') {
-    return `${container} · HEVC · ${draft.hevcPreset} · CRF ${draft.hevcCrf} · ${bitLabel[draft.hevcBit]}`;
+    return i18n.t('video:encode.summary.hevc', {
+      container,
+      preset: draft.hevcPreset,
+      crf: draft.hevcCrf,
+      bit: bitLabel[draft.hevcBit]
+    });
   }
   if (draft.codec === 'vp9') {
-    return `${container} · VP9 · 速度 ${draft.vp9Speed} · CRF ${draft.vp9Crf}`;
+    return i18n.t('video:encode.summary.vp9', {
+      container,
+      speed: draft.vp9Speed,
+      crf: draft.vp9Crf
+    });
   }
-  return `${container} · AV1 · 速度 ${draft.av1Preset} · CRF ${draft.av1Crf} · ${bitLabel[draft.av1Bit]}`;
+  return i18n.t('video:encode.summary.av1', {
+    container,
+    preset: draft.av1Preset,
+    crf: draft.av1Crf,
+    bit: bitLabel[draft.av1Bit]
+  });
 }

@@ -1,38 +1,48 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { AvifEncodeParams, JxlEncodeParams, Task, TaskKind, VideoEncode } from '@/bridge/task';
 import { onTaskQueueUpdated, onTaskUpdate, taskCancel, taskRemove, taskReveal } from '@/bridge/task';
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
 import { Progress } from '@/components/progress';
 import { usePageSearch } from '@/hooks/search';
+import i18n from '@/i18n';
 import { applyTaskUpdate, refreshTasks, taskListQuery } from '@/query/task/query';
 import { errorMessage } from '@/utils/error';
 import { formatRemaining, ProgressETA } from '@/utils/progress-eta';
 import { matchesQuery } from '@/utils/search';
 import styles from './task-queue.module.css';
 
-const kindLabel: Record<TaskKind, string> = {
-  encryptFile: '加密文件',
-  decryptFile: '解密文件',
-  importUpload: '导入文件',
-  encryptUpload: '加密已上传文件',
-  decryptUpload: '解密已上传文件',
-  convertVideo: '转码视频',
-  cutVideo: '裁剪视频',
-  mergeVideo: '合并视频',
-  appendVideo: '追加视频',
-  convertAvif: '转为 AVIF',
-  convertJxl: '转为 JXL'
+const kindKeys: Record<TaskKind, string> = {
+  encryptFile: 'task:kind.encryptFile',
+  decryptFile: 'task:kind.decryptFile',
+  importUpload: 'task:kind.importUpload',
+  encryptUpload: 'task:kind.encryptUpload',
+  decryptUpload: 'task:kind.decryptUpload',
+  convertVideo: 'task:kind.convertVideo',
+  cutVideo: 'task:kind.cutVideo',
+  mergeVideo: 'task:kind.mergeVideo',
+  appendVideo: 'task:kind.appendVideo',
+  convertAvif: 'task:kind.convertAvif',
+  convertJxl: 'task:kind.convertJxl'
 };
 
-const statusLabel: Record<Task['status'], string> = {
-  pending: '等待',
-  processing: '处理中',
-  completed: '完成',
-  failed: '失败',
-  canceled: '已取消'
+const statusKeys: Record<Task['status'], string> = {
+  pending: 'task:status.pending',
+  processing: 'task:status.processing',
+  completed: 'task:status.completed',
+  failed: 'task:status.failed',
+  canceled: 'task:status.canceled'
 };
+
+function kindLabel(kind: TaskKind) {
+  return i18n.t(kindKeys[kind]);
+}
+
+function statusLabel(status: Task['status']) {
+  return i18n.t(statusKeys[status]);
+}
 
 type TaskQueueProps = {
   kinds: TaskKind[];
@@ -45,45 +55,55 @@ function videoLine(encode: VideoEncode | undefined) {
   const container = encode?.container === 'mov' ? 'MOV' : encode?.container === 'mpegTs' ? 'MPEG-TS' : 'MP4';
   if (video?.codec === 'hevc') {
     const bit = video.bitDepth === 'eight' ? '8-bit' : '10-bit';
-    return `${container} · HEVC · ${video.preset ?? 'medium'} · CRF ${video.crf ?? 26} · ${bit}`;
+    return i18n.t('task:video.hevc', {
+      container,
+      preset: video.preset ?? 'medium',
+      crf: video.crf ?? 26,
+      bit
+    });
   }
   if (video?.codec === 'vp9') {
-    return `${container} · VP9 · 速度 ${video.cpuUsed ?? 2} · CRF ${video.crf ?? 33}`;
+    return i18n.t('task:video.vp9', {
+      container,
+      speed: video.cpuUsed ?? 2,
+      crf: video.crf ?? 33
+    });
   }
   const preset = video?.codec === 'av1' ? (video.preset ?? 6) : 6;
   const crf = video?.codec === 'av1' ? (video.crf ?? 35) : 35;
   const bit = video?.codec === 'av1' && video.bitDepth === 'eight' ? '8-bit' : '10-bit';
-  return `${container} · AV1 · 速度 ${preset} · CRF ${crf} · ${bit}`;
+  return i18n.t('task:video.av1', { container, speed: preset, crf, bit });
 }
 
 function avifLine(params: AvifEncodeParams) {
   const quality = params.qcolor ?? 60;
   const speed = params.speed ?? 6;
   const bits = params.depth === 'ten' ? '10-bit' : params.depth === 'twelve' ? '12-bit' : '';
-  const loss = params.lossless ? '无损' : '';
-  const alpha = params.qalpha != null && params.qalpha !== quality ? `透明 ${params.qalpha}` : '';
+  const loss = params.lossless ? i18n.t('task:avif.lossless') : '';
+  const alpha =
+    params.qalpha != null && params.qalpha !== quality ? i18n.t('task:avif.alpha', { value: params.qalpha }) : '';
   const extra = [bits, loss, alpha].filter(Boolean).join(' · ');
-  const base = `质量 ${quality} · 速度 ${speed}`;
+  const base = i18n.t('task:avif.summary', { quality, speed });
   return extra ? `${base} · ${extra}` : base;
 }
 
 function jxlLine(params: JxlEncodeParams) {
   const distance = params.quality ?? 1;
   const effort = params.effort ?? 7;
-  const loss = params.lossless ? ' · 无损' : '';
-  const decoding = params.decodingSpeed ? ` · 解码 ${params.decodingSpeed}` : '';
-  const bits = params.overrideBitdepth ? ` · ${params.overrideBitdepth}-bit` : '';
-  return `距离 ${distance} · 速度 ${effort}${loss}${decoding}${bits}`;
+  const loss = params.lossless ? ` · ${i18n.t('task:jxl.lossless')}` : '';
+  const decoding = params.decodingSpeed ? ` · ${i18n.t('task:jxl.decoding', { speed: params.decodingSpeed })}` : '';
+  const bits = params.overrideBitdepth ? ` · ${i18n.t('task:bitDepth', { depth: params.overrideBitdepth })}` : '';
+  return `${i18n.t('task:jxl.summary', { distance, effort })}${loss}${decoding}${bits}`;
 }
 
 function taskLine(task: Task) {
-  const kind = kindLabel[task.kind];
+  const kind = kindLabel(task.kind);
   const draft = task.draft;
   if (!draft) {
     return kind;
   }
   if (draft.kind === 'cutVideo') {
-    return `${kind} · ${draft.segments.length} 段 · ${videoLine(draft.encode)}`;
+    return `${kind} · ${i18n.t('task:count.segments', { count: draft.segments.length })} · ${videoLine(draft.encode)}`;
   }
   if (draft.kind === 'convertVideo' || draft.kind === 'mergeVideo' || draft.kind === 'appendVideo') {
     return `${kind} · ${videoLine(draft.encode)}`;
@@ -104,9 +124,10 @@ type Clock = {
 
 /** 当前页相关的任务。入队和结束刷新整队，编码过程中的进度直接改这一条。 */
 export function TaskQueue({ kinds, onEdit }: TaskQueueProps) {
+  const { t } = useTranslation('task');
   const queryClient = useQueryClient();
   const tasksQuery = useQuery(taskListQuery);
-  const query = usePageSearch('搜索任务');
+  const query = usePageSearch(t('queue.searchPlaceholder'));
   const kindKey = kinds.join(',');
   const eta = useRef(new ProgressETA());
   const processingId = useRef<string | null>(null);
@@ -114,7 +135,7 @@ export function TaskQueue({ kinds, onEdit }: TaskQueueProps) {
   const tasks = (tasksQuery.data ?? []).filter(
     (task) =>
       kinds.includes(task.kind) &&
-      matchesQuery(query, kindLabel[task.kind], statusLabel[task.status], task.message, task.title, task.output)
+      matchesQuery(query, kindLabel(task.kind), statusLabel(task.status), task.message, task.title, task.output)
   );
 
   useEffect(() => {
@@ -189,53 +210,55 @@ export function TaskQueue({ kinds, onEdit }: TaskQueueProps) {
   return (
     <div className={styles.queue}>
       <div className={styles.head}>
-        <h2 className={styles.heading}>队列</h2>
+        <h2 className={styles.heading}>{t('queue.heading')}</h2>
         <Button
           variant="text"
           tone="destructive"
           disabled={removable.length === 0 || remove.isPending}
           onClick={() => remove.mutate(removable.map((task) => task.id))}
         >
-          清除
+          {t('queue.clearList')}
         </Button>
       </div>
-      {tasksQuery.isPending ? <p className={styles.note}>正在读取…</p> : null}
+      {tasksQuery.isPending ? <p className={styles.note}>{t('queue.loading')}</p> : null}
       {!tasksQuery.isPending && tasks.length === 0 ? (
         <Card>
-          <p className={styles.note}>{query.trim() ? '没有匹配的任务。' : '现在没有任务。'}</p>
+          <p className={styles.note}>{query.trim() ? t('queue.emptyFiltered') : t('queue.empty')}</p>
         </Card>
       ) : null}
       {tasks.map((task) => (
-        <Card key={task.id} title={task.title || kindLabel[task.kind]} extra={statusLabel[task.status]}>
+        <Card key={task.id} title={task.title || kindLabel(task.kind)} extra={statusLabel(task.status)}>
           <p className={styles.meta}>{taskLine(task)}</p>
           {task.output ? (
             <p className={styles.path} title={task.output}>
               {task.output}
             </p>
           ) : null}
-          <Progress value={task.progress} tone="toolbox" label={task.title || kindLabel[task.kind]} />
+          <Progress value={task.progress} tone="toolbox" label={task.title || kindLabel(task.kind)} />
           <p className={styles.message}>
             <span className={styles.detail}>{task.message || `${Math.round(task.progress)}%`}</span>
             {clock?.id === task.id ? (
               <span className={styles.remain}>
-                {clock.remaining == null ? '计算中' : `剩余 ${formatRemaining(clock.remaining)}`}
+                {clock.remaining == null
+                  ? t('time.calculating')
+                  : t('time.remaining', { time: formatRemaining(clock.remaining) })}
               </span>
             ) : null}
           </p>
           <div className={styles.actions}>
             {task.status === 'completed' && task.output ? (
               <Button variant="outlined" disabled={reveal.isPending} onClick={() => reveal.mutate(task.output)}>
-                显示文件
+                {t('action.reveal')}
               </Button>
             ) : null}
             {(task.status === 'failed' || task.status === 'canceled') && task.draft && onEdit ? (
               <Button variant="outlined" onClick={() => onEdit(task)}>
-                再次编辑
+                {t('action.editAgain')}
               </Button>
             ) : null}
             {task.status === 'pending' || task.status === 'processing' ? (
               <Button variant="outlined" disabled={cancel.isPending} onClick={() => cancel.mutate(task.id)}>
-                取消
+                {t('action.cancel')}
               </Button>
             ) : null}
             {task.status === 'processing' ? null : (
@@ -245,7 +268,7 @@ export function TaskQueue({ kinds, onEdit }: TaskQueueProps) {
                 disabled={remove.isPending}
                 onClick={() => remove.mutate([task.id])}
               >
-                删除
+                {t('action.delete')}
               </Button>
             )}
           </div>

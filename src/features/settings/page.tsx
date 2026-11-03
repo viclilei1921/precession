@@ -1,44 +1,26 @@
 import type { Icon } from '@phosphor-icons/react';
-import { CubeIcon, MagnifyingGlassIcon, PaletteIcon, ShieldCheckIcon, TextAaIcon } from '@phosphor-icons/react';
+import {
+  CubeIcon,
+  GlobeIcon,
+  MagnifyingGlassIcon,
+  PaletteIcon,
+  ShieldCheckIcon,
+  TextAaIcon
+} from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/button';
 import { rippleHost, useRipple } from '@/components/ripple';
 import { Scroll } from '@/components/scroll';
 import { usePageSearch } from '@/hooks/search';
 import { useSearchStore } from '@/store/search';
 import { AppearanceSection } from './appearance';
+import { LanguageSection } from './language';
 import styles from './page.module.css';
 import { ReadingSection } from './reading';
 import { SecuritySection } from './security';
 import { VersionsSection } from './versions';
-
-const SECTIONS = [
-  {
-    id: 'appearance',
-    label: '外观',
-    icon: PaletteIcon,
-    words: '外观 主题 浅色 深色 跟随系统 侧栏 动效 动画 界面'
-  },
-  {
-    id: 'reading',
-    label: '阅读',
-    icon: TextAaIcon,
-    words: '阅读 字号 字体 行距 页宽 主题 排版 书库 文楷 宋体 黑体'
-  },
-  {
-    id: 'security',
-    label: '数据与安全',
-    icon: ShieldCheckIcon,
-    words: '数据 安全 锁定 档案 设备解锁 密码 文件 数据库 路径 导入 导出'
-  },
-  {
-    id: 'versions',
-    label: '版本',
-    icon: CubeIcon,
-    words: '版本 应用 系统 webview ffmpeg cjxl avifenc 侧车'
-  }
-] as const;
 
 function matches(words: string, label: string, query: string) {
   if (!query) {
@@ -77,10 +59,45 @@ function JumpLink({
 }
 
 export function SettingsPage() {
-  const query = usePageSearch('搜索设置').trim();
+  const { t } = useTranslation('settings');
+  const query = usePageSearch(t('page.searchPlaceholder')).trim();
   const viewportRef = useRef<HTMLDivElement>(null);
-  const [active, setActive] = useState<string>(SECTIONS[0].id);
+  const [active, setActive] = useState<string>('appearance');
   const [notice, setNotice] = useState('');
+
+  const SECTIONS = [
+    {
+      id: 'appearance',
+      label: t('section.appearance.label'),
+      words: t('section.appearance.words'),
+      icon: PaletteIcon
+    },
+    {
+      id: 'language',
+      label: t('section.language.label'),
+      words: t('section.language.words'),
+      icon: GlobeIcon
+    },
+    {
+      id: 'reading',
+      label: t('section.reading.label'),
+      words: t('section.reading.words'),
+      icon: TextAaIcon
+    },
+    {
+      id: 'security',
+      label: t('section.security.label'),
+      words: t('section.security.words'),
+      icon: ShieldCheckIcon
+    },
+    {
+      id: 'versions',
+      label: t('section.versions.label'),
+      words: t('section.versions.words'),
+      icon: CubeIcon
+    }
+  ];
+
   const visible = SECTIONS.filter((item) => matches(item.words, item.label, query));
   const visibleKey = visible.map((item) => item.id).join();
 
@@ -137,9 +154,9 @@ export function SettingsPage() {
 
   return (
     <section className={styles.page}>
-      <Scroll className={styles.scroll} axis="vertical" viewportRef={viewportRef}>
+      <Scroll className={styles.scroll} axis="vertical" edge viewportRef={viewportRef}>
         <div className={styles.body}>
-          <nav className={styles.jump} aria-label="设置分类">
+          <nav className={styles.jump} aria-label={t('page.navAria')}>
             {visible.map((item) => (
               <JumpLink
                 key={item.id}
@@ -149,7 +166,7 @@ export function SettingsPage() {
                 onClick={() => jumpTo(item.id)}
               />
             ))}
-            <span className={styles.jumpNote}>{visible.length} 组设置</span>
+            <span className={styles.jumpNote}>{t('page.groupCount', { count: visible.length })}</span>
           </nav>
           <p className={styles.notice} role="status">
             {notice}
@@ -157,14 +174,15 @@ export function SettingsPage() {
           {visible.length === 0 ? (
             <div className={styles.empty}>
               <MagnifyingGlassIcon className={styles.emptyIcon} weight="regular" />
-              <p>没有找到相关设置。换个词试试，比如「主题」「字号」或「导入」。</p>
+              <p>{t('page.emptyTitle')}</p>
               <Button variant="text" onClick={() => useSearchStore.getState().setValue('')}>
-                清除搜索
+                {t('page.emptyClear')}
               </Button>
             </div>
           ) : (
             <div className={styles.stack}>
               {shown.has('appearance') ? <AppearanceSection onNotice={setNotice} /> : null}
+              {shown.has('language') ? <LanguageSection onNotice={setNotice} /> : null}
               {shown.has('reading') ? <ReadingSection /> : null}
               {shown.has('security') || shown.has('versions') ? (
                 <div className={styles.pair}>

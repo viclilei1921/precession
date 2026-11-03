@@ -1,5 +1,6 @@
 import { CaretDownIcon, CaretUpIcon, FilmStripIcon, TrashIcon } from '@phosphor-icons/react';
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { AudioTrack } from '@/bridge/task';
 import { Button } from '@/components/button';
 import { IconButton } from '@/components/button/icon';
@@ -7,6 +8,7 @@ import { Checkbox } from '@/components/checkbox';
 import { Scroll } from '@/components/scroll';
 import { TextField } from '@/components/text-field';
 import { formatBytes } from '@/features/files/text';
+import i18n from '@/i18n';
 import { splitPath } from '@/utils/path';
 import type { VideoFile, VideoOp } from '../types';
 import { nextClip } from '../types';
@@ -40,16 +42,16 @@ function formatDuration(seconds: number) {
 function channelLabel(track: AudioTrack) {
   const layout = track.channelLayout.toLowerCase();
   if (layout.includes('stereo') || track.channels === 2) {
-    return '立体声';
+    return i18n.t('video:fileList.stereo');
   }
   if (layout.includes('mono') || track.channels === 1) {
-    return '单声道';
+    return i18n.t('video:fileList.mono');
   }
   if (layout) {
     return track.channelLayout;
   }
   if (track.channels > 0) {
-    return `${track.channels} 声道`;
+    return i18n.t('video:fileList.channels', { count: track.channels });
   }
   return '';
 }
@@ -59,21 +61,21 @@ function audioValue(file: VideoFile) {
     return '—';
   }
   if (!file.info) {
-    return '读取中';
+    return i18n.t('video:fileList.reading');
   }
   const tracks = file.info.audioTracks;
   const first = tracks[0];
   if (!first) {
-    return '无音轨';
+    return i18n.t('video:fileList.noAudioTrack');
   }
   const detail = [
-    first.codec || '音频',
+    first.codec || i18n.t('video:fileList.audioFallback'),
     channelLabel(first),
     tracks.length === 1 && first.sampleRate > 0 ? `${first.sampleRate} Hz` : ''
   ]
     .filter(Boolean)
     .join(' · ');
-  return tracks.length === 1 ? detail : `${tracks.length} 条 · ${detail}`;
+  return tracks.length === 1 ? detail : i18n.t('video:fileList.audioTracks', { count: tracks.length, detail });
 }
 
 function textOf(file: VideoFile, value: string) {
@@ -81,7 +83,7 @@ function textOf(file: VideoFile, value: string) {
     return '—';
   }
   if (!file.info) {
-    return '读取中';
+    return i18n.t('video:fileList.reading');
   }
   return value || '—';
 }
@@ -111,6 +113,7 @@ export function FileList({
   onDeleteSelected,
   start
 }: FileListProps) {
+  const { t } = useTranslation('video');
   const selected = files.filter((file) => file.checked);
   const baseKey = op === 'append' ? selected[0]?.key : undefined;
   const totalBytes = selected.reduce((sum, file) => sum + (file.size ?? 0), 0);
@@ -120,7 +123,7 @@ export function FileList({
   return (
     <>
       <Scroll className={styles.sheet} axis="vertical" gutter>
-        {empty ? <p className={styles.note}>还没有视频。选择文件或文件夹，也可以拖进窗口。</p> : null}
+        {empty ? <p className={styles.note}>{t('fileList.empty')}</p> : null}
         {files.map((file, index) => {
           const name = splitPath(file.input).name;
           const info = file.info;
@@ -133,22 +136,27 @@ export function FileList({
                 <Checkbox
                   className={styles.check}
                   checked={file.checked}
-                  aria-label={`选择 ${name}`}
+                  aria-label={t('fileList.select', { name })}
                   onChange={(event) => onChecked(file.key, event.target.checked)}
                 />
                 <span className={styles.name} title={name}>
                   <FilmStripIcon weight="regular" />
                   <span className={styles.label}>{name}</span>
-                  {file.key === baseKey ? <span className={styles.tag}>基准</span> : null}
+                  {file.key === baseKey ? <span className={styles.tag}>{t('fileList.base')}</span> : null}
                 </span>
                 <div className={styles.actions}>
                   {perFile ? null : (
                     <>
-                      <IconButton label="上移" size="compact" disabled={index === 0} onClick={() => onMove(index, -1)}>
+                      <IconButton
+                        label={t('fileList.moveUp')}
+                        size="compact"
+                        disabled={index === 0}
+                        onClick={() => onMove(index, -1)}
+                      >
                         <CaretUpIcon weight="regular" />
                       </IconButton>
                       <IconButton
-                        label="下移"
+                        label={t('fileList.moveDown')}
                         size="compact"
                         disabled={index === files.length - 1}
                         onClick={() => onMove(index, 1)}
@@ -157,25 +165,30 @@ export function FileList({
                       </IconButton>
                     </>
                   )}
-                  <IconButton label="移除" tone="destructive" size="compact" onClick={() => onRemove(file.key)}>
+                  <IconButton
+                    label={t('fileList.remove')}
+                    tone="destructive"
+                    size="compact"
+                    onClick={() => onRemove(file.key)}
+                  >
                     <TrashIcon weight="regular" />
                   </IconButton>
                 </div>
               </div>
               {file.probeError ? <p className={styles.probe}>{file.probeError}</p> : null}
               <div className={styles.facts}>
-                <Fact label="大小" value={file.size == null ? '—' : formatBytes(file.size)} />
-                <Fact label="时长" value={textOf(file, info ? formatDuration(info.duration) : '')} />
-                <Fact label="分辨率" value={textOf(file, resolution)} />
-                <Fact label="帧率" value={textOf(file, fps)} />
-                <Fact label="视频编码" value={textOf(file, info?.videoCodec ?? '')} />
-                <Fact label="像素格式" value={textOf(file, info?.pixFmt ?? '')} />
-                <Fact label="码率" value={textOf(file, bitrate)} />
-                <Fact label="音轨" value={audioValue(file)} />
+                <Fact label={t('fileList.size')} value={file.size == null ? '—' : formatBytes(file.size)} />
+                <Fact label={t('fileList.duration')} value={textOf(file, info ? formatDuration(info.duration) : '')} />
+                <Fact label={t('fileList.resolution')} value={textOf(file, resolution)} />
+                <Fact label={t('fileList.frameRate')} value={textOf(file, fps)} />
+                <Fact label={t('fileList.videoCodec')} value={textOf(file, info?.videoCodec ?? '')} />
+                <Fact label={t('fileList.pixelFormat')} value={textOf(file, info?.pixFmt ?? '')} />
+                <Fact label={t('fileList.bitrate')} value={textOf(file, bitrate)} />
+                <Fact label={t('fileList.audioTrack')} value={audioValue(file)} />
               </div>
               {perFile ? (
                 <TextField
-                  label="输出路径"
+                  label={t('page.outputPath')}
                   value={file.output}
                   required
                   onChange={(event) => onChange({ ...file, output: event.target.value, edited: true })}
@@ -213,7 +226,7 @@ export function FileList({
                     variant="text"
                     onClick={() => onChange({ ...file, segments: [...file.segments, nextClip(file.segments.at(-1))] })}
                   >
-                    添加片段
+                    {t('fileList.addClip')}
                   </Button>
                 </div>
               ) : null}
@@ -224,23 +237,25 @@ export function FileList({
       <div className={styles.foot}>
         <div className={styles.footActions}>
           <Button variant="text" disabled={empty} onClick={onSelectAll}>
-            全选
+            {t('fileList.selectAll')}
           </Button>
           <Button variant="text" disabled={empty} onClick={onInvert}>
-            反选
+            {t('fileList.invert')}
           </Button>
           <Button variant="text" disabled={empty} onClick={onClear}>
-            清空
+            {t('fileList.clear')}
           </Button>
           <Button variant="text" tone="destructive" disabled={selected.length === 0} onClick={onDeleteSelected}>
-            删除
+            {t('fileList.delete')}
           </Button>
           <div className={styles.start}>{start}</div>
         </div>
         <p className={styles.total}>
-          <span className={styles.statCount}>已选 {selected.length} 个</span>
-          <span className={styles.statSize}>总大小 {formatBytes(totalBytes)}</span>
-          <span className={styles.statTime}>总时长 {formatDuration(totalSeconds)}</span>
+          <span className={styles.statCount}>{t('fileList.selected', { count: selected.length })}</span>
+          <span className={styles.statSize}>{t('fileList.totalSize', { size: formatBytes(totalBytes) })}</span>
+          <span className={styles.statTime}>
+            {t('fileList.totalDuration', { duration: formatDuration(totalSeconds) })}
+          </span>
         </p>
       </div>
     </>

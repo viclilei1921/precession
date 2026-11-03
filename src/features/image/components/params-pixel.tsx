@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import type { AvifDepth, AvifRange, AvifYuv } from '@/bridge/task';
 import { Checkbox } from '@/components/checkbox';
 import { Select } from '@/components/select';
@@ -10,6 +11,8 @@ type ParamsPixelProps = {
 };
 
 export function ParamsPixel({ draft, onChange }: ParamsPixelProps) {
+  const { t } = useTranslation('image');
+
   function patch(next: Partial<ImageParamsDraft>) {
     onChange({ ...draft, ...next });
   }
@@ -18,7 +21,7 @@ export function ParamsPixel({ draft, onChange }: ParamsPixelProps) {
     <div className={styles.row}>
       <Select
         className={styles.choice}
-        label="位深"
+        label={t('params.labels.depth')}
         value={draft.depth}
         onChange={(event) => patch({ depth: event.target.value as AvifDepth })}
       >
@@ -28,11 +31,11 @@ export function ParamsPixel({ draft, onChange }: ParamsPixelProps) {
       </Select>
       <Select
         className={styles.choice}
-        label="色度"
+        label={t('params.labels.chroma')}
         value={draft.yuv}
         onChange={(event) => patch({ yuv: event.target.value as AvifYuv })}
       >
-        <option value="auto">自动</option>
+        <option value="auto">{t('params.options.auto')}</option>
         <option value="444">4:4:4</option>
         <option value="422">4:2:2</option>
         <option value="420">4:2:0</option>
@@ -40,21 +43,21 @@ export function ParamsPixel({ draft, onChange }: ParamsPixelProps) {
       </Select>
       <Select
         className={styles.choice}
-        label="范围"
+        label={t('params.labels.range')}
         value={draft.range}
         onChange={(event) => patch({ range: event.target.value as AvifRange })}
       >
-        <option value="auto">自动</option>
-        <option value="full">全幅</option>
-        <option value="limited">有限</option>
+        <option value="auto">{t('params.options.auto')}</option>
+        <option value="full">{t('params.options.full')}</option>
+        <option value="limited">{t('params.options.limited')}</option>
       </Select>
       <Checkbox
-        label="SharpYUV"
+        label={t('params.labels.sharpYuv')}
         checked={draft.sharpyuv}
         onChange={(event) => patch({ sharpyuv: event.target.checked })}
       />
       <Checkbox
-        label="预乘透明"
+        label={t('params.labels.premultipliedAlpha')}
         checked={draft.premultiply}
         onChange={(event) => patch({ premultiply: event.target.checked })}
       />
