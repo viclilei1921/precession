@@ -58,6 +58,8 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Syn
     crate::upload::commands::upload_tmp,
     crate::upload::commands::upload_discard,
     crate::ffmpeg::commands::ffmpeg_probe,
+    crate::ffmpeg::commands::ffmpeg_preview_quality,
+    crate::ffmpeg::commands::ffmpeg_preview_cancel,
     crate::files::commands::collect_files,
     crate::files::commands::file_sizes,
     crate::files::commands::materialize_picked,

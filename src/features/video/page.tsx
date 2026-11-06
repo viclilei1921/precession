@@ -16,6 +16,7 @@ import { useAppStore } from '@/store/app';
 import { errorMessage } from '@/utils/error';
 import { EncodePanel } from './components/encode-panel';
 import { FileList } from './components/file-list';
+import { QualityPreview } from './components/quality-preview';
 import type { VideoTab } from './components/queue';
 import { VideoQueue } from './components/queue';
 import { buildEncode, formFromEncode } from './encode';
@@ -368,6 +369,12 @@ function VideoWorkspace() {
               ) : (
                 <EncodePanel draft={draft} perFile={perFile} tracks={tracks} onChange={setDraft} />
               )}
+              {op === 'convert' || op === 'cut' ? (
+                <QualityPreview
+                  path={files.find((file) => file.checked)?.input ?? files[0]?.input ?? null}
+                  encode={encode()}
+                />
+              ) : null}
             </Scroll>
           </article>
           <VideoQueue tab={tab} onTab={setTab} onEdit={restore} />

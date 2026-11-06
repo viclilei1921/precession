@@ -199,5 +199,24 @@
     "endAfterStart": "结束要晚于开始",
     "remove": "删除这段"
   },
-  "queue": {}
+  "queue": {},
+  "preview": {
+    "action": "预估这段画质",
+    "cancel": "取消",
+    "whole": "视频短于 3 秒，用的是整段。",
+    "window": "取自 {{start}}，共 {{seconds}} 秒。",
+    "vmaf": "VMAF {{score}}",
+    "ssim": "SSIM {{score}}",
+    "vmafMissing": "VMAF 未测。",
+    "scope": "只代表中间这段。",
+    "size": "按中间这段的画面码率推算，整片大约 {{size}}，不含音频。",
+    "file": "{{name}}",
+    "bands": {
+      "indistinguishable": "几乎看不出差别",
+      "same": "看起来一样",
+      "slight": "略微变软",
+      "visible": "能看出损失",
+      "degraded": "明显变差"
+    }
+  }
 }

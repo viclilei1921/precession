@@ -121,6 +121,11 @@
     "sidecarStartFailed": "{{name}} 启动失败：{{detail}}",
     "addImageFirst": "请先添加图片。",
     "selectImageFirst": "请先选择图片。",
-    "saveBeforeInsert": "先保存，再插入图片"
+    "saveBeforeInsert": "先保存，再插入图片",
+    "previewTooShort": "视频太短，无法预估",
+    "previewNoPicture": "无法读取视频画面",
+    "previewNoFilters": "当前 FFmpeg 没有画质滤镜，需要按文档重新编译侧车",
+    "previewSidecar": "当前 FFmpeg 不能做画质预估，需要按文档重新编译侧车",
+    "previewNoModel": "找不到 VMAF 模型，需要更新应用资源"
   }
 }

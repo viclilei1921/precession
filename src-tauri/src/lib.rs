@@ -99,6 +99,10 @@ pub fn run() {
     // 管理任务队列
     app.manage(task::TaskQueue::default());
 
+    // 画质预估单独记子进程，取消时不要碰到任务队列里的转码
+    #[cfg(desktop)]
+    app.manage(ffmpeg::preview::PreviewSlot::default());
+
     // 平台自己的进程和窗口状态
     platform::Current::setup(app);
 

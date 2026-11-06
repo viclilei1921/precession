@@ -295,6 +295,35 @@ export function ffmpegProbe(path: string) {
   return invokeCommand<VideoInfo>('ffmpeg_probe', { path });
 }
 
+/** 画质结论用的分数 */
+export type QualityBasis = 'vmaf' | 'ssim';
+
+/** 画质分档 */
+export type QualityBand = 'indistinguishable' | 'same' | 'slight' | 'visible' | 'degraded';
+
+/** 中间一段的画质预估 */
+export type QualityPreview = {
+  start: number;
+  seconds: number;
+  whole: boolean;
+  vmaf: number | null;
+  ssim: number | null;
+  basis: QualityBasis;
+  band: QualityBand;
+  previewBytes: number;
+  estimatedBytes: number;
+};
+
+/** 用当前画面参数预估中间一小段的画质。空配置表示默认参数 */
+export function ffmpegPreviewQuality(path: string, encode?: VideoEncode) {
+  return invokeCommand<QualityPreview>('ffmpeg_preview_quality', { path, encode: encode ?? null });
+}
+
+/** 停掉正在进行的画质预估 */
+export function ffmpegPreviewCancel() {
+  return invokeCommand<void>('ffmpeg_preview_cancel');
+}
+
 /** 监听单条任务的进度 */
 export function onTaskUpdate(handler: (task: Task) => void): Promise<UnlistenFn> {
   return listen<Task>('task-update', (event) => {

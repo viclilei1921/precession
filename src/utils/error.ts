@@ -110,7 +110,12 @@ const MESSAGE_KEYS: Record<string, string> = {
   密文太短: 'errors:media.cipherTooShort',
   '请先添加图片。': 'errors:media.addImageFirst',
   '请先选择图片。': 'errors:media.selectImageFirst',
-  '先保存，再插入图片': 'errors:media.saveBeforeInsert'
+  '先保存，再插入图片': 'errors:media.saveBeforeInsert',
+  '视频太短，无法预估': 'errors:media.previewTooShort',
+  无法读取视频画面: 'errors:media.previewNoPicture',
+  '当前 FFmpeg 没有画质滤镜，需要按文档重新编译侧车': 'errors:media.previewNoFilters',
+  '当前 FFmpeg 不能做画质预估，需要按文档重新编译侧车': 'errors:media.previewSidecar',
+  '找不到 VMAF 模型，需要更新应用资源': 'errors:media.previewNoModel'
 };
 
 /** 侧车启动失败：`{name} 启动失败: {detail}` */

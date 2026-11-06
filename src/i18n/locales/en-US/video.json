@@ -199,5 +199,24 @@
     "endAfterStart": "End must be later than start",
     "remove": "Remove this clip"
   },
-  "queue": {}
+  "queue": {},
+  "preview": {
+    "action": "Preview this quality",
+    "cancel": "Cancel",
+    "whole": "The video is shorter than 3 seconds, so the whole file is used.",
+    "window": "Sampled from {{start}}, {{seconds}} seconds.",
+    "vmaf": "VMAF {{score}}",
+    "ssim": "SSIM {{score}}",
+    "vmafMissing": "VMAF was not measured.",
+    "scope": "This only represents the middle sample.",
+    "size": "From this sample's picture bitrate, the whole file is about {{size}}, without audio.",
+    "file": "{{name}}",
+    "bands": {
+      "indistinguishable": "Indistinguishable",
+      "same": "Looks the same",
+      "slight": "Slight softening",
+      "visible": "Visible loss",
+      "degraded": "Clearly degraded"
+    }
+  }
 }

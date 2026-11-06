@@ -26,11 +26,10 @@ echo $MSYSTEM
 pacman -Syu
 pacman -Su
 
-# 安装编译基础工具链 + 汇编优化工具
+# 安装编译基础工具链。x86 汇编只用 nasm，MinGW64 已不再提供 yasm
 pacman -S base-devel git \
   mingw-w64-x86_64-toolchain \
-  mingw-w64-x86_64-nasm \
-  mingw-w64-x86_64-yasm
+  mingw-w64-x86_64-nasm
 
 # AV1 编码
 pacman -S mingw-w64-x86_64-svt-av1
@@ -40,9 +39,28 @@ pacman -S mingw-w64-x86_64-x265
 sed -i 's/ -lgcc_s//g' /mingw64/lib/pkgconfig/x265.pc
 # VP9 编码。MSYS2 的 libvpx 包里仍带 VP8 代码，FFmpeg 只打开 VP9 编码器
 pacman -S mingw-w64-x86_64-libvpx
+# AV1 解码。内置解码器 av1 只接硬件加速，本构建关掉了硬件加速，解 libsvtav1 的成片会报 Function not implemented
+pacman -S mingw-w64-x86_64-dav1d
 ```
 
 AAC 使用 FFmpeg 内置编码器，不安装 FDK-AAC，也不再使用 `--enable-nonfree`。H.264 只解码，不安装 x264。MP3 只解码，不安装 LAME。
+
+画质评估用的 libvmaf 是 BSD，不需要 `--enable-nonfree`。MSYS2 的 MinGW64 仓库没有这个包（`mingw-w64-x86_64-libvmaf` 会报 `target not found`）。`mingw-w64-ucrt-x86_64-vmaf` 和 `mingw-w64-clang-x86_64-vmaf` 装到的是 `/ucrt64`、`/clang64`，和本指南的 gcc、`/mingw64` 不是同一套，不要装。在当前这个 MinGW64 终端里从源码静态装进 `/mingw64`：
+
+```bash
+pacman -S --needed mingw-w64-x86_64-meson mingw-w64-x86_64-ninja mingw-w64-x86_64-pkgconf
+git clone --depth 1 --branch v3.0.0 https://github.com/Netflix/vmaf.git
+meson setup vmaf/libvmaf/build vmaf/libvmaf \
+  --prefix=/mingw64 \
+  --default-library=static \
+  --buildtype=release \
+  -Denable_tests=false \
+  -Denable_docs=false
+ninja -C vmaf/libvmaf/build
+ninja -C vmaf/libvmaf/build install
+```
+
+装完后 `/mingw64/lib/libvmaf.a` 和 `/mingw64/lib/pkgconfig/libvmaf.pc` 都要在。meson 默认不把模型编进静态库，`ninja install` 只把 json 放到 `/mingw64/share/model/`。滤镜不写 `model` 时按内置名字 `vmaf_v0.6.1` 查找，会报 `no such built-in model`。校验和应用一样：把 `vmaf_v0.6.1.json` 放到当前目录，滤镜写 `model=path=vmaf_v0.6.1.json`。应用携带的是 `src-tauri/resources/vmaf/vmaf_v0.6.1.json`。
 
 ### 3. 文字绘制与字幕烧录依赖安装
 
@@ -81,7 +99,8 @@ git checkout n9.0.2
 
 配置从 `--disable-everything` 开始，再按名打开本仓库转码实际用到的组件。范围是现有的转码、裁剪、合并、追加，以及即将添加的单音轨选择、单字幕保留和字幕烧录。
 
-- 视频编码：`libx265`、`libsvtav1`、`libvpx-vp9`
+- 视频编码：`libx265`、`libsvtav1`、`libvpx-vp9`。AV1 解码用 `libdav1d`，不要打开内置解码器 `av1`。两个都在时，FFmpeg 会先选内置的那个，仍然报 `doesn't support hardware accelerated AV1 decoding`
+- 画质评估：`libvmaf`、`ssim`、`psnr`。同一段画面要分成两路，所以还要 `split`；丢掉首尾帧用 `trim`。打分结果丢掉，不写成文件，所以封装多开一个 `null`，编码器多开 `wrapped_avframe`。`null` 的默认编码就是它，裁掉之后会报 `Encoder not found`
 - 音频：源音轨解码后再编成内置 AAC。解码包含 AAC、MP3、Opus、Vorbis，以及成片常见的 AC3、E-AC3、DTS、TrueHD、FLAC、PCM
 - 字幕：文本字幕可解码。写入 MP4/MOV 时编成 `mov_text`；烧进画面用滤镜 `subtitles`、`ass`
 - 封装写出：MP4、MOV、MPEG-TS
@@ -90,8 +109,6 @@ git checkout n9.0.2
 - 移除 GPU 硬件加速、网络协议、图片格式、蓝光、PGS、DVD 字幕
 - 不包含 FLV、HLS、MP3 封装，也不编 H.264、VP8、MP3、FDK-AAC
 - 最终生成完全静态的独立 exe
-
-
 
 ### 2. 完整配置命令
 
@@ -127,23 +144,25 @@ git checkout n9.0.2
   --enable-libx265 \
   --enable-libsvtav1 \
   --enable-libvpx \
+  --enable-libdav1d \
   --enable-libfreetype \
   --enable-libharfbuzz \
   --enable-libfribidi \
   --enable-libass \
+  --enable-libvmaf \
   --enable-protocol=file,pipe \
-  --enable-muxer=mp4,mov,mpegts \
+  --enable-muxer=mp4,mov,mpegts,null \
   --enable-demuxer=mov,webm,matroska,mpegts,concat,srt,ass,webvtt \
-  --enable-encoder=libx265,libsvtav1,libvpx_vp9,aac,movtext \
-  --enable-decoder=h264,hevc,vp8,vp9,av1,aac,opus,vorbis,mp3,ac3,eac3,dca,truehd,flac,pcm_s16le,pcm_s24le,pcm_s32le,ass,ssa,subrip,webvtt,movtext,text \
+  --enable-encoder=libx265,libsvtav1,libvpx_vp9,aac,movtext,wrapped_avframe \
+  --enable-decoder=h264,hevc,vp8,vp9,libdav1d,aac,opus,vorbis,mp3,ac3,eac3,dca,truehd,flac,pcm_s16le,pcm_s24le,pcm_s32le,ass,ssa,subrip,webvtt,movtext,text \
   --enable-parser=h264,hevc,vp8,vp9,av1,aac,aac_latm,opus,vorbis,mpegaudio,ac3,dca,mlp,flac \
   --enable-bsf=h264_mp4toannexb,hevc_mp4toannexb,aac_adtstoasc,extract_extradata,vp9_superframe,av1_metadata,null \
-  --enable-filter=fps,scale,setsar,pad,drawtext,aresample,aformat,concat,format,subtitles,ass \
+  --enable-filter=fps,scale,setsar,pad,drawtext,aresample,aformat,concat,format,subtitles,ass,ssim,psnr,libvmaf,split,trim \
   --enable-static \
   --disable-shared \
   --pkg-config-flags="--static" \
   --extra-ldflags="-static -static-libgcc -static-libstdc++" \
-  --extra-libs="-lharfbuzz -lstdc++ -lpthread" \
+  --extra-libs="-lharfbuzz -lvmaf -lstdc++ -lpthread" \
   --enable-small \
   --prefix=/usr/local/ffmpeg-custom
 ```
@@ -152,19 +171,20 @@ git checkout n9.0.2
 
 ### 3. 核心配置项说明
 
-| 分类       | 参数                                                 | 作用                                                                                                                                                               |
-| ---------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 白名单     | `--disable-everything` 后再 `--enable-*`             | 只编译点名的程序、封装、编解码、滤镜和协议                                                                                                                         |
-| 程序裁剪   | `--disable-ffplay/ffprobe/doc`                       | 禁用播放器、分析工具和文档                                                                                                                                         |
-| 网络       | `--disable-network`                                  | 禁用网络协议，只打开 `file`、`pipe`                                                                                                                                |
-| 硬件加速   | `--disable-dxva2/d3d11va/nvenc/amf/vaapi/...`        | 禁用 Windows 显卡硬件加速，以及 MinGW 会自动打开的 VAAPI。Intel QSV 没有 `--disable-qsv`，只有显式 `--enable-libmfx` 或 `--enable-libvpl` 才会编入，这里两者都不开 |
-| 文字与字幕 | `--enable-libfreetype/libharfbuzz/libfribidi/libass` | `drawtext` 需要 freetype 和 harfbuzz。字幕烧录的 `subtitles`、`ass` 需要 libass。字体用 `fontfile=`                                                                |
-| 软件编码   | `--enable-libx265/libsvtav1/libvpx` `--enable-gpl`   | H.265、AV1、VP9。configure 里写 `libvpx_vp9`、`movtext`。AAC 和 `mov_text` 是内置编码器，不需要额外库，也不使用 `--enable-nonfree`                                 |
-| 静态编译   | `--enable-static --disable-shared`                   | 编译静态库，不生成动态库                                                                                                                                           |
-| 链接优化   | `--pkg-config-flags="--static"`                      | 让 pkg-config 以静态模式查找依赖                                                                                                                                   |
-| 链接优化   | `--extra-libs="-lharfbuzz -lstdc++ -lpthread"`       | 补上 C++ 符号。MSYS2 的 freetype 静态库会调用 `hb_shape`，pkg-config 却把 `-lharfbuzz` 放在 `-lfreetype` 前面，需要在末尾再链一次 harfbuzz                         |
-| 体积优化   | `--enable-small`                                     | 优化最终二进制体积，牺牲极少量运行速度                                                                                                                             |
-| 安装路径   | `--prefix=/usr/local/ffmpeg-custom`                  | 指定最终安装目录                                                                                                                                                   |
+| 分类       | 参数                                                        | 作用                                                                                                                                                                                               |
+| ---------- | ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 白名单     | `--disable-everything` 后再 `--enable-*`                    | 只编译点名的程序、封装、编解码、滤镜和协议                                                                                                                                                         |
+| 程序裁剪   | `--disable-ffplay/ffprobe/doc`                              | 禁用播放器、分析工具和文档                                                                                                                                                                         |
+| 网络       | `--disable-network`                                         | 禁用网络协议，只打开 `file`、`pipe`                                                                                                                                                                |
+| 硬件加速   | `--disable-dxva2/d3d11va/nvenc/amf/vaapi/...`               | 禁用 Windows 显卡硬件加速，以及 MinGW 会自动打开的 VAAPI。Intel QSV 没有 `--disable-qsv`，只有显式 `--enable-libmfx` 或 `--enable-libvpl` 才会编入，这里两者都不开                                 |
+| 文字与字幕 | `--enable-libfreetype/libharfbuzz/libfribidi/libass`        | `drawtext` 需要 freetype 和 harfbuzz。字幕烧录的 `subtitles`、`ass` 需要 libass。字体用 `fontfile=`                                                                                                |
+| 软件编码   | `--enable-libx265/libsvtav1/libvpx/libdav1d` `--enable-gpl` | H.265、AV1、VP9。configure 里写 `libvpx_vp9`、`movtext`、`libdav1d`。解码器名单不要写内置 `av1`。AAC 和 `mov_text` 是内置编码器，不需要额外库，也不使用 `--enable-nonfree`                         |
+| 画质评估   | `--enable-libvmaf`                                          | VMAF。BSD 许可，不需要 `--enable-nonfree`，`--enable-gpl` 继续留着。`ssim`、`psnr`、`split`、`trim` 是内置滤镜，写在 `--enable-filter` 里。`null` 封装丢掉打分输出，并打开编码器 `wrapped_avframe` |
+| 静态编译   | `--enable-static --disable-shared`                          | 编译静态库，不生成动态库                                                                                                                                                                           |
+| 链接优化   | `--pkg-config-flags="--static"`                             | 让 pkg-config 以静态模式查找依赖                                                                                                                                                                   |
+| 链接优化   | `--extra-libs="-lharfbuzz -lvmaf -lstdc++ -lpthread"`       | 补上 C++ 符号。MSYS2 的 freetype 静态库会调用 `hb_shape`，pkg-config 却把 `-lharfbuzz` 放在 `-lfreetype` 前面，需要在末尾再链一次 harfbuzz。`-lvmaf` 同样补在末尾                                  |
+| 体积优化   | `--enable-small`                                            | 优化最终二进制体积，牺牲极少量运行速度                                                                                                                                                             |
+| 安装路径   | `--prefix=/usr/local/ffmpeg-custom`                         | 指定最终安装目录                                                                                                                                                                                   |
 
 ---
 
@@ -176,8 +196,6 @@ git checkout n9.0.2
 make distclean
 ```
 
-
-
 ### 2. 执行编译
 
 ```bash
@@ -187,8 +205,6 @@ make -j$(nproc)
 
 - 编译耗时：主流 8 核 CPU 约 5~10 分钟。
 - 如需查看详细错误，执行 `make -j1` 单线程编译。
-
-
 
 ### 3. 安装到指定目录
 
@@ -223,13 +239,13 @@ cd /usr/local/ffmpeg-custom/bin
 # 4. 验证硬件加速已全部移除
 ./ffmpeg -hwaccels
 
-# 5. 文字绘制、字幕烧录和转码滤镜。用字段匹配，避免版本信息里的 libswscale 被 scale 误中
-./ffmpeg -filters | awk '$2 ~ /^(drawtext|subtitles|ass|fps|scale|concat)$/'
+# 5. 文字绘制、字幕烧录、转码和画质滤镜。用字段匹配，避免版本信息里的 libswscale 被 scale 误中
+./ffmpeg -filters | awk '$2 ~ /^(drawtext|subtitles|ass|fps|scale|concat|ssim|psnr|libvmaf|split|trim)$/'
 
 # 6. 软件编码器。这里的 libvpx-vp9、mov_text 是命令行名字
-./ffmpeg -encoders | grep -E "libx265|libsvtav1|libvpx-vp9| aac |mov_text"
+./ffmpeg -encoders | grep -E "libx265|libsvtav1|libvpx-vp9| aac |mov_text|wrapped_avframe"
 ./ffmpeg -decoders | grep mov_text
-./ffmpeg -decoders | awk '$2 ~ /^(ac3|eac3|dca|truehd|flac|pcm_s16le)$/'
+./ffmpeg -decoders | awk '$2 ~ /^(ac3|eac3|dca|truehd|flac|pcm_s16le|libdav1d|av1)$/'
 
 # 7. 硬件编码器应为空
 ./ffmpeg -encoders | awk '$2 ~ /_(nvenc|amf|qsv|cuvid)$/'
@@ -240,14 +256,21 @@ cd /usr/local/ffmpeg-custom/bin
 
 # 9. PGS、DVD 字幕和蓝光字幕应为空
 ./ffmpeg -decoders | awk '$2 ~ /^(pgssub|dvdsub|dvbsub|hdmv_pgs_subtitle)$/'
+
+# 10. 带上模型的短跑。sample.mp4 换成手头任意一段短视频。应打出 VMAF score:
+cp /mingw64/share/model/vmaf_v0.6.1.json .
+./ffmpeg -hide_banner -nostats -t 1 -i sample.mp4 -t 1 -i sample.mp4 \
+  -lavfi "[0:v]format=yuv420p[a];[1:v]format=yuv420p[b];[a][b]libvmaf=model=path=vmaf_v0.6.1.json" \
+  -an -c:v wrapped_avframe -f null -
 ```
 
 正常结果：
 
 - `-formats`：MP4、MOV 可写，读 MP4 走 `mov` 那一行。MPEG-TS 读写都有。Matroska、WebM、concat、SRT、ASS、WebVTT 只读。还会多出只写的 `adts` 和 `latm`，这是 MPEG-TS 封装 AAC 时自动带上的。
 - `-hwaccels`：只有标题 `Hardware acceleration methods:`，下面没有方法名。出现 `vaapi` 说明少了 `--disable-vaapi`。
-- `-filters`：要有 `ass`、`drawtext`、`fps`、`scale`、`subtitles`、`concat`。说明文字是 `(null)`，因为开了 `--enable-small`。`drawtext` 前面的 `T` 表示可以按时间轴开关。
-- `-encoders`：五行都要有，名字是 `libsvtav1`、`libx265`、`libvpx-vp9`、`aac`、`mov_text`。行尾的 `D` 是直接渲染能力。描述可能是 `(codec ...)` 或 `(null)`。`-decoders` 里也要有 `mov_text`，以及 `ac3`、`eac3`、`dca`、`truehd`、`flac`、`pcm_s16le`。
+- `-filters`：要有 `ass`、`drawtext`、`fps`、`scale`、`subtitles`、`concat`、`ssim`、`psnr`、`libvmaf`、`split`、`trim`。说明文字是 `(null)`，因为开了 `--enable-small`。`drawtext` 前面的 `T` 表示可以按时间轴开关。
+- 第 10 条的标准错误里要有 `VMAF score:`。模型用当前目录里的 `vmaf_v0.6.1.json`。`-an` 丢掉音轨，否则 `null` 会去找已裁掉的 `pcm_s16le` 编码器。路径里不要写盘符，`C:` 的冒号会被当成滤镜参数分隔符。
+- `-encoders`：要有 `libsvtav1`、`libx265`、`libvpx-vp9`、`aac`、`mov_text`，以及 `wrapped_avframe`。行尾的 `D` 是直接渲染能力。描述可能是 `(codec ...)` 或 `(null)`。`-decoders` 里要有 `mov_text`、`libdav1d`，以及 `ac3`、`eac3`、`dca`、`truehd`、`flac`、`pcm_s16le`。不要出现名叫 `av1` 的解码器，那是只接硬件的内置解码器。
 - 第 7、8、9 条没有输出。
 
 ---
@@ -267,8 +290,6 @@ cp -r /usr/local/ffmpeg-custom/bin /d/ffmpeg/
 ```
 
 > 路径包含空格、中文时，需用双引号包裹路径。
-
-
 
 ### 2. 资源管理器直接访问
 
@@ -293,3 +314,4 @@ explorer /usr/local/ffmpeg-custom/bin/
 1. **重新编译**：修改配置后必须先执行 `make distclean` 清理旧产物，再重新 configure 和 make。
 2. **静态编译优势**：最终生成的 `ffmpeg.exe` 是完全独立的程序，不依赖任何 MinGW DLL，可直接拷贝到任意 Windows 电脑运行。
 3. **软件编码器**：H.265（`libx265`）、AV1（`libsvtav1`）、VP9（`libvpx-vp9`）和内置 AAC。不使用 `--enable-nonfree`。macOS 使用同一组编码器，见 [mac-ffmpeg.md](./mac-ffmpeg.md)。macOS 从源码编译 libvpx 时会加上 `--disable-vp8`；Windows 使用 MSYS2 整包，VP8 代码仍在库内，FFmpeg 不打开 VP8 编码器。
+4. **画质评估**：`libvmaf` 静态链进侧车。模型文件不在 `ffmpeg.exe` 里。仓库里的 `src-tauri/resources/vmaf/vmaf_v0.6.1.json` 来自 libvmaf 发行物的 `model/vmaf_v0.6.1.json`，随应用打包。侧车按本文重编之后，预估画质才真正可用。

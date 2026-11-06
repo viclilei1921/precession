@@ -121,6 +121,11 @@
     "sidecarStartFailed": "Failed to start {{name}}: {{detail}}",
     "addImageFirst": "Add an image first.",
     "selectImageFirst": "Select an image first.",
-    "saveBeforeInsert": "Save first, then insert the image"
+    "saveBeforeInsert": "Save first, then insert the image",
+    "previewTooShort": "The video is too short to preview",
+    "previewNoPicture": "Could not read the picture",
+    "previewNoFilters": "This FFmpeg has no quality filters. Rebuild the sidecar from the docs",
+    "previewSidecar": "This FFmpeg cannot preview quality. Rebuild the sidecar from the docs",
+    "previewNoModel": "The VMAF model is missing. Update the app resources"
   }
 }
