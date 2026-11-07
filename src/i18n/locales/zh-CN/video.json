@@ -203,7 +203,7 @@
   "preview": {
     "action": "预估这段画质",
     "cancel": "取消",
-    "whole": "视频短于 3 秒，用的是整段。",
+    "whole": "视频短于 10.5 秒，用的是整段。",
     "window": "取自 {{start}}，共 {{seconds}} 秒。",
     "vmaf": "VMAF {{score}}",
     "ssim": "SSIM {{score}}",

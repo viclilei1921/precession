@@ -1368,7 +1368,7 @@ fn tile_columns(width: u32) -> u8 {
 
 /// 写出视频和音频的编码参数
 ///
-/// 不写流选择。AV1 写 `libsvtav1`、CRF 和 preset。HEVC 写 `libx265`、CRF、preset，有 tune 时写上；10-bit 再加 `main10`。VP9 写 `libvpx-vp9`、CRF、`-b:v 0`、`deadline good`、`cpu-used`、`row-mt`、`auto-alt-ref`、`lag-in-frames 25`、`frame-parallel 0`，以及按宽度取的 `tile-columns`。有音轨序号时写 AAC、声道、码率和大于 0 的采样率，否则写 `-an`。HEVC 且容器是 MP4 或 MOV 时加 `hvc1`。faststart 且容器是 MP4 或 MOV 时加 `+faststart`。
+/// 不写流选择。AV1 写 `libsvtav1`、CRF 和 preset。CRF 为 0 时再写 `-svtav1-params crf=0`：FFmpeg 只在 CRF 大于 0 时才把数值交给 SVT-AV1，0 会落到编码器默认的 35。HEVC 写 `libx265`、CRF、preset，有 tune 时写上；10-bit 再加 `main10`。VP9 写 `libvpx-vp9`、CRF、`-b:v 0`、`deadline good`、`cpu-used`、`row-mt`、`auto-alt-ref`、`lag-in-frames 25`、`frame-parallel 0`，以及按宽度取的 `tile-columns`。有音轨序号时写 AAC、声道、码率和大于 0 的采样率，否则写 `-an`。HEVC 且容器是 MP4 或 MOV 时加 `hvc1`。faststart 且容器是 MP4 或 MOV 时加 `+faststart`。
 ///
 /// # 参数
 /// - `encode`: 编码配置
@@ -1401,6 +1401,9 @@ pub fn encode_args(encode: &VideoEncode, audio: &AudioPlan, width: u32) -> Vec<S
       push_pair(&mut args, "-c:v", "libsvtav1");
       push_pair(&mut args, "-crf", crf.to_string());
       push_pair(&mut args, "-preset", preset.to_string());
+      if *crf == 0 {
+        push_pair(&mut args, "-svtav1-params", "crf=0");
+      }
     }
     VideoParams::Hevc { preset, crf, tune, bit_depth } => {
       push_pair(&mut args, "-c:v", "libx265");
@@ -1886,6 +1889,21 @@ mod tests {
       }
       other => panic!("应是 hevc: {other:?}"),
     }
+  }
+
+  #[test]
+  #[test]
+  fn av1_crf_zero_reaches_svt() {
+    let mut encode = VideoEncode::default();
+    encode.video = VideoParams::Av1 { preset: 10, crf: 0, bit_depth: BitDepth::Ten };
+    let joined = encode_args(&encode, &stereo(), 1920).join(" ");
+    assert!(joined.contains("-preset 10"), "{joined}");
+    assert!(joined.contains("-crf 0"), "{joined}");
+    assert!(joined.contains("-svtav1-params crf=0"), "{joined}");
+
+    encode.video = VideoParams::Av1 { preset: 10, crf: 35, bit_depth: BitDepth::Ten };
+    let joined = encode_args(&encode, &stereo(), 1920).join(" ");
+    assert!(!joined.contains("svtav1-params"), "{joined}");
   }
 
   #[test]

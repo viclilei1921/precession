@@ -76,6 +76,7 @@
     "avfilter",
     "avformat",
     "avfoundation",
+    "avframe",
     "avifenc",
     "avutil",
     "bdpg",

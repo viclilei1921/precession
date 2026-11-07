@@ -203,7 +203,7 @@
   "preview": {
     "action": "Preview this quality",
     "cancel": "Cancel",
-    "whole": "The video is shorter than 3 seconds, so the whole file is used.",
+    "whole": "The video is shorter than 10.5 seconds, so the whole file is used.",
     "window": "Sampled from {{start}}, {{seconds}} seconds.",
     "vmaf": "VMAF {{score}}",
     "ssim": "SSIM {{score}}",

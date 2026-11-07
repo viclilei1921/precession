@@ -32,7 +32,7 @@ pub async fn ffmpeg_probe(app: AppHandle, path: String) -> Result<VideoInfo, Tas
 
 /// 用当前画面参数预估中间一小段的画质
 ///
-/// 非桌面返回 `DesktopOnly`。桌面取中间约 2.5 秒转码，再算 VMAF 和 SSIM。
+/// 非桌面返回 `DesktopOnly`。桌面取中间 10 秒转码，再算 VMAF 和 SSIM。
 ///
 /// # 参数
 /// - `app`: Tauri 应用句柄

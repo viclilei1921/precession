@@ -1,4 +1,4 @@
-//! 取视频中间一小段，按当前画面参数转码，再同时算 VMAF 和 SSIM。
+//! 取视频正中间 10 秒，按当前画面参数转码，再同时算 VMAF 和 SSIM。
 //!
 //! 不进任务队列。标题、字幕和音轨不参与这次预估。临时文件放在缓存目录的 `preview` 下，结束或取消就删。
 
@@ -18,7 +18,7 @@ pub struct SampleWindow {
   pub start: f64,
   /// 取样时长，单位秒
   pub seconds: f64,
-  /// 短于 3 秒时用整段
+  /// 短于 10.5 秒时用整段
   pub whole: bool,
 }
 
@@ -56,7 +56,7 @@ pub struct QualityPreview {
   pub start: f64,
   /// 取样时长，单位秒
   pub seconds: f64,
-  /// 短于 3 秒时为真，表示用的是整段
+  /// 短于 10.5 秒时为真，表示用的是整段
   pub whole: bool,
   /// VMAF。没算出来时为空
   pub vmaf: Option<f64>,
@@ -147,15 +147,15 @@ fn kill_child(child: tauri_plugin_shell::process::CommandChild) {
 
 /// 按时长决定取样窗口
 ///
-/// 短于 0.5 秒无法预估。0.5 秒到 3 秒用整段。更长的取正中间 2.5 秒。
+/// 短于 0.5 秒无法预估。0.5 秒到 10.5 秒用整段。更长的取正中间 10 秒。
 pub fn sample_window(duration: f64) -> Result<SampleWindow, &'static str> {
   if !duration.is_finite() || duration < 0.5 {
     return Err("视频太短，无法预估");
   }
-  if duration < 3.0 {
+  if duration < 10.5 {
     return Ok(SampleWindow { start: 0.0, seconds: duration, whole: true });
   }
-  let seconds = 2.5_f64;
+  let seconds = 10.0_f64;
   let start = (duration / 2.0 - seconds / 2.0).max(0.0);
   let seconds = seconds.min((duration - start).max(0.0));
   Ok(SampleWindow { start, seconds, whole: false })
@@ -230,16 +230,28 @@ pub fn picture_encode(mut encode: VideoEncode) -> Result<VideoEncode, String> {
 }
 
 /// 拼出同时算 SSIM 和 VMAF 的滤镜。宽高是源画面收成偶数后的尺寸
-pub fn score_filter(width: u32, height: u32, fps: Option<u32>, trim: Option<(u32, u32)>) -> String {
-  // 裁剪构建没有 setpts。两边裁同一段帧号，时间戳仍然对齐
+///
+/// 两边都锁到同一帧率，并把第一帧放回 0 秒。快进落在两帧之间时，源的第一帧会比成片晚几毫秒。
+/// 指标按时间戳配对，会整段配到前一帧。
+pub fn score_filter(width: u32, height: u32, fps: f64, trim: Option<(u32, u32)>) -> String {
   let trim = trim.map(|(start, end)| format!(",trim=start_frame={start}:end_frame={end}")).unwrap_or_default();
-  let reference_fps = fps.map(|fps| format!("fps={fps},")).unwrap_or_default();
+  let rate = fps_lock(fps);
   format!(
-    "[0:v]scale={width}:{height}:flags=bicubic,format=yuv420p{trim},split[d1][d2];\
-     [1:v]{reference_fps}scale={width}:{height}:flags=bicubic,format=yuv420p{trim},split[r1][r2];\
+    "[0:v]{rate}scale={width}:{height}:flags=bicubic,format=yuv420p{trim},split[d1][d2];\
+     [1:v]{rate}scale={width}:{height}:flags=bicubic,format=yuv420p{trim},split[r1][r2];\
      [d1][r1]ssim[ss];\
      [d2][r2]libvmaf=model=path=vmaf_v0.6.1.json[vm]"
   )
+}
+
+/// 把两边锁到同一帧率，并从 0 秒重新排。帧率无效时不锁
+fn fps_lock(fps: f64) -> String {
+  if !fps.is_finite() || fps <= 0.0 {
+    return String::new();
+  }
+  let text = format!("{fps:.3}");
+  let text = text.trim_end_matches('0').trim_end_matches('.');
+  format!("fps={text}:start_time=0:round=near,")
 }
 
 /// 从 ffmpeg 标准错误里取出最后一次 VMAF 和 SSIM
@@ -430,7 +442,7 @@ async fn run_preview(
   let preview_bytes = std::fs::metadata(&output)?.len();
   let fps = encode.fps.filter(|fps| *fps > 0);
   let trim_fps = fps.map(|fps| fps as f64).filter(|fps| *fps > 0.0).unwrap_or(info.fps);
-  let filter = score_filter(width, height, fps, edge_trim(window.seconds, trim_fps));
+  let filter = score_filter(width, height, trim_fps, edge_trim(window.seconds, trim_fps));
   let score_args = vec![
     "-hide_banner".to_string(),
     "-nostats".to_string(),
@@ -579,10 +591,10 @@ mod tests {
   use super::*;
 
   #[test]
-  fn window_uses_the_middle_two_and_a_half_seconds() {
-    let window = sample_window(10.0).unwrap();
-    assert!((window.start - 3.75).abs() < 1e-9);
-    assert!((window.seconds - 2.5).abs() < 1e-9);
+  fn window_uses_the_middle_ten_seconds() {
+    let window = sample_window(30.0).unwrap();
+    assert!((window.start - 10.0).abs() < 1e-9);
+    assert!((window.seconds - 10.0).abs() < 1e-9);
     assert!(!window.whole);
   }
 
@@ -591,6 +603,10 @@ mod tests {
     let window = sample_window(2.0).unwrap();
     assert_eq!(window.start, 0.0);
     assert_eq!(window.seconds, 2.0);
+    assert!(window.whole);
+    let window = sample_window(10.4).unwrap();
+    assert_eq!(window.start, 0.0);
+    assert_eq!(window.seconds, 10.4);
     assert!(window.whole);
   }
 
@@ -665,13 +681,17 @@ mod tests {
 
   #[test]
   fn score_filter_aligns_fps_and_drops_edges() {
-    let filter = score_filter(1920, 1080, Some(30), Some((2, 70)));
+    let filter = score_filter(1920, 1080, 30.0, Some((2, 70)));
     assert!(filter.contains("scale=1920:1080:flags=bicubic"));
-    assert!(filter.contains("fps=30,"));
+    assert_eq!(filter.matches("fps=30:start_time=0:round=near,").count(), 2);
+    assert!(filter.contains("[0:v]fps=30:start_time=0:round=near,"));
+    assert!(filter.contains("[1:v]fps=30:start_time=0:round=near,"));
     assert!(filter.contains("trim=start_frame=2:end_frame=70"));
     assert!(!filter.contains("setpts"));
     assert!(filter.contains("libvmaf=model=path=vmaf_v0.6.1.json"));
     assert!(filter.contains("[d1][r1]ssim[ss]"));
+    assert!(score_filter(1280, 720, 29.97, None).contains("fps=29.97:start_time=0:round=near,"));
+    assert!(!score_filter(1280, 720, 0.0, None).contains("fps="));
   }
 
   #[test]
