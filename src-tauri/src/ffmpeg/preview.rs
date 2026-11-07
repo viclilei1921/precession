@@ -231,8 +231,8 @@ pub fn picture_encode(mut encode: VideoEncode) -> Result<VideoEncode, String> {
 
 /// 拼出同时算 SSIM 和 VMAF 的滤镜。宽高是源画面收成偶数后的尺寸
 ///
-/// 两边都锁到同一帧率，并把第一帧放回 0 秒。快进落在两帧之间时，源的第一帧会比成片晚几毫秒。
-/// 指标按时间戳配对，会整段配到前一帧。
+/// 两边都锁到同一帧率，并把第一帧放回 0 秒。快进落在两帧之间时，源的第一帧会比成片晚几毫秒到将近一帧。
+/// 指标按时间戳配对。第一帧若离下一格更近，往最近的格收会整段配到后一帧，所以这里往前收。
 pub fn score_filter(width: u32, height: u32, fps: f64, trim: Option<(u32, u32)>) -> String {
   let trim = trim.map(|(start, end)| format!(",trim=start_frame={start}:end_frame={end}")).unwrap_or_default();
   let rate = fps_lock(fps);
@@ -245,13 +245,44 @@ pub fn score_filter(width: u32, height: u32, fps: f64, trim: Option<(u32, u32)>)
 }
 
 /// 把两边锁到同一帧率，并从 0 秒重新排。帧率无效时不锁
+///
+/// 29.97、23.976、59.94 写成 `30000/1001` 这种分数。写成小数时滤镜会收成 `2997/100`，和片源的时间基对不齐。
 fn fps_lock(fps: f64) -> String {
   if !fps.is_finite() || fps <= 0.0 {
     return String::new();
   }
+  format!("fps={}:start_time=0:round=down,", fps_token(fps))
+}
+
+/// 把探测到的帧率收成滤镜能用的分数
+fn fps_token(fps: f64) -> String {
+  const RATES: [(f64, &str); 11] = [
+    (24.0, "24"),
+    (25.0, "25"),
+    (30.0, "30"),
+    (48.0, "48"),
+    (50.0, "50"),
+    (60.0, "60"),
+    (120.0, "120"),
+    (24000.0 / 1001.0, "24000/1001"),
+    (30000.0 / 1001.0, "30000/1001"),
+    (60000.0 / 1001.0, "60000/1001"),
+    (120000.0 / 1001.0, "120000/1001"),
+  ];
+  let mut best: Option<&str> = None;
+  let mut best_distance = 0.015;
+  for (value, token) in RATES {
+    let distance = (fps - value).abs();
+    if distance < best_distance {
+      best_distance = distance;
+      best = Some(token);
+    }
+  }
+  if let Some(token) = best {
+    return token.to_string();
+  }
   let text = format!("{fps:.3}");
-  let text = text.trim_end_matches('0').trim_end_matches('.');
-  format!("fps={text}:start_time=0:round=near,")
+  text.trim_end_matches('0').trim_end_matches('.').to_string()
 }
 
 /// 从 ffmpeg 标准错误里取出最后一次 VMAF 和 SSIM
@@ -683,14 +714,15 @@ mod tests {
   fn score_filter_aligns_fps_and_drops_edges() {
     let filter = score_filter(1920, 1080, 30.0, Some((2, 70)));
     assert!(filter.contains("scale=1920:1080:flags=bicubic"));
-    assert_eq!(filter.matches("fps=30:start_time=0:round=near,").count(), 2);
-    assert!(filter.contains("[0:v]fps=30:start_time=0:round=near,"));
-    assert!(filter.contains("[1:v]fps=30:start_time=0:round=near,"));
+    assert_eq!(filter.matches("fps=30:start_time=0:round=down,").count(), 2);
+    assert!(filter.contains("[0:v]fps=30:start_time=0:round=down,"));
+    assert!(filter.contains("[1:v]fps=30:start_time=0:round=down,"));
     assert!(filter.contains("trim=start_frame=2:end_frame=70"));
     assert!(!filter.contains("setpts"));
     assert!(filter.contains("libvmaf=model=path=vmaf_v0.6.1.json"));
     assert!(filter.contains("[d1][r1]ssim[ss]"));
-    assert!(score_filter(1280, 720, 29.97, None).contains("fps=29.97:start_time=0:round=near,"));
+    assert!(score_filter(1280, 720, 29.97, None).contains("fps=30000/1001:start_time=0:round=down,"));
+    assert!(score_filter(1280, 720, 23.976, None).contains("fps=24000/1001:start_time=0:round=down,"));
     assert!(!score_filter(1280, 720, 0.0, None).contains("fps="));
   }
 

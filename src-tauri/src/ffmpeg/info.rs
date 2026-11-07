@@ -14,6 +14,8 @@ use crate::sidecar::{SidecarError, SidecarResult};
 static RE_RES: OnceLock<Regex> = OnceLock::new();
 /// 帧率
 static RE_FPS: OnceLock<Regex> = OnceLock::new();
+/// 时间基帧率。比平均帧率更接近编码器实际使用的帧率
+static RE_TBR: OnceLock<Regex> = OnceLock::new();
 /// 时长
 static RE_DURATION: OnceLock<Regex> = OnceLock::new();
 /// 比特率
@@ -122,7 +124,9 @@ fn parse_line(info: &mut VideoInfo, audio_open: &mut bool, line: &str) {
       info.width = caps[1].parse().unwrap_or(0);
       info.height = caps[2].parse().unwrap_or(0);
     }
-    if let Some(caps) = regex(&RE_FPS, r",\s*(\d+(?:\.\d+)?)\s*fps").captures(line) {
+    if let Some(caps) = regex(&RE_TBR, r",\s*(\d+(?:\.\d+)?)\s*tbr").captures(line) {
+      info.fps = caps[1].parse().unwrap_or(0.0);
+    } else if let Some(caps) = regex(&RE_FPS, r",\s*(\d+(?:\.\d+)?)\s*fps").captures(line) {
       info.fps = caps[1].parse().unwrap_or(0.0);
     }
     if let Some(caps) = regex(&RE_VCODEC, r"Video:\s*([A-Za-z0-9_]+)").captures(line) {
@@ -260,6 +264,7 @@ Stream #0:1[0x2](und): Audio: aac (mp4a / 0x6134706D), 48000 Hz, stereo, fltp, 1
     for line in sample.lines() {
       parse_line(&mut info, &mut audio_open, line.trim());
     }
+    assert!((info.fps - 29.96).abs() < 1e-9);
     assert_eq!(info.video_codec, "hevc");
     assert_eq!(info.pix_fmt, "yuv420p");
     assert_eq!(info.audio_tracks.len(), 1);
@@ -270,5 +275,14 @@ Stream #0:1[0x2](und): Audio: aac (mp4a / 0x6134706D), 48000 Hz, stereo, fltp, 1
     assert_eq!(track.channels, 2);
     assert_eq!(track.language, "und");
     assert!(track.title.is_empty());
+  }
+
+  #[test]
+  fn tbr_wins_over_the_average_fps() {
+    let line = "Stream #0:0[0x1](und): Video: h264 (Main), yuv420p(tv, bt709), 1920x1080, 5985 kb/s, 29.94 fps, 29.97 tbr, 90k tbn";
+    let mut info = VideoInfo::default();
+    let mut audio_open = false;
+    parse_line(&mut info, &mut audio_open, line);
+    assert!((info.fps - 29.97).abs() < 1e-9);
   }
 }
