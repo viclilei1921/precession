@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import type { AlmanacHour } from '@/bridge/calendar';
 import { translateAlmanacWord, translateYiJiText, translateZhi } from '@/features/today/calendar/almanac-dict';
@@ -46,7 +47,7 @@ export function AlmanacSheet({ day, onClose }: AlmanacSheetProps) {
   );
 }
 
-type Translate = (key: string, options?: Record<string, unknown>) => string;
+type Translate = TFunction;
 
 function HourList({ hours, nowIndex, t }: { hours: AlmanacHour[]; nowIndex: number; t: Translate }) {
   if (hours.length === 0) {

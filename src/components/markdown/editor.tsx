@@ -530,7 +530,6 @@ function RichSurface({
   errorRef.current = onUploadError;
   onReadyRef.current = onReady;
 
-  // @ts-expect-error react 7.22.3 自带 crepe/kit 7.22.3。Crepe 有 #private，两份类型不能赋给 useEditor。
   const { loading } = useEditor((root) => {
     const upload = async (file: File) => {
       try {

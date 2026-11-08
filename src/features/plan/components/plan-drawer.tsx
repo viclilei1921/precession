@@ -1,6 +1,7 @@
 import { CalendarBlankIcon, CaretDownIcon, CaretUpIcon, PlusIcon, TrashIcon } from '@phosphor-icons/react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
+import type { TFunction } from 'i18next';
 import type { FormEvent, ReactNode } from 'react';
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -381,7 +382,7 @@ function Fact({
   );
 }
 
-type Translate = (key: string, options?: Record<string, unknown>) => string;
+type Translate = TFunction;
 
 function describeWhen(
   date: string,

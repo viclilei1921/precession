@@ -1,3 +1,4 @@
+import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import type { AudioTrack } from '@/bridge/task';
 import { Select } from '@/components/select';
@@ -77,7 +78,7 @@ export function EncodeAudio({ draft, tracks, onChange }: EncodeAudioProps) {
   );
 }
 
-function trackLabel(track: AudioTrack, t: (key: string, options?: Record<string, unknown>) => string) {
+function trackLabel(track: AudioTrack, t: TFunction) {
   const language = track.language ? ` · ${track.language}` : '';
   const title = track.title ? ` · ${track.title}` : '';
   const channels = track.channelLayout || t('encode.audio.channels', { count: track.channels });

@@ -1,9 +1,10 @@
+import type { TFunction } from 'i18next';
 import type { Plan } from '@/bridge/plan';
 import { formatPlanClock, hasTimeRange, isTimedSingle } from './layout';
 
 // i18n-namespace: plan
 
-type Translate = (key: string, options?: Record<string, unknown>) => string;
+type Translate = TFunction;
 
 /** 色块和日程上的时间文字。全天由语言包决定文案。 */
 export function planWhen(plan: Plan, t: Translate): string {
