@@ -121,7 +121,7 @@
     },
     "avifLossless": {
       "name": "Lossless",
-      "text": "Ticking this demands pixel losslessness. Color quality and alpha quality should then be 100, chroma 4:4:4, and range full. Otherwise the encoder warns and falls back to lossy."
+      "text": "Ticking this encodes pixels losslessly. Color quality and alpha quality are sent as 100. Chroma uses 4:4:4, or 4:0:0 for grayscale, and the range is full. 4:2:2, 4:2:0, and limited range are left out of the command."
     },
     "avifDepth": {
       "name": "Bit depth",
@@ -236,5 +236,20 @@
       "text": "Decodes coarse to fine so a rough preview appears sooner on the network. Compression is slightly less efficient. Not needed for archives."
     }
   },
-  "queue": {}
+  "queue": {},
+  "quality": {
+    "score": "SSIMULACRA2 {{score}}",
+    "bands": {
+      "indistinguishable": "Almost no visible difference",
+      "high": "Very high quality",
+      "medium": "Medium",
+      "visible": "Visible loss",
+      "degraded": "Clearly worse"
+    },
+    "problems": {
+      "missingTool": "The quality tool is missing. Add the sidecar.",
+      "sizeMismatch": "The size does not match the original, so it was not scored.",
+      "failed": "Quality comparison did not finish."
+    }
+  }
 }

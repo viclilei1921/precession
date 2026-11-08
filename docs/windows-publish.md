@@ -40,11 +40,13 @@ pnpm tauri build --no-bundle
 
 编译完成后，程序旁边的旁路文件名已经去掉架构后缀。打包必须用这一组，不要用 `src-tauri/binaries/` 里带 `-x86_64-pc-windows-msvc` 的源文件。运行时在 `precession.exe` 同目录查找短文件名，找不到就报「系统找不到指定的文件」。
 
-| 源文件                               | 打进 MSIX 的文件                       |
-| ------------------------------------ | -------------------------------------- |
-| `ffmpeg-x86_64-pc-windows-msvc.exe`  | `src-tauri/target/release/ffmpeg.exe`  |
-| `cjxl-x86_64-pc-windows-msvc.exe`    | `src-tauri/target/release/cjxl.exe`    |
-| `avifenc-x86_64-pc-windows-msvc.exe` | `src-tauri/target/release/avifenc.exe` |
+| 源文件                                   | 打进 MSIX 的文件                           |
+| ---------------------------------------- | ------------------------------------------ |
+| `ffmpeg-x86_64-pc-windows-msvc.exe`      | `src-tauri/target/release/ffmpeg.exe`      |
+| `cjxl-x86_64-pc-windows-msvc.exe`        | `src-tauri/target/release/cjxl.exe`        |
+| `avifenc-x86_64-pc-windows-msvc.exe`     | `src-tauri/target/release/avifenc.exe`     |
+| `ssimulacra2-x86_64-pc-windows-msvc.exe` | `src-tauri/target/release/ssimulacra2.exe` |
+| `avifdec-x86_64-pc-windows-msvc.exe`     | `src-tauri/target/release/avifdec.exe`     |
 
 ## 3. 组装并签名
 
@@ -55,7 +57,7 @@ pnpm tauri build --no-bundle
 ```powershell
 $layout = "src-tauri\target\msix-layout"
 New-Item -ItemType Directory -Force "$layout\src-tauri\icons" | Out-Null
-Copy-Item src-tauri\target\release\precession.exe,src-tauri\target\release\ffmpeg.exe,src-tauri\target\release\cjxl.exe,src-tauri\target\release\avifenc.exe $layout -Force
+Copy-Item src-tauri\target\release\precession.exe,src-tauri\target\release\ffmpeg.exe,src-tauri\target\release\cjxl.exe,src-tauri\target\release\avifenc.exe,src-tauri\target\release\ssimulacra2.exe,src-tauri\target\release\avifdec.exe $layout -Force
 Copy-Item src-tauri\icons\StoreLogo.png,src-tauri\icons\Square44x44Logo.png,src-tauri\icons\Square150x150Logo.png "$layout\src-tauri\icons\" -Force
 Copy-Item Package.appxmanifest "$layout\AppxManifest.xml" -Force
 & "C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64\makeappx.exe" pack /d $layout /p precession.msix /o

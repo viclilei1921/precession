@@ -15,6 +15,8 @@ mod bridge;
 #[cfg(desktop)]
 mod jxl;
 #[cfg(desktop)]
+mod score;
+#[cfg(desktop)]
 mod utils;
 
 #[cfg(desktop)]

@@ -1,12 +1,14 @@
 //! 侧车任务的执行期句柄：查取消，并把进度写回队列。
 
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use tauri::{AppHandle, Emitter, Manager};
 
 use super::constants::EVENT_TASK;
 use super::queue::TaskQueue;
+use crate::image::models::ImageQuality;
 
 /// 任务执行期句柄
 ///
@@ -16,6 +18,7 @@ use super::queue::TaskQueue;
 /// - `app`: Tauri 应用句柄
 /// - `id`: 任务 ID
 /// - `cancel`: 取消标志
+/// - `quality`: 图片画质。编码成功并打分后才有
 ///
 /// # 示例
 /// 见 [`JobCtx::new`]
@@ -26,6 +29,8 @@ pub struct JobCtx {
   id: String,
   /// 取消标志
   cancel: Arc<AtomicBool>,
+  /// 图片画质。编码成功并打分后才有
+  quality: Mutex<Option<ImageQuality>>,
 }
 
 impl JobCtx {
@@ -47,7 +52,48 @@ impl JobCtx {
   /// let job = JobCtx::new(app, id, cancel);
   /// ```
   pub fn new(app: AppHandle, id: impl Into<String>, cancel: Arc<AtomicBool>) -> Self {
-    Self { app, id: id.into(), cancel }
+    Self { app, id: id.into(), cancel, quality: Mutex::new(None) }
+  }
+
+  /// 记下这次图片比对的结果
+  ///
+  /// 后一次覆盖前一次。锁中毒时取回内部值再写。
+  ///
+  /// # 参数
+  /// - `quality`: 分数或问题码
+  ///
+  /// # 返回值
+  /// 无返回值
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```ignore
+  /// job.set_quality(quality);
+  /// ```
+  pub fn set_quality(&self, quality: ImageQuality) {
+    let mut slot = self.quality.lock().unwrap_or_else(|err| err.into_inner());
+    *slot = Some(quality);
+  }
+
+  /// 取出图片比对结果
+  ///
+  /// 取走后槽里为空。锁中毒时取回内部值再读。
+  ///
+  /// # 返回值
+  /// 打过分时返回结果，否则 `None`
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```ignore
+  /// let quality = job.take_quality();
+  /// ```
+  pub fn take_quality(&self) -> Option<ImageQuality> {
+    let mut slot = self.quality.lock().unwrap_or_else(|err| err.into_inner());
+    slot.take()
   }
 
   /// 读取取消标志

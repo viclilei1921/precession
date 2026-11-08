@@ -5,7 +5,7 @@
 mod imp {
   use std::sync::Arc;
 
-  use tauri::AppHandle;
+  use tauri::{AppHandle, Manager};
 
   use super::super::error::TaskError;
   use super::super::job::JobCtx;
@@ -52,7 +52,16 @@ mod imp {
   /// ```
   pub fn run_sidecar(app: &AppHandle, ticket: &Ticket) -> Result<Option<String>, TaskError> {
     let job = JobCtx::new(app.clone(), ticket.id.clone(), Arc::clone(&ticket.cancel));
-    tauri::async_runtime::block_on(dispatch_sidecar(app, &job, &ticket.spec)).map(|()| None).map_err(TaskError::from)
+    let ran = tauri::async_runtime::block_on(dispatch_sidecar(app, &job, &ticket.spec));
+    if ran.is_ok() {
+      if let Some(quality) = job.take_quality() {
+        let queue = app.state::<crate::task::TaskQueue>();
+        if let Err(err) = queue.attach_quality(&ticket.id, quality) {
+          tauri_plugin_log::log::warn!("image quality: {err}");
+        }
+      }
+    }
+    ran.map(|()| None).map_err(TaskError::from)
   }
 
   /// 按规格调用对应的视频或图片侧车

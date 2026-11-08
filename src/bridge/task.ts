@@ -45,6 +45,21 @@ export type Task = {
   /** 输出文件。空字符串表示没有可打开的结果。 */
   output: string;
   draft: TaskDraft | null;
+  /** 图片画质。转码完成并打分后才有。 */
+  quality: ImageQuality | null;
+};
+
+/** SSIMULACRA2 分档。90、70、50、30 是这个指标自己的刻度。 */
+export type ImageBand = 'indistinguishable' | 'high' | 'medium' | 'visible' | 'degraded';
+
+/** 打分没有得出分数时的原因。转码本身仍然算成功。 */
+export type ImageScoreProblem = 'missingTool' | 'sizeMismatch' | 'failed';
+
+/** 一次图片画质比对。有分数时带分档，没有分数时只填问题码。 */
+export type ImageQuality = {
+  score: number | null;
+  band: ImageBand | null;
+  problem: ImageScoreProblem | null;
 };
 
 /** 裁剪片段。start / duration 为 `HH:MM:SS` 或秒数。 */

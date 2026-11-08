@@ -14,6 +14,7 @@ import { applyTaskUpdate, refreshTasks, taskListQuery } from '@/query/task/query
 import { errorMessage } from '@/utils/error';
 import { formatRemaining, ProgressETA } from '@/utils/progress-eta';
 import { matchesQuery } from '@/utils/search';
+import { QualityLine } from './quality-line';
 import styles from './queue.module.css';
 
 export type ImageTab = 'run' | 'wait' | 'done';
@@ -263,6 +264,7 @@ function QueueItem({ task, onRemove, removing, onOpen, onEdit }: QueueItemProps)
             {path}
           </p>
         ) : null}
+        {task.quality ? <QualityLine quality={task.quality} /> : null}
         {task.status === 'failed' && task.message ? <p className={styles.detail}>{task.message}</p> : null}
       </div>
       <div className={styles.itemActions}>

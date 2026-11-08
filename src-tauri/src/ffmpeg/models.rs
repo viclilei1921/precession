@@ -1892,7 +1892,6 @@ mod tests {
   }
 
   #[test]
-  #[test]
   fn av1_crf_zero_reaches_svt() {
     let mut encode = VideoEncode::default();
     encode.video = VideoParams::Av1 { preset: 10, crf: 0, bit_depth: BitDepth::Ten };

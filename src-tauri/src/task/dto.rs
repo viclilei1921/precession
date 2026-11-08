@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::ffmpeg::models::{TimeSegment, VideoEncode};
-use crate::image::models::{AvifEncodeParams, JxlEncodeParams};
+use crate::image::models::{AvifEncodeParams, ImageQuality, JxlEncodeParams};
 
 /// 失败或取消后用来还原界面
 ///
@@ -51,6 +51,7 @@ pub enum TaskDraft {
 /// - `title`: 文件名。多文件时带上数量
 /// - `output`: 输出文件。空则没有可打开的结果。任务完成时才有
 /// - `draft`: 任务草稿。任务取消时才有
+/// - `quality`: 图片画质。转码完成并打分后才有
 ///
 /// # 示例
 /// 见 [`task_enqueue`](super::commands::task_enqueue)
@@ -75,6 +76,8 @@ pub struct Task {
   pub output: String,
   /// 任务草稿。任务取消时才有。
   pub draft: Option<TaskDraft>,
+  /// 图片画质。转码完成并打分后才有。
+  pub quality: Option<ImageQuality>,
 }
 
 /// 入队参数

@@ -45,7 +45,7 @@ pub async fn ensure_output_parent(output_path: &str) -> SidecarResult<()> {
 
 /// 启动侧车编码并上报进度
 ///
-/// 开始时进度记 10。输出到达且距上次上报至少 500 毫秒时，进度记 40 并带上已用秒数。标准错误尾部最多留 4000 字节。退出码 0 时进度记 100。
+/// 开始时进度记 10。输出到达且距上次上报至少 500 毫秒时，进度记 40 并带上已用秒数。标准错误尾部最多留 4000 字节。退出码 0 时进度记 90，留给随后的画质比对。
 ///
 /// # 参数
 /// - `app`: Tauri 应用句柄
@@ -121,7 +121,7 @@ pub async fn run_sidecar_encode(
         }
         if let Some(code) = status.code {
           if code == 0 {
-            job.report(100.0, "完成").await;
+            job.report(90.0, progress_label).await;
             tauri_plugin_log::log::info!("{sidecar_name} encode done: elapsed={:?}", encode_started.elapsed());
             return Ok(());
           }

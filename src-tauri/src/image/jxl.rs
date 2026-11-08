@@ -2,13 +2,14 @@ use tauri::AppHandle;
 
 use crate::image::bridge::{BridgeInput, EncodeTarget, needs_bridge, path_ext_lower, resolve_encode_input};
 use crate::image::models::JxlEncodeParams;
+use crate::image::score::score_jxl;
 use crate::image::utils::{ensure_output_parent, run_sidecar_encode};
 use crate::sidecar::{SidecarError, SidecarResult};
 use crate::task::JobCtx;
 
 /// 按 JXL 参数组装 cjxl 参数，最后接输入和输出路径
 ///
-/// 无损时距离写 0，否则把质量收到 0–25。effort 收到 1–10，解码速度收到 0–4。不写 `--container=0`。`use_container` 为真或要注入 EXIF 时写 `--container=1`。超出各自允许范围的可选数值不写入。
+/// 无损时距离写 0。JPEG 输入勾了 JPEG 无损重建时也写 0：cjxl 拒绝非 0 距离和 `--lossless_jpeg=1` 同时出现。其他格式仍用收到 0–25 的距离。effort 收到 1–10，解码速度收到 0–4。不写 `--container=0`。`use_container` 为真或要注入 EXIF 时写 `--container=1`。超出各自允许范围的可选数值不写入。
 ///
 /// # 参数
 /// - `input_path`: 输入路径
@@ -35,7 +36,7 @@ fn build_cjxl_args(
 ) -> Vec<String> {
   let effort = params.effort.clamp(1, 10);
   let decoding_speed = params.decoding_speed.clamp(0, 4);
-  let distance = if params.lossless { 0.0 } else { params.quality.clamp(0.0, 25.0) };
+  let distance = cjxl_distance(params, input_path);
 
   let mut args = Vec::with_capacity(48);
   args.push("-d".to_string());
@@ -225,9 +226,25 @@ fn build_cjxl_args(
   args
 }
 
+/// 这次编码要写给 cjxl 的距离
+///
+/// 像素无损写 0。jpg、jpeg 且打开 JPEG 无损重建时也写 0，否则 cjxl 以退出码 1 拒绝。其余情况把距离收到 0–25。
+fn cjxl_distance(params: &JxlEncodeParams, input_path: &str) -> f32 {
+  if params.lossless || (params.lossless_jpeg && is_jpeg_path(input_path)) {
+    0.0
+  } else {
+    params.quality.clamp(0.0, 25.0)
+  }
+}
+
+/// 扩展名是 jpg 或 jpeg 时，cjxl 会按 JPEG 码流处理 `--lossless_jpeg`
+fn is_jpeg_path(path: &str) -> bool {
+  matches!(path_ext_lower(path).as_deref(), Some("jpg" | "jpeg"))
+}
+
 /// 把图片转成 JXL
 ///
-/// 非原生格式先桥接。总是尝试提取 EXIF。质量收到 0–25，effort 收到 1–10，解码速度收到 0–4。无损时进度说明里的距离写成 0。
+/// 非原生格式先桥接。总是尝试提取 EXIF。质量收到 0–25，effort 收到 1–10，解码速度收到 0–4。像素无损，或 JPEG 输入的 JPEG 无损重建，进度说明里的距离写成 0。
 ///
 /// # 参数
 /// - `app`: Tauri 应用句柄
@@ -289,10 +306,37 @@ pub async fn run_convert_jxl(
 
   let exif_inject = exif_path.as_deref();
   let args = build_cjxl_args(&encode_input, output_path, &params, exif_inject);
-  let distance = if params.lossless { 0.0 } else { params.quality };
+  let distance = cjxl_distance(&params, &encode_input);
   let label = format!(
     "正在 JXL 编码（lossless={}, distance={distance:.2}, effort={}, lossless_jpeg={}）...",
     params.lossless, params.effort, params.lossless_jpeg
   );
-  run_sidecar_encode(app, job, "cjxl", &args, &label).await
+  run_sidecar_encode(app, job, "cjxl", &args, &label).await?;
+  let quality = score_jxl(app, job, &encode_input, output_path).await?;
+  job.set_quality(quality);
+  Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  fn distance_arg(args: &[String]) -> Option<&str> {
+    args.windows(2).find(|pair| pair[0] == "-d").map(|pair| pair[1].as_str())
+  }
+
+  #[test]
+  fn jpeg_lossless_reconstruction_uses_zero_distance() {
+    let params = JxlEncodeParams { quality: 1.0, lossless_jpeg: true, ..JxlEncodeParams::default() };
+    let args = build_cjxl_args("photo.JPG", "photo.jxl", &params, None);
+    assert_eq!(distance_arg(&args), Some("0"));
+    assert!(args.iter().any(|arg| arg == "--lossless_jpeg=1"));
+  }
+
+  #[test]
+  fn non_jpeg_keeps_distance_when_reconstruction_is_checked() {
+    let params = JxlEncodeParams { quality: 1.0, lossless_jpeg: true, ..JxlEncodeParams::default() };
+    let args = build_cjxl_args("picture.png", "picture.jxl", &params, None);
+    assert_eq!(distance_arg(&args), Some("1"));
+  }
 }

@@ -1,0 +1,21 @@
+.quality {
+  display: grid;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.lead,
+.meta,
+.problem {
+  margin: 0;
+  font-size: var(--text-xs);
+}
+
+.lead {
+  color: var(--foreground);
+}
+
+.meta,
+.problem {
+  color: var(--muted-foreground);
+}

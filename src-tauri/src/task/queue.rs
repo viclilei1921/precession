@@ -14,6 +14,7 @@ use super::service;
 use super::service::{Prepared, Spec};
 #[cfg(test)]
 use crate::db::state::DbState;
+use crate::image::models::ImageQuality;
 
 /// 队列里的一条任务
 ///
@@ -33,6 +34,7 @@ use crate::db::state::DbState;
 /// - `title`: 任务标题
 /// - `output`: 输出文件
 /// - `draft`: 任务草稿。任务取消时才有
+/// - `quality`: 图片画质。转码完成并打分后才有
 ///
 /// # 示例
 /// 见 [`TaskQueue::push`]
@@ -63,6 +65,8 @@ struct Job {
   output: String,
   /// 任务草稿。任务取消时才有。
   draft: Option<TaskDraft>,
+  /// 图片画质。转码完成并打分后才有。
+  quality: Option<ImageQuality>,
 }
 
 impl Drop for Job {
@@ -266,6 +270,7 @@ impl TaskQueue {
       title,
       output,
       draft,
+      quality: None,
     };
     let view = view(&job);
     jobs.push(job);
@@ -475,6 +480,38 @@ impl TaskQueue {
     Ok(Some(view(job)))
   }
 
+  /// 给处理中的图片任务记下画质
+  ///
+  /// 任务不在处理中时不写。收尾时视图会带上这份结果。
+  ///
+  /// # 参数
+  /// - `id`: 任务 ID
+  /// - `quality`: 分数或问题码
+  ///
+  /// # 返回值
+  /// 成功时无额外值
+  ///
+  /// # 错误
+  /// 找不到任务时返回 `TaskError::NotFound`，锁定失败时返回 `TaskError::Internal`
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```ignore
+  /// queue.attach_quality(id, quality)?;
+  /// ```
+  pub(super) fn attach_quality(&self, id: &str, quality: ImageQuality) -> Result<(), TaskError> {
+    let mut jobs = self.lock()?;
+    let Some(job) = jobs.iter_mut().find(|job| job.id == id) else {
+      return Err(TaskError::NotFound);
+    };
+    if job.status == Status::Processing {
+      job.quality = Some(quality);
+    }
+    Ok(())
+  }
+
   /// 按执行结果收尾，并清零密码
   ///
   /// 成功时若带上传文件 ID 就写上，状态改为完成、进度 100、消息「完成」。`Canceled` 改为已取消、消息「已取消」。其他错误改为失败，消息用错误的显示文本。
@@ -662,5 +699,6 @@ fn view(job: &Job) -> Task {
     title: job.title.clone(),
     output: job.output.clone(),
     draft: job.draft.clone(),
+    quality: job.quality.clone(),
   }
 }

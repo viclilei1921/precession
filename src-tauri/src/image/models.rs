@@ -298,14 +298,14 @@ fn jxl_effort() -> u8 {
 ///
 /// 色彩和透明质量收到 0–100，速度收到 0–10。线程数至少为 1，分块 log2 最大 6。
 /// 目标大小为 0 时当成没设置。旋转超出 0–3、镜像超出 0–1 时入队拒绝。
-/// `Auto` 色度和范围不传对应参数。自动分块时不写行列 tile。
+/// 无损时色彩和透明质量写成 100，不传 4:2:2、4:2:0 和有限范围。`Auto` 色度和范围不传对应参数。自动分块时不写行列 tile。
 /// 要注入 EXIF 时不写 `--ignore-exif`。
 ///
 /// # 字段
 /// - `qcolor`: 质量，收到 0–100，默认 60。写成 `-q`
 /// - `qalpha`: 透明质量，收到 0–100，默认 60。写成 `--qalpha`
 /// - `speed`: 速度，收到 0–10，默认 6。写成 `-s`
-/// - `lossless`: 为真时写 `-l`
+/// - `lossless`: 为真时写 `-l`，色彩和透明质量写成 100。4:2:2、4:2:0 和有限范围不传
 /// - `jobs`: 有值时写 `-j`，至少为 1
 /// - `depth`: 位深，见 [`AvifDepth`]。默认 8-bit。写成 `-d`
 /// - `yuv`: 色度，见 [`AvifYuv`]。`Auto` 不传 `-y`
@@ -352,7 +352,7 @@ pub struct AvifEncodeParams {
   /// 速度，收到 0–10，默认 6
   #[serde(default = "avif_speed")]
   pub speed: u8,
-  /// 为真时写 `-l`
+  /// 为真时写 `-l`，色彩和透明质量写成 100
   pub lossless: bool,
   /// 有值时写 `-j`，至少为 1
   pub jobs: Option<u8>,
@@ -504,7 +504,7 @@ pub fn normalize_avif(params: &mut AvifEncodeParams) -> Result<(), String> {
 
 /// cjxl 参数。`quality` 是距离（0 无损，越大越糊），缺省 1.0、effort 7。
 ///
-/// 无损时距离写 0，否则把质量收到 0–25。effort 收到 1–10，解码速度收到 0–4。
+/// 无损时距离写 0。JPEG 输入打开 JPEG 无损重建时距离也写 0，否则 cjxl 拒绝。其余情况把质量收到 0–25。effort 收到 1–10，解码速度收到 0–4。
 /// 不写 `--container=0`。`use_container` 为真或要注入 EXIF 时写 `--container=1`。
 /// 可选数值超出允许集合时入队拒绝，不再悄悄丢掉。
 ///
@@ -796,6 +796,110 @@ pub fn normalize_jxl(params: &mut JxlEncodeParams) -> Result<(), String> {
 /// assert!(reject_at_most(Some(1), 1, "太大").is_ok());
 /// assert!(reject_at_most(Some(2), 1, "太大").is_err());
 /// ```
+/// SSIMULACRA2 分档。90、70、50、30 是这个指标自己的刻度
+///
+/// # 变体
+/// - `Indistinguishable`: 90 及以上，几乎看不出差别
+/// - `High`: 70 及以上，画质很高
+/// - `Medium`: 50 及以上，中等
+/// - `Visible`: 30 及以上，能看出损失
+/// - `Degraded`: 低于 30，明显变差
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum ImageBand {
+  /// 90 及以上，几乎看不出差别
+  Indistinguishable,
+  /// 70 及以上，画质很高
+  High,
+  /// 50 及以上，中等
+  Medium,
+  /// 30 及以上，能看出损失
+  Visible,
+  /// 低于 30，明显变差
+  Degraded,
+}
+
+/// 打分没有得出分数时的原因。转码本身仍然算成功
+///
+/// # 变体
+/// - `MissingTool`: 找不到 `ssimulacra2` 或 `avifdec`
+/// - `SizeMismatch`: 宽高和原图不一致
+/// - `Failed`: 其它打分失败
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum ImageScoreProblem {
+  /// 找不到 `ssimulacra2` 或 `avifdec`
+  MissingTool,
+  /// 宽高和原图不一致
+  SizeMismatch,
+  /// 其它打分失败
+  Failed,
+}
+
+/// 一次图片画质比对
+///
+/// 有分数时带上分档，`problem` 为空。没有分数时只填 `problem`。
+///
+/// # 字段
+/// - `score`: SSIMULACRA2 分数。越高越接近原图
+/// - `band`: 按分数分成的档
+/// - `problem`: 没有分数时的原因
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ImageQuality {
+  /// SSIMULACRA2 分数。越高越接近原图
+  pub score: Option<f64>,
+  /// 按分数分成的档
+  pub band: Option<ImageBand>,
+  /// 没有分数时的原因
+  pub problem: Option<ImageScoreProblem>,
+}
+
+impl ImageQuality {
+  /// 用一个有限分数做成成功的比对结果
+  ///
+  /// # 参数
+  /// - `score`: SSIMULACRA2 分数
+  /// - `band`: 这个分数对应的档
+  ///
+  /// # 返回值
+  /// 带分数和分档、没有问题码的结果
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let quality = ImageQuality::scored(91.0, ImageBand::Indistinguishable);
+  /// assert_eq!(quality.score, Some(91.0));
+  /// assert!(quality.problem.is_none());
+  /// ```
+  pub fn scored(score: f64, band: ImageBand) -> Self {
+    Self { score: Some(score), band: Some(band), problem: None }
+  }
+
+  /// 用问题码做成没有分数的比对结果
+  ///
+  /// # 参数
+  /// - `problem`: 打分没有完成的原因
+  ///
+  /// # 返回值
+  /// 没有分数和分档、带问题码的结果
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```
+  /// let quality = ImageQuality::problem(ImageScoreProblem::MissingTool);
+  /// assert!(quality.score.is_none());
+  /// assert_eq!(quality.problem, Some(ImageScoreProblem::MissingTool));
+  /// ```
+  pub fn problem(problem: ImageScoreProblem) -> Self {
+    Self { score: None, band: None, problem: Some(problem) }
+  }
+}
+
 fn reject_at_most(value: Option<u8>, max: u8, message: &str) -> Result<(), String> {
   if value.is_some_and(|item| item > max) {
     return Err(message.to_string());

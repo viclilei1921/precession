@@ -27,7 +27,7 @@
   },
   "bundle": {
     "active": true,
-    "externalBin": ["binaries/ffmpeg", "binaries/cjxl", "binaries/avifenc"],
+    "externalBin": ["binaries/ffmpeg", "binaries/cjxl", "binaries/avifenc", "binaries/ssimulacra2", "binaries/avifdec"],
     "resources": ["resources/vmaf/vmaf_v0.6.1.json"],
     "targets": "all",
     "icon": [

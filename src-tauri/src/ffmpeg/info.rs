@@ -90,9 +90,34 @@ fn channels_of(layout: &str) -> u32 {
   }
 }
 
+/// 这一行是不是可以当作画面的视频流
+///
+/// 只认 `Stream #` 流描述。探测警告里也会出现 `Video:`，例如封面尺寸读不到，那些行不是流描述。
+/// 带 `attached pic` 的是封面图，不算画面。
+///
+/// # 参数
+/// - `line`: 一行 ffmpeg 输出
+///
+/// # 返回值
+/// 是画面流时返回 `true`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```
+/// assert!(is_picture_stream("Stream #0:0: Video: h264, yuv420p, 1280x720, 25 fps"));
+/// assert!(!is_picture_stream("Could not find codec parameters for stream 2 (Video: mjpeg, none)"));
+/// assert!(!is_picture_stream("Stream #0:2: Video: mjpeg, none (attached pic)"));
+/// ```
+fn is_picture_stream(line: &str) -> bool {
+  line.contains("Stream #") && line.contains("Video:") && !line.contains("attached pic")
+}
+
 /// 从一行 ffmpeg 输出里填画面、时长或音轨
 ///
 /// 遇到新的 `Stream #` 就结束上一条音轨的标题收集。音轨行匹配后，后续行里的 `title` 写进这条音轨，直到下一条流。
+/// 画面只取第一条带宽高的视频流。封面和探测警告不算。前面的流没有宽高时，后面带尺寸的流可以补上。
 ///
 /// # 参数
 /// - `info`: 正在填充的视频信息
@@ -118,22 +143,32 @@ fn parse_line(info: &mut VideoInfo, audio_open: &mut bool, line: &str) {
     *audio_open = false;
   }
 
-  // 视频流解析
-  if line.contains("Video:") && info.video_codec.is_empty() {
+  // 已经读到宽高后，后面的视频流不再改画面。还没有宽高时，继续找带尺寸的流。
+  if is_picture_stream(line) && (info.width == 0 || info.height == 0) {
+    let mut width = 0;
+    let mut height = 0;
     if let Some(caps) = regex(&RE_RES, r"(\d{2,5})x(\d{2,5})").captures(line) {
-      info.width = caps[1].parse().unwrap_or(0);
-      info.height = caps[2].parse().unwrap_or(0);
+      width = caps[1].parse().unwrap_or(0);
+      height = caps[2].parse().unwrap_or(0);
     }
-    if let Some(caps) = regex(&RE_TBR, r",\s*(\d+(?:\.\d+)?)\s*tbr").captures(line) {
-      info.fps = caps[1].parse().unwrap_or(0.0);
-    } else if let Some(caps) = regex(&RE_FPS, r",\s*(\d+(?:\.\d+)?)\s*fps").captures(line) {
-      info.fps = caps[1].parse().unwrap_or(0.0);
-    }
-    if let Some(caps) = regex(&RE_VCODEC, r"Video:\s*([A-Za-z0-9_]+)").captures(line) {
-      info.video_codec = caps[1].to_string();
-    }
-    if let Some(caps) = regex(&RE_PIX, r"Video:.*?,\s*([a-z0-9]+)").captures(line) {
-      info.pix_fmt = caps[1].to_string();
+    let has_size = width > 0 && height > 0;
+    if info.video_codec.is_empty() || has_size {
+      info.width = width;
+      info.height = height;
+      info.fps = 0.0;
+      if let Some(caps) = regex(&RE_TBR, r",\s*(\d+(?:\.\d+)?)\s*tbr").captures(line) {
+        info.fps = caps[1].parse().unwrap_or(0.0);
+      } else if let Some(caps) = regex(&RE_FPS, r",\s*(\d+(?:\.\d+)?)\s*fps").captures(line) {
+        info.fps = caps[1].parse().unwrap_or(0.0);
+      }
+      if let Some(caps) = regex(&RE_VCODEC, r"Video:\s*([A-Za-z0-9_]+)").captures(line) {
+        info.video_codec = caps[1].to_string();
+      }
+      if let Some(caps) = regex(&RE_PIX, r"Video:.*?,\s*([a-z0-9]+)").captures(line) {
+        info.pix_fmt = caps[1].to_string();
+      } else {
+        info.pix_fmt.clear();
+      }
     }
   }
 
@@ -215,19 +250,13 @@ pub async fn video_info(app: &tauri::AppHandle, path: &str) -> SidecarResult<Vid
 
   let mut info = VideoInfo { path: path.to_string(), ..Default::default() };
   let mut audio_open = false;
+  let mut pending = Vec::new();
 
   while let Some(event) = rx.recv().await {
     match event {
-      CommandEvent::Stderr(data) => {
-        let chunk = String::from_utf8_lossy(&data);
-        for raw in chunk.lines() {
-          let line = raw.trim();
-          if !line.is_empty() {
-            parse_line(&mut info, &mut audio_open, line);
-          }
-        }
-      }
+      CommandEvent::Stderr(data) => consume_stderr(&mut pending, &data, &mut info, &mut audio_open),
       CommandEvent::Terminated(status) => {
+        finish_stderr(&mut pending, &mut info, &mut audio_open);
         if let Some(code) = status.code {
           if code == 0 || code == 1 {
             break;
@@ -239,12 +268,92 @@ pub async fn video_info(app: &tauri::AppHandle, path: &str) -> SidecarResult<Vid
       _ => {}
     }
   }
+  finish_stderr(&mut pending, &mut info, &mut audio_open);
 
   if info.duration > 0.0 || info.width > 0 || !info.video_codec.is_empty() {
     return Ok(info);
   }
 
   Err(SidecarError::invalid("无法读取视频时长"))
+}
+
+/// 把一块标准错误接上未写完的半行，遇到换行再解析
+///
+/// ffmpeg 一次写出的字节不一定对齐到行尾。半行先留着，避免把 `Video:` 和后面的宽高拆成两行。
+///
+/// # 参数
+/// - `pending`: 上一块留下的半行
+/// - `chunk`: 新读到的标准错误
+/// - `info`: 正在填充的视频信息
+/// - `audio_open`: 是否还在收集当前音轨标题
+///
+/// # 返回值
+/// 无返回值
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let mut pending = Vec::new();
+/// consume_stderr(&mut pending, b"Stream #0:0: Video: h264, 1280x720\n", &mut info, &mut audio_open);
+/// ```
+fn consume_stderr(pending: &mut Vec<u8>, chunk: &[u8], info: &mut VideoInfo, audio_open: &mut bool) {
+  pending.extend_from_slice(chunk);
+  while let Some(index) = pending.iter().position(|byte| *byte == b'\n') {
+    let line: Vec<u8> = pending.drain(..=index).collect();
+    apply_stderr_line(info, audio_open, &line);
+  }
+}
+
+/// 进程结束时把最后一行没有换行的输出也解析掉
+///
+/// # 参数
+/// - `pending`: 还没遇到换行的剩余字节
+/// - `info`: 正在填充的视频信息
+/// - `audio_open`: 是否还在收集当前音轨标题
+///
+/// # 返回值
+/// 无返回值
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// finish_stderr(&mut pending, &mut info, &mut audio_open);
+/// ```
+fn finish_stderr(pending: &mut Vec<u8>, info: &mut VideoInfo, audio_open: &mut bool) {
+  if pending.is_empty() {
+    return;
+  }
+  let line = std::mem::take(pending);
+  apply_stderr_line(info, audio_open, &line);
+}
+
+/// 解析一行标准错误。空行跳过
+///
+/// # 参数
+/// - `info`: 正在填充的视频信息
+/// - `audio_open`: 是否还在收集当前音轨标题
+/// - `line`: 一行字节，可以带换行
+///
+/// # 返回值
+/// 无返回值
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// apply_stderr_line(&mut info, &mut audio_open, b"Duration: 00:01:00.00\n");
+/// ```
+fn apply_stderr_line(info: &mut VideoInfo, audio_open: &mut bool, line: &[u8]) {
+  let text = String::from_utf8_lossy(line);
+  let text = text.trim();
+  if !text.is_empty() {
+    parse_line(info, audio_open, text);
+  }
 }
 
 #[cfg(test)]
@@ -284,5 +393,95 @@ Stream #0:1[0x2](und): Audio: aac (mp4a / 0x6134706D), 48000 Hz, stereo, fltp, 1
     let mut audio_open = false;
     parse_line(&mut info, &mut audio_open, line);
     assert!((info.fps - 29.97).abs() < 1e-9);
+  }
+
+  fn parse_sample(sample: &str) -> VideoInfo {
+    let mut info = VideoInfo::default();
+    let mut audio_open = false;
+    for line in sample.lines() {
+      parse_line(&mut info, &mut audio_open, line.trim());
+    }
+    info
+  }
+
+  #[test]
+  fn cover_warning_does_not_hide_the_picture() {
+    let sample = "\
+[in#0/mov,mp4,m4a,3gp,3g2,mj2 @ 000002305e5ece00] Could not find codec parameters for stream 2 (Video: mjpeg, none): unspecified size
+Consider increasing the value for the 'analyzeduration' (0) and 'probesize' (5000000) options
+Duration: 00:15:32.75, start: 0.000000, bitrate: 295 kb/s
+Stream #0:0[0x1](und): Video: h264 (avc1 / 0x31637661), yuv420p(tv, bt709, progressive), 1280x720 [SAR 1:1 DAR 16:9], 160 kb/s, 25 fps, 25 tbr, 12800 tbn (default)
+Stream #0:1[0x2](und): Audio: aac (mp4a / 0x6134706D), 44100 Hz, stereo, fltp, 127 kb/s (default)
+Stream #0:2[0x0]: Video: mjpeg, none, 90k tbr, 90k tbn (attached pic)
+";
+    let info = parse_sample(sample);
+    assert_eq!(info.video_codec, "h264");
+    assert_eq!(info.width, 1280);
+    assert_eq!(info.height, 720);
+    assert!((info.fps - 25.0).abs() < 1e-9);
+    assert_eq!(info.pix_fmt, "yuv420p");
+    assert!((info.duration - 932.75).abs() < 1e-9);
+    assert_eq!(info.audio_tracks.len(), 1);
+    assert_eq!(info.audio_tracks[0].codec, "aac");
+  }
+
+  #[test]
+  fn attached_picture_before_the_picture_is_skipped() {
+    let sample = "\
+Stream #0:0: Video: mjpeg, yuvj420p(pc, bt470bg/unknown/unknown), 600x600 [SAR 1:1 DAR 1:1], 90k tbr, 90k tbn (attached pic)
+Stream #0:1: Video: h264 (High), yuv420p(tv, bt709), 1920x1080, 25 fps, 25 tbr
+";
+    let info = parse_sample(sample);
+    assert_eq!(info.video_codec, "h264");
+    assert_eq!(info.width, 1920);
+    assert_eq!(info.height, 1080);
+    assert_eq!(info.pix_fmt, "yuv420p");
+    assert!((info.fps - 25.0).abs() < 1e-9);
+  }
+
+  #[test]
+  fn later_sized_stream_fills_a_sizeless_one() {
+    let sample = "\
+Stream #0:0: Video: mjpeg, none
+Stream #0:1: Video: hevc (Main), yuv420p, 1280x720, 30 fps, 30 tbr
+";
+    let info = parse_sample(sample);
+    assert_eq!(info.video_codec, "hevc");
+    assert_eq!(info.width, 1280);
+    assert_eq!(info.height, 720);
+    assert_eq!(info.pix_fmt, "yuv420p");
+    assert!((info.fps - 30.0).abs() < 1e-9);
+  }
+
+  #[test]
+  fn sized_picture_is_not_replaced_by_a_later_stream() {
+    let sample = "\
+Stream #0:0: Video: h264, yuv420p, 1280x720, 25 fps, 25 tbr
+Stream #0:1: Video: hevc, yuv420p, 640x360, 30 fps, 30 tbr
+";
+    let info = parse_sample(sample);
+    assert_eq!(info.video_codec, "h264");
+    assert_eq!(info.width, 1280);
+    assert_eq!(info.height, 720);
+    assert!((info.fps - 25.0).abs() < 1e-9);
+  }
+
+  #[test]
+  fn split_stderr_still_reads_the_picture() {
+    let sample = b"Stream #0:0[0x1](und): Video: h264 (avc1 / 0x31637661), yuv420p(tv, bt709, progressive), 1280x720, 25 fps, 25 tbr\n";
+    let marker = b"1280x720";
+    let cut = sample.windows(marker.len()).position(|window| window == marker).unwrap();
+    let mut info = VideoInfo::default();
+    let mut audio_open = false;
+    let mut pending = Vec::new();
+    consume_stderr(&mut pending, &sample[..cut], &mut info, &mut audio_open);
+    assert!(info.video_codec.is_empty());
+    assert_eq!(info.width, 0);
+    consume_stderr(&mut pending, &sample[cut..], &mut info, &mut audio_open);
+    assert_eq!(info.video_codec, "h264");
+    assert_eq!(info.width, 1280);
+    assert_eq!(info.height, 720);
+    assert_eq!(info.pix_fmt, "yuv420p");
+    assert!((info.fps - 25.0).abs() < 1e-9);
   }
 }

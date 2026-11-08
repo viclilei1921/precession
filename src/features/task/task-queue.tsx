@@ -6,6 +6,7 @@ import { onTaskQueueUpdated, onTaskUpdate, taskCancel, taskRemove, taskReveal } 
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
 import { Progress } from '@/components/progress';
+import { QualityLine } from '@/features/image/components/quality-line';
 import { usePageSearch } from '@/hooks/search';
 import i18n from '@/i18n';
 import { applyTaskUpdate, refreshTasks, taskListQuery } from '@/query/task/query';
@@ -234,6 +235,7 @@ export function TaskQueue({ kinds, onEdit }: TaskQueueProps) {
               {task.output}
             </p>
           ) : null}
+          {task.quality ? <QualityLine quality={task.quality} /> : null}
           <Progress value={task.progress} tone="toolbox" label={task.title || kindLabel(task.kind)} />
           <p className={styles.message}>
             <span className={styles.detail}>{task.message || `${Math.round(task.progress)}%`}</span>
