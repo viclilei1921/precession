@@ -40,6 +40,11 @@ export function viewerFolder(path: string) {
   return invokeCommand<ViewerFolder>('viewer_folder', { path });
 }
 
+/** 把一张图片改成新的文件名。扩展名保持不变 */
+export function viewerRename(path: string, name: string) {
+  return invokeCommand<ViewerFile>('viewer_rename', { path, name });
+}
+
 /** 准备一张可以显示的图。JPEG XL 会先解码 */
 export function viewerDisplay(path: string) {
   return invokeCommand<ViewerDisplay>('viewer_display', { path });
@@ -70,6 +75,15 @@ export function viewerDirectSrc(path: string) {
 }
 
 const displayCache = new Map<string, Promise<string>>();
+
+/** 改名后沿用已经准备好的显示结果。只对解码缓存有意义 */
+export function viewerRetargetDisplay(from: string, to: string, extension: string) {
+  const pending = displayCache.get(from);
+  displayCache.delete(from);
+  if (pending && extension === 'jxl' && from !== to) {
+    displayCache.set(to, pending);
+  }
+}
 
 /** 取一张图的显示地址。同一路径只准备一次 */
 export function viewerSrc(file: ViewerFile): Promise<string> {

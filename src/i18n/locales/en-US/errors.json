@@ -131,6 +131,10 @@
   "viewer": {
     "decodeFailed": "Could not decode the image",
     "windowsOnly": "Only Windows can register the default opener",
-    "settingsFailed": "Could not open the default apps settings"
+    "settingsFailed": "Could not open the default apps settings",
+    "invalidName": "The file name is not valid",
+    "extension": "The extension cannot be changed",
+    "exists": "A file with this name already exists",
+    "renameFailed": "Could not rename the file"
   }
 }

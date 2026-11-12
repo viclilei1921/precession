@@ -120,7 +120,11 @@ const MESSAGE_KEYS: Record<string, string> = {
   // 看图
   无法解码图片: 'errors:viewer.decodeFailed',
   '仅 Windows 可以注册默认打开方式': 'errors:viewer.windowsOnly',
-  无法打开默认应用设置: 'errors:viewer.settingsFailed'
+  无法打开默认应用设置: 'errors:viewer.settingsFailed',
+  文件名不合法: 'errors:viewer.invalidName',
+  不能修改扩展名: 'errors:viewer.extension',
+  已经有同名文件: 'errors:viewer.exists',
+  无法重命名: 'errors:viewer.renameFailed'
 };
 
 /** 侧车启动失败：`{name} 启动失败: {detail}` */

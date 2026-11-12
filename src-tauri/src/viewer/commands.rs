@@ -2,7 +2,7 @@ use tauri::{AppHandle, Manager};
 
 use super::decode::{self, ViewerDisplay};
 use super::error::ViewerError;
-use super::folder::{self, ViewerFolder};
+use super::folder::{self, ViewerFile, ViewerFolder};
 use super::open;
 
 /// 列出图片所在文件夹这一层
@@ -29,6 +29,34 @@ pub async fn viewer_folder(app: AppHandle, path: String) -> Result<ViewerFolder,
     let _ = app.asset_protocol_scope().allow_directory(&folder.directory, false);
   }
   folder
+}
+
+/// 把一张图片改成新的文件名
+///
+/// 放在阻塞线程上，避免磁盘慢时卡住界面。
+///
+/// # 参数
+/// - `app`: 应用句柄，用来放行改名后的文件
+/// - `path`: 现在的图片路径
+/// - `name`: 新文件名，不含目录
+///
+/// # 返回值
+/// 成功时返回改名后的文件
+///
+/// # 错误
+/// 见 [`folder::rename`]。线程本身失败时返回 `ViewerError::Rename`
+///
+/// # Panics
+/// 不会主动 panic
+#[tauri::command]
+pub async fn viewer_rename(app: AppHandle, path: String, name: String) -> Result<ViewerFile, ViewerError> {
+  let renamed = tauri::async_runtime::spawn_blocking(move || folder::rename(&path, &name))
+    .await
+    .map_err(|_| ViewerError::Rename)?;
+  if let Ok(file) = &renamed {
+    let _ = app.asset_protocol_scope().allow_file(&file.path);
+  }
+  renamed
 }
 
 /// 准备一张可以显示的图

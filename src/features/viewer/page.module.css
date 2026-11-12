@@ -158,8 +158,9 @@
 }
 
 .bar {
-  display: flex;
+  display: grid;
   flex: none;
+  grid-template-columns: minmax(0, 1fr) minmax(auto, 24rem) minmax(0, 1fr);
   gap: var(--space-2);
   align-items: center;
   min-width: 0;
@@ -167,6 +168,107 @@
   padding: var(--space-2) var(--space-3);
   background: var(--card);
   border-top: 1px solid var(--border);
+}
+
+.cluster {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+}
+
+.cluster-end {
+  justify-content: flex-end;
+}
+
+.name {
+  position: relative;
+  justify-self: center;
+  min-width: 0;
+  max-width: 100%;
+  padding-inline: var(--space-3);
+}
+
+.name[data-editing="true"] {
+  width: min(24rem, 100%);
+}
+
+.name-button,
+.name-input {
+  min-width: 0;
+  max-width: 100%;
+  height: 2rem;
+  padding: 0 var(--space-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--foreground);
+  text-align: center;
+  white-space: nowrap;
+  cursor: text;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+}
+
+.name-button {
+  display: block;
+}
+
+.name-button:hover,
+.name-button:focus-visible,
+.name-input {
+  background: var(--background);
+  border-color: var(--border);
+}
+
+.name-input:focus {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+}
+
+.name-form {
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.name-input {
+  flex: 1 1 auto;
+  width: auto;
+}
+
+.name-suffix {
+  flex: none;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+
+.name-error {
+  position: absolute;
+  bottom: calc(100% + var(--space-1));
+  left: 50%;
+  z-index: 2;
+  max-width: 20rem;
+  padding: var(--space-1) var(--space-2);
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: var(--text-xs);
+  color: var(--destructive);
+  text-align: center;
+  white-space: nowrap;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  transform: translateX(-50%);
 }
 
 .meta {

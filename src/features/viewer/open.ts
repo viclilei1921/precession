@@ -14,6 +14,13 @@ export function rememberViewerPath(path: string) {
   }
 }
 
+/** 改名后换掉记住的路径，不重新打开文件夹 */
+export function retargetViewerPath(from: string, to: string) {
+  if (current === from) {
+    current = to;
+  }
+}
+
 /** 当前要打开的路径。还没有时为空 */
 export function peekViewerPath() {
   return current;

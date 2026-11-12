@@ -187,9 +187,149 @@ fn same_file(listed: &str, requested: &Path) -> bool {
   listed_name.to_string_lossy().eq_ignore_ascii_case(&requested_name.to_string_lossy())
 }
 
+/// 把一张图片改成新的文件名
+///
+/// 只改同一层里的名字，不移动目录，也不改扩展名。只改大小写时会先挪到临时名字，避免大小写不敏感的磁盘拒绝覆盖自己。
+///
+/// # 参数
+/// - `path`: 现在的图片路径
+/// - `name`: 新文件名，不含目录。扩展名必须和原来相同
+///
+/// # 返回值
+/// 成功时返回改名后的文件
+///
+/// # 错误
+/// 路径不存在返回 `ViewerError::Missing`。不是支持的图片返回 `ViewerError::Unsupported`。名字不合法返回 `ViewerError::InvalidName`。扩展名变了返回 `ViewerError::Extension`。目标已经存在返回 `ViewerError::Exists`。系统拒绝改名返回 `ViewerError::Rename`
+///
+/// # Panics
+/// 不会主动 panic
+///
+/// # 示例
+/// ```ignore
+/// let file = rename(r"D:\photos\a.jpg", "b.jpg")?;
+/// ```
+pub fn rename(path: &str, name: &str) -> Result<ViewerFile, ViewerError> {
+  if path.trim().is_empty() {
+    return Err(ViewerError::Missing);
+  }
+  let source = PathBuf::from(path);
+  let meta = std::fs::metadata(&source).map_err(map_io)?;
+  if !meta.is_file() || !is_image(&source) {
+    return Err(ViewerError::Unsupported);
+  }
+  let file_name = checked_file_name(name)?;
+  let parent = source.parent().filter(|dir| !dir.as_os_str().is_empty()).ok_or(ViewerError::Unreadable)?;
+  let target = parent.join(&file_name);
+  if extension(&target) != extension(&source) || !is_image(&target) {
+    return Err(ViewerError::Extension);
+  }
+  let current_name = source.file_name().map(|item| item.to_string_lossy().into_owned()).unwrap_or_default();
+  if current_name == file_name {
+    return Ok(describe(&source, &meta));
+  }
+  if target.exists() {
+    if current_name.to_lowercase() == file_name.to_lowercase() {
+      rename_case(&source, &target)?;
+    } else {
+      return Err(ViewerError::Exists);
+    }
+  } else {
+    std::fs::rename(&source, &target).map_err(map_rename)?;
+  }
+  let renamed = std::fs::metadata(&target).unwrap_or(meta);
+  Ok(describe(&target, &renamed))
+}
+
+/// 收下可以作为文件名的字符串。空着、带路径，或含有系统不接受的字符时失败
+fn checked_file_name(name: &str) -> Result<String, ViewerError> {
+  let name = name.trim();
+  if name.is_empty()
+    || name == "."
+    || name == ".."
+    || name.len() > 255
+    || name.ends_with([' ', '.'])
+    || name.chars().any(|ch| ch.is_control() || matches!(ch, '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|'))
+  {
+    return Err(ViewerError::InvalidName);
+  }
+  let stem = name.rsplit_once('.').map(|(stem, _)| stem).unwrap_or(name);
+  if stem.is_empty() || reserved_windows_name(stem) {
+    return Err(ViewerError::InvalidName);
+  }
+  let path = Path::new(name);
+  if path.file_name().is_none_or(|item| item != name) {
+    return Err(ViewerError::InvalidName);
+  }
+  Ok(name.to_owned())
+}
+
+/// Windows 设备名。带上扩展名也不允许，例如 `CON.jpg`
+fn reserved_windows_name(stem: &str) -> bool {
+  let head = stem.split('.').next().unwrap_or(stem);
+  matches!(
+    head.to_ascii_lowercase().as_str(),
+    "con"
+      | "prn"
+      | "aux"
+      | "nul"
+      | "com1"
+      | "com2"
+      | "com3"
+      | "com4"
+      | "com5"
+      | "com6"
+      | "com7"
+      | "com8"
+      | "com9"
+      | "lpt1"
+      | "lpt2"
+      | "lpt3"
+      | "lpt4"
+      | "lpt5"
+      | "lpt6"
+      | "lpt7"
+      | "lpt8"
+      | "lpt9"
+  )
+}
+
+/// 只改大小写。先挪开再改回，这样大小写不敏感的磁盘不会说目标已经存在
+fn rename_case(source: &Path, target: &Path) -> Result<(), ViewerError> {
+  let parent = source.parent().filter(|dir| !dir.as_os_str().is_empty()).ok_or(ViewerError::Unreadable)?;
+  let temp = temporary_path(parent);
+  std::fs::rename(source, &temp).map_err(map_rename)?;
+  if let Err(err) = std::fs::rename(&temp, target) {
+    let _ = std::fs::rename(&temp, source);
+    return Err(map_rename(err));
+  }
+  Ok(())
+}
+
+/// 同一层里一个不会被当成图片的临时名字
+fn temporary_path(parent: &Path) -> PathBuf {
+  let token =
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|duration| duration.as_nanos()).unwrap_or(0);
+  let mut path = parent.join(format!(".{token}.part"));
+  let mut salt = 0u32;
+  while path.exists() && salt < 100 {
+    salt += 1;
+    path = parent.join(format!(".{token}-{salt}.part"));
+  }
+  path
+}
+
 /// 把文件系统错误收成看图错误
 fn map_io(err: std::io::Error) -> ViewerError {
   if err.kind() == std::io::ErrorKind::NotFound { ViewerError::Missing } else { ViewerError::Unreadable }
+}
+
+/// 改名失败时区分「已经存在」和其余拒绝
+fn map_rename(err: std::io::Error) -> ViewerError {
+  match err.kind() {
+    std::io::ErrorKind::NotFound => ViewerError::Missing,
+    std::io::ErrorKind::AlreadyExists => ViewerError::Exists,
+    _ => ViewerError::Rename,
+  }
 }
 
 #[cfg(test)]
@@ -230,5 +370,37 @@ mod tests {
     std::fs::write(&note, b"t").expect("write");
     let err = read(&note.to_string_lossy()).expect_err("tif");
     assert!(matches!(err, ViewerError::Unsupported));
+  }
+
+  #[test]
+  fn renames_within_the_same_directory() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let from = dir.path().join("a.jpg");
+    std::fs::write(&from, b"a").expect("write");
+    std::fs::write(dir.path().join("taken.jpg"), b"t").expect("write");
+
+    let renamed = rename(&from.to_string_lossy(), "  shore.jpg  ").expect("rename");
+    assert_eq!(renamed.name, "shore.jpg");
+    assert!(dir.path().join("shore.jpg").is_file());
+    assert!(!from.exists());
+
+    let same = rename(&renamed.path, "shore.jpg").expect("same");
+    assert_eq!(same.path, renamed.path);
+
+    let cased = rename(&renamed.path, "Shore.jpg").expect("case");
+    assert_eq!(cased.name, "Shore.jpg");
+    let listed = std::fs::read_dir(dir.path()).expect("dir").flatten().any(|entry| entry.file_name() == "Shore.jpg");
+    assert!(listed);
+
+    let exists = rename(&cased.path, "taken.jpg").expect_err("exists");
+    assert!(matches!(exists, ViewerError::Exists));
+    let extension = rename(&cased.path, "Shore.png").expect_err("extension");
+    assert!(matches!(extension, ViewerError::Extension));
+    let invalid = rename(&cased.path, "a/b.jpg").expect_err("slash");
+    assert!(matches!(invalid, ViewerError::InvalidName));
+    let blank = rename(&cased.path, "   ").expect_err("blank");
+    assert!(matches!(blank, ViewerError::InvalidName));
+    let missing = rename(&dir.path().join("gone.jpg").to_string_lossy(), "c.jpg").expect_err("missing");
+    assert!(matches!(missing, ViewerError::Missing));
   }
 }

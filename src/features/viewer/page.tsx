@@ -15,7 +15,15 @@ import { useTranslation } from 'react-i18next';
 import { onFileDrop, pickDirectory, pickFiles } from '@/bridge/files';
 import { isTauri, platform } from '@/bridge/platform';
 import type { ViewerFile } from '@/bridge/viewer';
-import { VIEWER_EXTENSIONS, viewerDirectSrc, viewerFolder, viewerRegisterDefault, viewerSrc } from '@/bridge/viewer';
+import {
+  VIEWER_EXTENSIONS,
+  viewerDirectSrc,
+  viewerFolder,
+  viewerRegisterDefault,
+  viewerRename,
+  viewerRetargetDisplay,
+  viewerSrc
+} from '@/bridge/viewer';
 import { windowToggleFullScreen } from '@/bridge/window';
 import { Button } from '@/components/button';
 import { IconButton } from '@/components/button/icon';
@@ -24,7 +32,7 @@ import { Scroll } from '@/components/scroll';
 import { currentLocale } from '@/i18n';
 import { useAppStore } from '@/store/app';
 import { errorMessage } from '@/utils/error';
-import { clearViewerPath, peekViewerPath, rememberViewerPath, subscribeViewerPath } from './open';
+import { clearViewerPath, peekViewerPath, rememberViewerPath, retargetViewerPath, subscribeViewerPath } from './open';
 import styles from './page.module.css';
 import { Stage } from './stage';
 
@@ -72,6 +80,61 @@ function formatWhen(ms: number) {
   return new Date(ms).toLocaleString(currentLocale());
 }
 
+const RESERVED_NAME = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
+
+function hasInvalidNameChar(value: string) {
+  for (const char of value) {
+    const code = char.codePointAt(0) ?? 0;
+    if (code < 32 || '/\\:*?"<>|'.includes(char)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function asciiLower(value: string) {
+  return value.replace(/[A-Z]/g, (letter) => String.fromCharCode(letter.charCodeAt(0) + 32));
+}
+
+function compareText(left: string, right: string) {
+  if (left < right) {
+    return -1;
+  }
+  if (left > right) {
+    return 1;
+  }
+  return 0;
+}
+
+/** 和后端同一层列表同一个顺序：先按忽略大小写，再按原名 */
+function compareFiles(left: ViewerFile, right: ViewerFile) {
+  const folded = compareText(asciiLower(left.name), asciiLower(right.name));
+  if (folded !== 0) {
+    return folded;
+  }
+  return compareText(left.name, right.name);
+}
+
+function splitFileName(name: string, extension: string) {
+  const dot = `.${extension.toLowerCase()}`;
+  if (extension && name.toLowerCase().endsWith(dot)) {
+    const at = name.length - dot.length;
+    return { stem: name.slice(0, at), suffix: name.slice(at) };
+  }
+  return { stem: name, suffix: '' };
+}
+
+function invalidStem(stem: string) {
+  const head = stem.split('.')[0] ?? stem;
+  if (!stem || stem === '.' || stem === '..') {
+    return 'empty' as const;
+  }
+  if (hasInvalidNameChar(stem) || /[. ]$/.test(stem) || stem.length > 240 || RESERVED_NAME.test(head)) {
+    return 'invalid' as const;
+  }
+  return null;
+}
+
 /** 系统模块里的本地看图页。 */
 export function ViewerPage() {
   const { t } = useTranslation('viewer');
@@ -90,11 +153,39 @@ export function ViewerPage() {
   const [full, setFull] = useState(false);
   const [detailsAnchor, setDetailsAnchor] = useState<HTMLButtonElement | null>(null);
   const [registerError, setRegisterError] = useState('');
+  /** 换图时递增。改名只更换记住的路径，避免画面重载 */
+  const [view, setView] = useState<{ path: string | null; token: number }>({ path: null, token: 0 });
   const fullRef = useRef(false);
   const leaveRef = useRef<() => void>(() => undefined);
+  const filesRef = useRef(files);
+  const indexRef = useRef(index);
+  const pathRef = useRef(path);
+  const skipReload = useRef<string | null>(null);
+  const quietPath = useRef<string | null>(null);
   fullRef.current = full;
+  filesRef.current = files;
+  indexRef.current = index;
+  pathRef.current = path;
   const file = files[index];
   const viewing = file != null;
+  const fileRef = useRef(file);
+  fileRef.current = file;
+  const incoming = file?.path ?? null;
+  if (quietPath.current != null && incoming != null && quietPath.current === incoming) {
+    if (view.path !== incoming) {
+      setView({ path: incoming, token: view.token });
+      if (file && file.extension !== 'jxl') {
+        setSrc(viewerDirectSrc(file.path));
+      }
+    }
+  } else if (view.path !== incoming) {
+    setView({ path: incoming, token: view.token + 1 });
+    setZoom({ kind: 'fit' });
+    setPanReset((current) => current + 1);
+    setNatural(null);
+    setSrcFailed(false);
+    setSrc(file && file.extension !== 'jxl' ? viewerDirectSrc(file.path) : null);
+  }
 
   useEffect(() => subscribeViewerPath(setPath), []);
 
@@ -125,6 +216,10 @@ export function ViewerPage() {
       setLoading(false);
       return;
     }
+    if (skipReload.current === path) {
+      skipReload.current = null;
+      return;
+    }
     let cancelled = false;
     setLoading(true);
     setFolderError('');
@@ -152,20 +247,19 @@ export function ViewerPage() {
   }, [path]);
 
   useEffect(() => {
-    setZoom({ kind: 'fit' });
-    setPanReset((current) => current + 1);
-    setNatural(null);
-    setSrc(null);
-    setSrcFailed(false);
-    if (!file) {
-      return;
+    if (quietPath.current != null && quietPath.current === file?.path) {
+      quietPath.current = null;
     }
-    if (file.extension !== 'jxl') {
-      setSrc(viewerDirectSrc(file.path));
+  }, [file?.path]);
+
+  useEffect(() => {
+    const current = fileRef.current;
+    // 令牌只在换图时变。改名不进这里，避免把正在解码的图取消掉。
+    if (view.token === 0 || current?.extension !== 'jxl') {
       return;
     }
     let cancelled = false;
-    void viewerSrc(file)
+    void viewerSrc(current)
       .then((next) => {
         if (!cancelled) {
           setSrc(next);
@@ -179,7 +273,7 @@ export function ViewerPage() {
     return () => {
       cancelled = true;
     };
-  }, [file]);
+  }, [view.token]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -234,6 +328,29 @@ export function ViewerPage() {
     const directory = await pickDirectory();
     if (directory) {
       rememberViewerPath(directory);
+    }
+  }
+
+  function onRenamed(from: string, next: ViewerFile) {
+    const currentFiles = filesRef.current;
+    const viewingFile = currentFiles[indexRef.current]?.path === from;
+    if (viewingFile) {
+      quietPath.current = next.path;
+    }
+    if (pathRef.current === from) {
+      skipReload.current = next.path;
+      setPath(next.path);
+    }
+    retargetViewerPath(from, next.path);
+    viewerRetargetDisplay(from, next.path, next.extension);
+    const replaced = currentFiles.map((item) => (item.path === from ? next : item));
+    replaced.sort(compareFiles);
+    setFiles(replaced);
+    if (viewingFile) {
+      const at = replaced.findIndex((item) => item.path === next.path);
+      if (at >= 0) {
+        setIndex(at);
+      }
     }
   }
 
@@ -292,7 +409,7 @@ export function ViewerPage() {
           </div>
           {src ? (
             <Stage
-              key={file.path}
+              key={view.token}
               src={src}
               alt={file.name}
               scale={zoom.kind === 'fit' ? 'fit' : zoom.scale}
@@ -344,84 +461,240 @@ export function ViewerPage() {
 
       {file ? (
         <div className={styles.bar}>
-          <IconButton label={t('bar.list')} selected={listOpen} onClick={() => setListOpen((current) => !current)}>
-            <ListIcon weight="regular" />
-          </IconButton>
-          <p className={styles.meta}>
-            <span>{formatName(file.extension)}</span>
-            <span>{sizeText}</span>
-            <span>{formatBytes(file.bytes)}</span>
-          </p>
-          <IconButton
-            label={t('bar.details')}
-            expanded={detailsAnchor != null}
-            onClick={(event) => setDetailsAnchor((current) => (current ? null : event.currentTarget))}
-          >
-            <InfoIcon weight="regular" />
-          </IconButton>
-          <select
-            className={styles.zoom}
-            aria-label={t('zoom.label')}
-            value={zoom.kind === 'fit' ? 'fit' : String(percent)}
-            onChange={(event) => chooseZoom(event.target.value)}
-          >
-            <option value="fit">{t('zoom.fit')}</option>
-            {customPercent != null ? <option value={customPercent}>{customPercent}%</option> : null}
-            {ZOOM_PRESETS.map((preset) => (
-              <option key={preset} value={preset}>
-                {preset}%
-              </option>
-            ))}
-          </select>
-          <IconButton label={t('bar.actual')} className={styles.actual} onClick={() => chooseZoom('100')}>
-            1:1
-          </IconButton>
-          <IconButton label={full ? t('bar.exitFull') : t('bar.enterFull')} onClick={toggleFull}>
-            {full ? <CornersInIcon weight="regular" /> : <CornersOutIcon weight="regular" />}
-          </IconButton>
-          <IconButton label={t('bar.exit')} onClick={leave}>
-            <XIcon weight="regular" />
-          </IconButton>
-          <Popover
-            open={detailsAnchor != null}
-            anchorEl={detailsAnchor}
-            label={t('bar.details')}
-            className={styles.details}
-            anchorOrigin={{ horizontal: 'right', vertical: 'top' }}
-            transformOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-            gap={8}
-            onClose={() => setDetailsAnchor(null)}
-          >
-            <dl>
-              <div>
-                <dt>{t('details.path')}</dt>
-                <dd>{file.path}</dd>
-              </div>
-              <div>
-                <dt>{t('details.modified')}</dt>
-                <dd>{formatWhen(file.modifiedMs)}</dd>
-              </div>
-              <div>
-                <dt>{t('details.format')}</dt>
-                <dd>{formatName(file.extension)}</dd>
-              </div>
-              <div>
-                <dt>{t('details.dimensions')}</dt>
-                <dd>{sizeText}</dd>
-              </div>
-              <div>
-                <dt>{t('details.bytes')}</dt>
-                <dd>{formatBytes(file.bytes)}</dd>
-              </div>
-            </dl>
-            {windows ? (
-              <Button variant="outlined" onClick={() => void register()}>
-                {t('details.register')}
-              </Button>
-            ) : null}
-            {registerError ? <p className={styles.notice}>{registerError}</p> : null}
-          </Popover>
+          <div className={styles.cluster}>
+            <IconButton label={t('bar.list')} selected={listOpen} onClick={() => setListOpen((current) => !current)}>
+              <ListIcon weight="regular" />
+            </IconButton>
+            <p className={styles.meta}>
+              <span>{formatName(file.extension)}</span>
+              <span>{sizeText}</span>
+              <span>{formatBytes(file.bytes)}</span>
+            </p>
+          </div>
+          <FileName file={file} onRenamed={onRenamed} />
+          <div className={`${styles.cluster} ${styles.clusterEnd}`}>
+            <IconButton
+              label={t('bar.details')}
+              expanded={detailsAnchor != null}
+              onClick={(event) => setDetailsAnchor((current) => (current ? null : event.currentTarget))}
+            >
+              <InfoIcon weight="regular" />
+            </IconButton>
+            <select
+              className={styles.zoom}
+              aria-label={t('zoom.label')}
+              value={zoom.kind === 'fit' ? 'fit' : String(percent)}
+              onChange={(event) => chooseZoom(event.target.value)}
+            >
+              <option value="fit">{t('zoom.fit')}</option>
+              {customPercent != null ? <option value={customPercent}>{customPercent}%</option> : null}
+              {ZOOM_PRESETS.map((preset) => (
+                <option key={preset} value={preset}>
+                  {preset}%
+                </option>
+              ))}
+            </select>
+            <IconButton label={t('bar.actual')} className={styles.actual} onClick={() => chooseZoom('100')}>
+              1:1
+            </IconButton>
+            <IconButton label={full ? t('bar.exitFull') : t('bar.enterFull')} onClick={toggleFull}>
+              {full ? <CornersInIcon weight="regular" /> : <CornersOutIcon weight="regular" />}
+            </IconButton>
+            <IconButton label={t('bar.exit')} onClick={leave}>
+              <XIcon weight="regular" />
+            </IconButton>
+            <Popover
+              open={detailsAnchor != null}
+              anchorEl={detailsAnchor}
+              label={t('bar.details')}
+              className={styles.details}
+              anchorOrigin={{ horizontal: 'right', vertical: 'top' }}
+              transformOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+              gap={8}
+              onClose={() => setDetailsAnchor(null)}
+            >
+              <dl>
+                <div>
+                  <dt>{t('details.path')}</dt>
+                  <dd>{file.path}</dd>
+                </div>
+                <div>
+                  <dt>{t('details.modified')}</dt>
+                  <dd>{formatWhen(file.modifiedMs)}</dd>
+                </div>
+                <div>
+                  <dt>{t('details.format')}</dt>
+                  <dd>{formatName(file.extension)}</dd>
+                </div>
+                <div>
+                  <dt>{t('details.dimensions')}</dt>
+                  <dd>{sizeText}</dd>
+                </div>
+                <div>
+                  <dt>{t('details.bytes')}</dt>
+                  <dd>{formatBytes(file.bytes)}</dd>
+                </div>
+              </dl>
+              {windows ? (
+                <Button variant="outlined" onClick={() => void register()}>
+                  {t('details.register')}
+                </Button>
+              ) : null}
+              {registerError ? <p className={styles.notice}>{registerError}</p> : null}
+            </Popover>
+          </div>
         </div>
+      ) : null}
+    </div>
+  );
+}
+
+function FileName({ file, onRenamed }: { file: ViewerFile; onRenamed: (from: string, next: ViewerFile) => void }) {
+  const { t } = useTranslation('viewer');
+  const { stem, suffix } = splitFileName(file.name, file.extension);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(stem);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const editingRef = useRef(false);
+  const skipCommit = useRef(false);
+  const ticket = useRef(0);
+
+  useEffect(() => {
+    // 同名文件换了路径也要退出编辑。主文件名不一定变。
+    if (file.path.length === 0) {
+      return;
+    }
+    ticket.current += 1;
+    editingRef.current = false;
+    setEditing(false);
+    setError('');
+    setDraft(stem);
+  }, [stem, file.path]);
+
+  useEffect(() => {
+    if (!editing) {
+      return;
+    }
+    const node = inputRef.current;
+    node?.focus();
+    node?.select();
+  }, [editing]);
+
+  function cancel() {
+    skipCommit.current = true;
+    editingRef.current = false;
+    setEditing(false);
+    setDraft(stem);
+    setError('');
+  }
+
+  async function commit() {
+    if (!editingRef.current || busy) {
+      return;
+    }
+    const nextStem = draft.trim();
+    if (nextStem === stem) {
+      cancel();
+      return;
+    }
+    const problem = invalidStem(nextStem);
+    if (problem) {
+      setError(t(problem === 'empty' ? 'name.empty' : 'name.invalid'));
+      inputRef.current?.focus();
+      return;
+    }
+    const mine = ticket.current;
+    const source = file.path;
+    editingRef.current = false;
+    setBusy(true);
+    setError('');
+    try {
+      const updated = await viewerRename(source, `${nextStem}${suffix}`);
+      onRenamed(source, updated);
+      if (mine !== ticket.current) {
+        return;
+      }
+      setEditing(false);
+    } catch (caught: unknown) {
+      if (mine !== ticket.current) {
+        return;
+      }
+      editingRef.current = true;
+      setError(errorMessage(caught));
+      inputRef.current?.focus();
+    } finally {
+      if (mine === ticket.current) {
+        setBusy(false);
+      }
+    }
+  }
+
+  function begin() {
+    setDraft(stem);
+    setError('');
+    editingRef.current = true;
+    setEditing(true);
+  }
+
+  return (
+    <div className={styles.name} data-editing={editing ? 'true' : undefined}>
+      {editing ? (
+        <form
+          className={styles.nameForm}
+          onSubmit={(event) => {
+            event.preventDefault();
+            void commit();
+          }}
+        >
+          <input
+            ref={inputRef}
+            className={styles.nameInput}
+            aria-label={t('name.edit')}
+            aria-invalid={error ? true : undefined}
+            value={draft}
+            disabled={busy}
+            spellCheck={false}
+            autoCapitalize="off"
+            autoCorrect="off"
+            size={Math.min(Math.max(draft.length, 4), 48)}
+            onChange={(event) => {
+              setDraft(event.target.value);
+              setError('');
+            }}
+            onBlur={() => {
+              if (skipCommit.current) {
+                skipCommit.current = false;
+                return;
+              }
+              void commit();
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') {
+                event.preventDefault();
+                event.stopPropagation();
+                cancel();
+              }
+            }}
+          />
+          {suffix ? <span className={styles.nameSuffix}>{suffix}</span> : null}
+        </form>
+      ) : (
+        <button
+          type="button"
+          className={styles.nameButton}
+          title={file.name}
+          aria-label={`${t('name.edit')} ${file.name}`}
+          onClick={begin}
+        >
+          {file.name}
+        </button>
+      )}
+      {error ? (
+        <p className={styles.nameError} role="alert">
+          {error}
+        </p>
       ) : null}
     </div>
   );

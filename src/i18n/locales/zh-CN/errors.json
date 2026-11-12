@@ -131,6 +131,10 @@
   "viewer": {
     "decodeFailed": "无法解码图片",
     "windowsOnly": "仅 Windows 可以注册默认打开方式",
-    "settingsFailed": "无法打开默认应用设置"
+    "settingsFailed": "无法打开默认应用设置",
+    "invalidName": "文件名不合法",
+    "extension": "不能修改扩展名",
+    "exists": "已经有同名文件",
+    "renameFailed": "无法重命名"
   }
 }

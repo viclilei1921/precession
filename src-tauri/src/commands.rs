@@ -64,6 +64,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Syn
     crate::files::commands::file_sizes,
     crate::files::commands::materialize_picked,
     crate::viewer::commands::viewer_folder,
+    crate::viewer::commands::viewer_rename,
     crate::viewer::commands::viewer_display,
     crate::viewer::commands::viewer_take_pending,
     crate::viewer::commands::viewer_register_default,

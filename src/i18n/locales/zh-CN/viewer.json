@@ -35,6 +35,11 @@
     "bytes": "大小",
     "register": "设为默认打开方式"
   },
+  "name": {
+    "edit": "修改文件名",
+    "empty": "文件名不能为空",
+    "invalid": "文件名不合法"
+  },
   "stage": {
     "decoding": "正在解码",
     "failed": "这张图片打不开"

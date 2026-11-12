@@ -11,6 +11,10 @@ use serde::Serialize;
 /// - `Decode`: JPEG XL 解不成可以显示的图
 /// - `WindowsOnly`: 当前系统不能注册默认打开方式
 /// - `Settings`: 系统的默认应用设置打不开
+/// - `InvalidName`: 文件名空着，或含有路径和系统不接受的字符
+/// - `Extension`: 新名字的扩展名和原文件不一样
+/// - `Exists`: 同一层已经有这个名字
+/// - `Rename`: 文件还在，但系统拒绝改名
 #[derive(Debug, thiserror::Error)]
 pub enum ViewerError {
   /// 路径不存在
@@ -32,6 +36,18 @@ pub enum ViewerError {
   /// 系统的默认应用设置打不开
   #[error("无法打开默认应用设置")]
   Settings,
+  /// 文件名空着，或含有路径和系统不接受的字符
+  #[error("文件名不合法")]
+  InvalidName,
+  /// 新名字的扩展名和原文件不一样
+  #[error("不能修改扩展名")]
+  Extension,
+  /// 同一层已经有这个名字
+  #[error("已经有同名文件")]
+  Exists,
+  /// 文件还在，但系统拒绝改名
+  #[error("无法重命名")]
+  Rename,
 }
 
 impl Serialize for ViewerError {

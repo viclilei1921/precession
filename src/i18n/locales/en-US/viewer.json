@@ -35,6 +35,11 @@
     "bytes": "Size",
     "register": "Use as the default opener"
   },
+  "name": {
+    "edit": "Rename",
+    "empty": "The file name cannot be empty",
+    "invalid": "The file name is not valid"
+  },
   "stage": {
     "decoding": "Decoding",
     "failed": "This image cannot be opened"
