@@ -14,7 +14,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2.12", features = ["tray-icon"] }
+tauri = { version = "2.12", features = ["tray-icon", "protocol-asset"] }
 tauri-plugin-log = "2.10"
 tauri-plugin-shell = "2"
 tauri-plugin-os = "2"
@@ -48,6 +48,7 @@ zip = { version = "9", default-features = false, features = ["deflate"] }
 
 # --- 视频 / 图片转码（侧车：ffmpeg、avifenc、cjxl）---
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp", "bmp", "tiff"] }
+jxl-oxide = "0.12"
 tokio = { version = "1", features = ["macros", "time"] }
 
 # --- windows Hello 设备密钥 ---
@@ -56,12 +57,15 @@ windows = { version = "0.62", features = [
   "Win32_Foundation",
   "Win32_Security_Cryptography",
   "Win32_System_Com",
+  "Win32_System_Registry",
   "Win32_System_WinRT",
+  "Win32_UI_Shell",
   "Win32_UI_WindowsAndMessaging",
   "Security_Credentials_UI",
 ] }
 # windows 0.62版本对应的只能是0.3版本
 windows-future = "0.3"
+webview2-com = "0.39"
 
 # --- mac 钥匙串 ---
 [target.'cfg(target_os = "macos")'.dependencies]

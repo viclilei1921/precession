@@ -17,4 +17,5 @@ export * from './tag';
 export * from './task';
 export * from './timeline';
 export * from './upload';
+export * from './viewer';
 export * from './window';

@@ -115,7 +115,12 @@ const MESSAGE_KEYS: Record<string, string> = {
   无法读取视频画面: 'errors:media.previewNoPicture',
   '当前 FFmpeg 没有画质滤镜，需要按文档重新编译侧车': 'errors:media.previewNoFilters',
   '当前 FFmpeg 不能做画质预估，需要按文档重新编译侧车': 'errors:media.previewSidecar',
-  '找不到 VMAF 模型，需要更新应用资源': 'errors:media.previewNoModel'
+  '找不到 VMAF 模型，需要更新应用资源': 'errors:media.previewNoModel',
+
+  // 看图
+  无法解码图片: 'errors:viewer.decodeFailed',
+  '仅 Windows 可以注册默认打开方式': 'errors:viewer.windowsOnly',
+  无法打开默认应用设置: 'errors:viewer.settingsFailed'
 };
 
 /** 侧车启动失败：`{name} 启动失败: {detail}` */

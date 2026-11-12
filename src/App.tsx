@@ -1,4 +1,7 @@
 import { useEffect } from 'react';
+import { isTauri } from '@/bridge/platform';
+import { onViewerOpen, viewerTakePending } from '@/bridge/viewer';
+import { rememberViewerPath } from '@/features/viewer/open';
 import { TitleBar } from '@/layout/titleBar';
 import { useAppStore } from '@/store/app';
 import styles from './app.module.css';
@@ -43,6 +46,55 @@ function MobilePlatform() {
 
 export default function App() {
   const unlockedDb = useAppStore((state) => state.dbStatus?.unlocked);
+
+  useEffect(() => {
+    const modified = (event: KeyboardEvent | WheelEvent) => {
+      return /mac/i.test(navigator.userAgent) ? event.metaKey : event.ctrlKey;
+    };
+    const blockBrowserZoom = (event: WheelEvent) => {
+      if (modified(event)) {
+        event.preventDefault();
+      }
+    };
+    const blockZoomKeys = (event: KeyboardEvent) => {
+      if (!modified(event)) {
+        return;
+      }
+      if (event.key === '-' || event.key === '=' || event.key === '+' || event.key === '0') {
+        event.preventDefault();
+      }
+    };
+    window.addEventListener('wheel', blockBrowserZoom, { capture: true, passive: false });
+    window.addEventListener('keydown', blockZoomKeys, { capture: true });
+    return () => {
+      window.removeEventListener('wheel', blockBrowserZoom, { capture: true });
+      window.removeEventListener('keydown', blockZoomKeys, { capture: true });
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isTauri()) {
+      return;
+    }
+    let stop: (() => void) | undefined;
+    let cancelled = false;
+    void (async () => {
+      const unlisten = await onViewerOpen((path) => rememberViewerPath(path));
+      if (cancelled) {
+        unlisten();
+        return;
+      }
+      stop = unlisten;
+      const pending = await viewerTakePending();
+      if (!cancelled && pending) {
+        rememberViewerPath(pending);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      stop?.();
+    };
+  }, []);
 
   return (
     <div className={styles.app}>

@@ -13,6 +13,7 @@ import { PlanRoute } from '@/features/plan/route';
 import { SettingsRoute } from '@/features/settings/route';
 import { TodayPage } from '@/features/today/page';
 import { VideoPage } from '@/features/video/page';
+import { ViewerPage } from '@/features/viewer/page';
 import { ContentLayout } from '@/layout/content';
 import { useAppStore } from '@/store/app';
 import { PATH } from './path';
@@ -236,6 +237,12 @@ const filesRoute = createRoute({
   component: FilesPage
 });
 
+const viewerRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: PATH.viewer,
+  component: ViewerPage
+});
+
 const SETTINGS_SHEETS = ['theme', 'language', 'reading', 'versions', 'archive', 'device', 'lockconfirm'] as const;
 
 type SettingsSearch = {
@@ -276,6 +283,7 @@ const routeTree = rootRoute.addChildren([
   toolboxImageRoute,
   toolboxVideoRoute,
   filesRoute,
+  viewerRoute,
   settingsRoute
 ]);
 

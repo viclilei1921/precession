@@ -36,5 +36,7 @@ export const PATH = {
   /* 设置 */
   settings: '/settings',
   /* 文件 */
-  files: '/files'
+  files: '/files',
+  /* 看图 */
+  viewer: '/viewer'
 } as const;

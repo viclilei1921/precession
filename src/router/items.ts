@@ -5,6 +5,7 @@ import {
   FlagIcon,
   GearIcon,
   ImageIcon,
+  ImagesIcon,
   ListChecksIcon,
   LockKeyIcon,
   NotebookIcon,
@@ -34,6 +35,7 @@ export type NavPath =
   | typeof PATH.image
   | typeof PATH.video
   | typeof PATH.files
+  | typeof PATH.viewer
   | typeof PATH.settings;
 
 export type RouteItem = {
@@ -108,12 +110,13 @@ export const routeItems: RouteItem[] = [
     tone: 'toolbox'
   },
   { id: 'files', to: PATH.files, group: 'system', surfaces: ['sidebar'], icon: FileTextIcon },
+  { id: 'viewer', to: PATH.viewer, group: 'system', surfaces: ['sidebar'], icon: ImagesIcon },
   { id: 'settings', to: PATH.settings, group: 'system', surfaces: ['sidebar'], icon: GearIcon }
 ];
 
 const mobileNavOrder = ['plan', 'journal', 'growth', 'library', 'settings'] as const;
 
-/** 移动端底栏，按固定顺序。今天、文件加密、图片转码、视频处理只出现在桌面侧栏。 */
+/** 移动端底栏，按固定顺序。今天、看图和工具箱只出现在桌面侧栏。 */
 export function mobileNavItems() {
   return mobileNavOrder.flatMap((id) => {
     const item = routeItems.find((entry) => entry.id === id);

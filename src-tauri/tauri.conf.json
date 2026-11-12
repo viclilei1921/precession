@@ -22,13 +22,35 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": null,
+      "assetProtocol": {
+        "enable": true,
+        "scope": {
+          "allow": ["**"],
+          "requireLiteralLeadingDot": false
+        }
+      }
     }
   },
   "bundle": {
     "active": true,
     "externalBin": ["binaries/ffmpeg", "binaries/cjxl", "binaries/avifenc", "binaries/ssimulacra2", "binaries/avifdec"],
     "resources": ["resources/vmaf/vmaf_v0.6.1.json"],
+    "fileAssociations": [
+      { "ext": ["png"], "name": "PNG", "description": "PNG image", "role": "Viewer", "mimeType": "image/png" },
+      {
+        "ext": ["jpg", "jpeg"],
+        "name": "JPEG",
+        "description": "JPEG image",
+        "role": "Viewer",
+        "mimeType": "image/jpeg"
+      },
+      { "ext": ["gif"], "name": "GIF", "description": "GIF image", "role": "Viewer", "mimeType": "image/gif" },
+      { "ext": ["webp"], "name": "WebP", "description": "WebP image", "role": "Viewer", "mimeType": "image/webp" },
+      { "ext": ["bmp"], "name": "BMP", "description": "BMP image", "role": "Viewer", "mimeType": "image/bmp" },
+      { "ext": ["avif"], "name": "AVIF", "description": "AVIF image", "role": "Viewer", "mimeType": "image/avif" },
+      { "ext": ["jxl"], "name": "JPEGXL", "description": "JPEG XL image", "role": "Viewer", "mimeType": "image/jxl" }
+    ],
     "targets": "all",
     "icon": [
       "icons/32x32.png",

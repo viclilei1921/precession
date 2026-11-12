@@ -26,6 +26,7 @@ mod timeline;
 mod tray;
 mod upload;
 mod utils;
+mod viewer;
 
 use tauri::Manager;
 
@@ -51,8 +52,9 @@ pub fn run() {
 
   // 必须第一个注册。后启动的进程会立刻退出，回调里把已隐藏到托盘的主窗口拉回来。
   #[cfg(desktop)]
-  let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+  let builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
     tray::focus_main_window(&app);
+    viewer::note_open(&app, &args);
   }));
 
   let builder = builder.plugin(tauri_plugin_os::init());
@@ -102,6 +104,11 @@ pub fn run() {
     // 画质预估单独记子进程，取消时不要碰到任务队列里的转码
     #[cfg(desktop)]
     app.manage(ffmpeg::preview::PreviewSlot::default());
+
+    // 系统用图片打开本程序时，路径先记在这里，页面起来后再取
+    app.manage(viewer::PendingOpen::default());
+    let args: Vec<String> = std::env::args().collect();
+    viewer::note_open(app.handle(), &args);
 
     // 平台自己的进程和窗口状态
     platform::Current::setup(app);

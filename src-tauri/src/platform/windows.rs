@@ -78,6 +78,65 @@ impl super::Platform for Windows {
       let _ = window.hide();
     }
   }
+
+  /// 允许触摸板捏合变成页面里的滚轮事件
+  ///
+  /// WebView2 默认关掉手势缩放，捏合到不了页面。打开之后和浏览器一样，是带 Ctrl 的滚轮。
+  /// 页面会拦住默认行为，避免整个窗口被放大。
+  ///
+  /// # 参数
+  /// - `webview`: 加载完成的 WebView
+  /// - `payload`: 页面加载事件
+  ///
+  /// # 返回值
+  /// 不返回数据
+  ///
+  /// # Panics
+  /// 不会主动 panic
+  ///
+  /// # 示例
+  /// ```ignore
+  /// Windows::on_page_load(webview, payload);
+  /// ```
+  fn on_page_load(webview: &tauri::Webview, payload: &tauri::webview::PageLoadPayload<'_>) {
+    if payload.event() != tauri::webview::PageLoadEvent::Finished {
+      return;
+    }
+    allow_pinch_gesture(webview);
+  }
+}
+
+/// 打开 WebView2 的手势缩放，让触摸板捏合能到达页面
+#[cfg(target_os = "windows")]
+fn allow_pinch_gesture(webview: &tauri::Webview) {
+  use std::sync::atomic::{AtomicBool, Ordering};
+
+  use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Settings5;
+  use windows::core::Interface;
+
+  static STARTED: AtomicBool = AtomicBool::new(false);
+  if STARTED.swap(true, Ordering::Relaxed) {
+    return;
+  }
+
+  let scheduled = webview.with_webview(|inner| {
+    let enabled = (|| {
+      let core = unsafe { inner.controller().CoreWebView2() }?;
+      let settings = unsafe { core.Settings() }?;
+      unsafe { settings.SetIsZoomControlEnabled(true) }?;
+      let settings5 = settings.cast::<ICoreWebView2Settings5>()?;
+      unsafe { settings5.SetIsPinchZoomEnabled(true) }?;
+      Ok::<(), windows::core::Error>(())
+    })();
+    if let Err(error) = enabled {
+      STARTED.store(false, Ordering::Relaxed);
+      tauri_plugin_log::log::error!("allow pinch gesture failed: {error}");
+    }
+  });
+  if let Err(error) = scheduled {
+    STARTED.store(false, Ordering::Relaxed);
+    tauri_plugin_log::log::error!("allow pinch gesture failed: {error}");
+  }
 }
 
 #[cfg(not(target_os = "windows"))]

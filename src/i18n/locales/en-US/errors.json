@@ -127,5 +127,10 @@
     "previewNoFilters": "This FFmpeg has no quality filters. Rebuild the sidecar from the docs",
     "previewSidecar": "This FFmpeg cannot preview quality. Rebuild the sidecar from the docs",
     "previewNoModel": "The VMAF model is missing. Update the app resources"
+  },
+  "viewer": {
+    "decodeFailed": "Could not decode the image",
+    "windowsOnly": "Only Windows can register the default opener",
+    "settingsFailed": "Could not open the default apps settings"
   }
 }

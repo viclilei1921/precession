@@ -1,0 +1,42 @@
+{
+  "empty": {
+    "title": "Pictures",
+    "hint": "Open an image, or the folder it is in. Other images in that folder can be switched with the arrow keys.",
+    "openFile": "Open image",
+    "openFolder": "Open folder",
+    "none": "This folder has no images to view.",
+    "loading": "Opening"
+  },
+  "dialog": {
+    "images": "Images"
+  },
+  "bar": {
+    "list": "Image list",
+    "details": "Details",
+    "actual": "Actual size",
+    "enterFull": "Full screen",
+    "exitFull": "Exit full screen",
+    "exit": "Exit",
+    "sizeUnknown": "Size unknown"
+  },
+  "zoom": {
+    "label": "Zoom",
+    "fit": "Fit"
+  },
+  "nav": {
+    "prev": "Previous",
+    "next": "Next"
+  },
+  "details": {
+    "path": "Path",
+    "modified": "Modified",
+    "format": "Format",
+    "dimensions": "Dimensions",
+    "bytes": "Size",
+    "register": "Use as the default opener"
+  },
+  "stage": {
+    "decoding": "Decoding",
+    "failed": "This image cannot be opened"
+  }
+}

@@ -20,6 +20,7 @@ import enUSTask from './locales/en-US/task.json';
 import enUSToday from './locales/en-US/today.json';
 import enUSUi from './locales/en-US/ui.json';
 import enUSVideo from './locales/en-US/video.json';
+import enUSViewer from './locales/en-US/viewer.json';
 import zhCNCipher from './locales/zh-CN/cipher.json';
 import zhCNCommon from './locales/zh-CN/common.json';
 import zhCNErrors from './locales/zh-CN/errors.json';
@@ -37,6 +38,7 @@ import zhCNTask from './locales/zh-CN/task.json';
 import zhCNToday from './locales/zh-CN/today.json';
 import zhCNUi from './locales/zh-CN/ui.json';
 import zhCNVideo from './locales/zh-CN/video.json';
+import zhCNViewer from './locales/zh-CN/viewer.json';
 
 export const SUPPORTED_LANGUAGES = ['zh-CN', 'en-US'] as const;
 export type Language = (typeof SUPPORTED_LANGUAGES)[number];
@@ -67,7 +69,8 @@ const resources = {
     task: zhCNTask,
     today: zhCNToday,
     ui: zhCNUi,
-    video: zhCNVideo
+    video: zhCNVideo,
+    viewer: zhCNViewer
   },
   'en-US': {
     cipher: enUSCipher,
@@ -86,7 +89,8 @@ const resources = {
     task: enUSTask,
     today: enUSToday,
     ui: enUSUi,
-    video: enUSVideo
+    video: enUSVideo,
+    viewer: enUSViewer
   }
 };
 
