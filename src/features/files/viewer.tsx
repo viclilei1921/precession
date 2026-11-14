@@ -11,13 +11,12 @@ import {
   XIcon
 } from '@phosphor-icons/react';
 import clsx from 'clsx';
-import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import type { UploadCatalog } from '@/bridge/upload';
 import { IconButton } from '@/components/button/icon';
 import { Stage } from '@/components/stage';
-import { createWheelPager } from '@/components/stage/wheel-paging';
 import { useBackLayer } from '@/layout/mobile/back';
 import { UnlockForm, useMediaAccess } from './access';
 import { bufferedEnd, clock, cueTime, readPreviewTime, writePreviewTime } from './preview';
@@ -223,23 +222,15 @@ function ViewerFrame({
     zoomFit
   });
   act.current = { close: onClose, kind: file.kind, ready, toggle, seek, step, zoomBy, zoomActual, zoomFit };
-  const pager = useMemo(() => createWheelPager((direction) => act.current.step(direction)), []);
 
-  /** 适应窗口模式下，上下滚轮翻上一张/下一张。放大后滚轮交给舞台平移。 */
-  useEffect(() => {
-    const node = stageRef.current;
-    if (!node || !ready || file.kind !== 'image') {
-      return;
+  function wheelPage(direction: 1 | -1) {
+    const next = direction < 0 ? spot.prev : spot.next;
+    if (!next) {
+      return false;
     }
-    function onWheel(event: WheelEvent) {
-      if (mode !== 'fit') {
-        return;
-      }
-      pager(event);
-    }
-    node.addEventListener('wheel', onWheel, { passive: true });
-    return () => node.removeEventListener('wheel', onWheel);
-  }, [file.kind, mode, pager, ready]);
+    onSelect(next.id);
+    return true;
+  }
 
   useLayoutEffect(() => {
     const node = stageRef.current;
@@ -407,6 +398,7 @@ function ViewerFrame({
             }}
             onNatural={(size) => setNatural({ w: size.width, h: size.height })}
             onDoubleClick={() => toggleFit()}
+            onWheelPage={wheelPage}
           />
         ) : null}
         {file.ownerSealed ? (

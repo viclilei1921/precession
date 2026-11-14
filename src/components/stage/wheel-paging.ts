@@ -1,39 +1,143 @@
 /**
- * 滚轮翻页的手势判断：一次滚动（间隔不超过 IDLE_MS 的连续 wheel 事件）
- * 最多翻一页，滚动惯性连发不会连翻好几张。
- *
- * - 事件间隔超过 IDLE_MS 视为新的一次滚动，重新累计
- * - 累计滚动量达到 STEP_DELTA 才翻，轻微的触摸板碰触不会误翻
- * - 翻过一页后本次手势内不再翻，直到滚动停下
+ * 缩放不超过适应窗口时，滚轮先带动整张图上下移动，超过阈值再翻页。
+ * 翻页后视口先回到正中。同一次滚动还没停的事件不再计入下一张，
+ * 否则惯性会连着翻很多张。停在阈值以内就回弹。
  */
-const IDLE_MS = 300;
-const STEP_DELTA = 50;
+const RELEASE_MS = 300;
+const SETTLE_MS = 240;
 
-export function createWheelPager(step: (direction: 1 | -1) => void) {
-  const state = { lastAt: 0, accum: 0, done: false };
-  return (event: WheelEvent) => {
-    if (event.ctrlKey || event.metaKey || event.shiftKey) {
+/** 翻页会换掉 Stage。这段状态留在模块上，新舞台才能接着把视口按在正中。 */
+const gesture = {
+  held: false,
+  timer: 0
+};
+
+function holdViewport() {
+  gesture.held = true;
+  window.clearTimeout(gesture.timer);
+  gesture.timer = window.setTimeout(() => {
+    gesture.held = false;
+  }, RELEASE_MS);
+}
+
+/** 翻页阈值。画面要移过视口高度的 60% 才换页。 */
+const PULL_RATIO = 0.6;
+
+export function pullThreshold(viewHeight: number) {
+  const height = viewHeight > 0 ? viewHeight : 640;
+  return Math.round(height * PULL_RATIO);
+}
+
+export type WheelPull = {
+  /** deltaY 向下为正。画面往相反方向走，越过阈值时 step。step 返回 false 表示这个方向没有图。 */
+  move(deltaY: number, threshold: number): void;
+  reset(): void;
+  dispose(): void;
+};
+
+export function createWheelPull(options: {
+  onChange: (offset: number) => void;
+  step: (direction: 1 | -1) => boolean;
+}): WheelPull {
+  let offset = 0;
+  let raf = 0;
+  let idle = 0;
+  let disposed = false;
+
+  const publish = (value: number) => {
+    if (value === offset) {
       return;
     }
-    // 横向滚动不翻页，只认明显纵向的滚动
-    if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) {
+    offset = value;
+    if (!disposed) {
+      options.onChange(value);
+    }
+  };
+
+  const cancelSpring = () => {
+    if (raf !== 0) {
+      cancelAnimationFrame(raf);
+      raf = 0;
+    }
+  };
+
+  const spring = () => {
+    cancelSpring();
+    const start = offset;
+    if (start === 0) {
       return;
     }
-    const now = performance.now();
-    if (now - state.lastAt > IDLE_MS) {
-      state.accum = 0;
-      state.done = false;
-    }
-    state.lastAt = now;
-    // 本次滚动已经翻过页，惯性里剩下的事件全部忽略
-    if (state.done) {
+    const reduce =
+      typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce) {
+      publish(0);
       return;
     }
-    state.accum += event.deltaY;
-    if (Math.abs(state.accum) < STEP_DELTA) {
-      return;
+    const began = performance.now();
+    const tick = (now: number) => {
+      if (disposed) {
+        return;
+      }
+      const t = Math.min(1, (now - began) / SETTLE_MS);
+      const eased = 1 - (1 - t) ** 3;
+      publish(start * (1 - eased));
+      if (t < 1) {
+        raf = requestAnimationFrame(tick);
+      } else {
+        raf = 0;
+        publish(0);
+      }
+    };
+    raf = requestAnimationFrame(tick);
+  };
+
+  const scheduleRelease = () => {
+    window.clearTimeout(idle);
+    idle = window.setTimeout(() => {
+      if (!disposed && offset !== 0) {
+        spring();
+      }
+    }, RELEASE_MS);
+  };
+
+  return {
+    move(deltaY: number, threshold: number) {
+      if (disposed || deltaY === 0 || threshold <= 0) {
+        return;
+      }
+      if (gesture.held) {
+        cancelSpring();
+        window.clearTimeout(idle);
+        publish(0);
+        holdViewport();
+        return;
+      }
+      cancelSpring();
+      const direction: 1 | -1 = deltaY > 0 ? 1 : -1;
+      const next = offset - deltaY;
+      if (Math.abs(next) <= threshold) {
+        publish(next);
+        scheduleRelease();
+        return;
+      }
+      if (options.step(direction)) {
+        window.clearTimeout(idle);
+        publish(0);
+        holdViewport();
+        return;
+      }
+      publish((direction > 0 ? -1 : 1) * threshold);
+      scheduleRelease();
+    },
+    reset() {
+      cancelSpring();
+      window.clearTimeout(idle);
+      publish(0);
+    },
+    dispose() {
+      disposed = true;
+      cancelSpring();
+      window.clearTimeout(idle);
     }
-    state.done = true;
-    step(event.deltaY > 0 ? 1 : -1);
   };
 }

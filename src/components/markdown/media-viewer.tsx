@@ -25,7 +25,8 @@ type MediaViewerProps = {
 /** 全屏媒体查看。
  *  桌面端与「看图」同构：底部悬浮工具条 + 缩放舞台（同一 Stage 组件）。
  *  手机端参考微信：纯黑、点按显隐控件、左右滑动切换（双指捏合由 Stage 支持）。
- *  快捷键：Esc/q 关闭，←/→ 切换，0 适应窗口，1 实际大小。 */
+ *  快捷键：Esc/q 关闭，←/→ 切换，0 适应窗口，1 实际大小。
+ *  缩放不超过适应窗口时，滚轮带动整张图，超过阈值再切换。 */
 export function MediaViewer({ items, index, onClose }: MediaViewerProps) {
   const { t } = useTranslation('ui');
   // 全屏预览是一层返回：标题栏/系统返回先关预览，再退路由
@@ -193,6 +194,13 @@ export function MediaViewer({ items, index, onClose }: MediaViewerProps) {
               setZoom(scale);
             }}
             onNatural={(size) => setNatural({ w: size.width, h: size.height })}
+            onWheelPage={(direction) => {
+              if (items.length < 2) {
+                return false;
+              }
+              go(direction);
+              return true;
+            }}
           />
         ) : (
           // biome-ignore lint/a11y/useMediaCaption: 播放的是本地导入的文件，没有字幕轨

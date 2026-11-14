@@ -1,6 +1,7 @@
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import styles from './stage.module.css';
+import { createWheelPull, pullThreshold } from './wheel-paging';
 
 type Point = { x: number; y: number };
 type Size = { width: number; height: number };
@@ -18,6 +19,11 @@ type StageProps = {
   onScale?: (scale: number) => void;
   /** 舞台内双击。看图/文件查看用它切换 适应/实际大小。可选 */
   onDoubleClick?: (event: React.MouseEvent<HTMLDivElement>) => void;
+  /**
+   * 缩放不超过适应窗口时，纵向滚动带动整张图，超过阈值翻页。
+   * 返回 false 表示这个方向没有上一张或下一张。
+   */
+  onWheelPage?: (direction: 1 | -1) => boolean;
 };
 
 const MIN_SCALE = 0.1;
@@ -62,12 +68,25 @@ function zoomAt(prev: number, next: number, pan: Point, view: Size, pointer: Poi
   };
 }
 
-/** 看图区域。触控板捏合和双指缩放，滚轮和拖移只平移。 */
-export function Stage({ src, alt, scale, panReset, onUserScale, onNatural, onScale, onDoubleClick }: StageProps) {
+/** 看图区域。捏合缩放；放大超过适应窗口时滚轮平移，不超过时滚轮拉动整张图翻页。 */
+export function Stage({
+  src,
+  alt,
+  scale,
+  panReset,
+  onUserScale,
+  onNatural,
+  onScale,
+  onDoubleClick,
+  onWheelPage
+}: StageProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [natural, setNatural] = useState<Size | null>(null);
   const [view, setView] = useState<Size>({ width: 0, height: 0 });
   const [pan, setPan] = useState<Point>({ x: 0, y: 0 });
+  /** 不超过适应窗口时，整张图跟着滚轮走的纵向偏移。向下为正。 */
+  const [pull, setPull] = useState(0);
+  const pullRef = useRef<ReturnType<typeof createWheelPull> | null>(null);
   const pointers = useRef(new Map<number, Point>());
   const drag = useRef<{ id: number; x: number; y: number; pan: Point } | null>(null);
   const pinch = useRef<{ dist: number; scale: number; mid: Point; pan: Point } | null>(null);
@@ -76,17 +95,19 @@ export function Stage({ src, alt, scale, panReset, onUserScale, onNatural, onSca
   const onUserScaleRef = useRef(onUserScale);
   const onNaturalRef = useRef(onNatural);
   const onScaleRef = useRef(onScale);
+  const onWheelPageRef = useRef(onWheelPage);
   onUserScaleRef.current = onUserScale;
   onNaturalRef.current = onNatural;
   onScaleRef.current = onScale;
+  onWheelPageRef.current = onWheelPage;
 
   const fit =
     natural && view.width > 0 && view.height > 0
       ? Math.min(view.width / natural.width, view.height / natural.height)
       : 1;
   const effective = scale === 'fit' ? fit : scale;
-  const stateRef = useRef({ pan, effective, natural, view });
-  stateRef.current = { pan, effective, natural, view };
+  const stateRef = useRef({ pan, effective, fit, natural, view });
+  stateRef.current = { pan, effective, fit, natural, view };
 
   useEffect(() => {
     onScaleRef.current?.(effective);
@@ -95,6 +116,7 @@ export function Stage({ src, alt, scale, panReset, onUserScale, onNatural, onSca
   useEffect(() => {
     void panReset;
     setPan({ x: 0, y: 0 });
+    pullRef.current?.reset();
   }, [panReset]);
 
   useEffect(() => {
@@ -140,6 +162,12 @@ export function Stage({ src, alt, scale, panReset, onUserScale, onNatural, onSca
       return { x: clientX - rect.left, y: clientY - rect.top };
     };
 
+    const pull = createWheelPull({
+      onChange: setPull,
+      step: (direction) => onWheelPageRef.current?.(direction) !== false
+    });
+    pullRef.current = pull;
+
     const onPinchWheel = (event: WheelEvent) => {
       if (!wheelZooms(event)) {
         return;
@@ -149,6 +177,7 @@ export function Stage({ src, alt, scale, panReset, onUserScale, onNatural, onSca
       if (!current.natural || current.view.width === 0) {
         return;
       }
+      pull.reset();
       const next = clamp(current.effective - wheelZoomDelta(event.deltaY), MIN_SCALE, MAX_SCALE);
       const pointer = covers(event)
         ? pointerInView(event.clientX, event.clientY)
@@ -161,12 +190,23 @@ export function Stage({ src, alt, scale, panReset, onUserScale, onNatural, onSca
       if (wheelZooms(event)) {
         return;
       }
+      if (event.target instanceof Element && event.target.closest('input, textarea, select')) {
+        return;
+      }
       const current = stateRef.current;
       if (!current.natural || current.view.width === 0) {
         return;
       }
       event.preventDefault();
       const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? current.view.height : 1;
+      const atMostFit = current.effective <= current.fit + 0.001;
+      if (atMostFit && onWheelPageRef.current && !event.shiftKey && Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
+        if (current.pan.x !== 0 || current.pan.y !== 0) {
+          setPan({ x: 0, y: 0 });
+        }
+        pull.move(event.deltaY * unit, pullThreshold(current.view.height));
+        return;
+      }
       const dx = (event.shiftKey ? event.deltaY : event.deltaX) * unit;
       const dy = (event.shiftKey ? 0 : event.deltaY) * unit;
       const image = {
@@ -178,6 +218,7 @@ export function Stage({ src, alt, scale, panReset, onUserScale, onNatural, onSca
 
     const onGestureStart = (event: Event) => {
       event.preventDefault();
+      pull.reset();
       gestureBase.current = stateRef.current.effective;
     };
     const onGestureChange = (event: Event) => {
@@ -190,17 +231,27 @@ export function Stage({ src, alt, scale, panReset, onUserScale, onNatural, onSca
       });
     };
 
+    // 挂在父级上，工具条和左右切换也算在这片看图区域里
+    const scope = node.parentElement ?? node;
     window.addEventListener('wheel', onPinchWheel, { capture: true, passive: false });
-    node.addEventListener('wheel', onWheel, { passive: false });
+    scope.addEventListener('wheel', onWheel, { passive: false });
     node.addEventListener('gesturestart', onGestureStart);
     node.addEventListener('gesturechange', onGestureChange);
     return () => {
+      pull.dispose();
+      pullRef.current = null;
       window.removeEventListener('wheel', onPinchWheel, { capture: true });
-      node.removeEventListener('wheel', onWheel);
+      scope.removeEventListener('wheel', onWheel);
       node.removeEventListener('gesturestart', onGestureStart);
       node.removeEventListener('gesturechange', onGestureChange);
     };
   }, []);
+
+  useEffect(() => {
+    if (effective > fit + 0.001) {
+      pullRef.current?.reset();
+    }
+  }, [effective, fit]);
 
   function localPoint(clientX: number, clientY: number) {
     const rect = rootRef.current?.getBoundingClientRect();
@@ -234,6 +285,7 @@ export function Stage({ src, alt, scale, panReset, onUserScale, onNatural, onSca
   }
 
   function onPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    pullRef.current?.reset();
     pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
     if (pointers.current.size >= 2) {
       releaseCapture(event.currentTarget);
@@ -331,7 +383,7 @@ export function Stage({ src, alt, scale, panReset, onUserScale, onNatural, onSca
             ? {
                 width: natural.width,
                 height: natural.height,
-                transform: `translate(${pan.x}px, ${pan.y}px) scale(${effective})`
+                transform: `translate(${pan.x}px, ${pan.y + pull}px) scale(${effective})`
               }
             : { visibility: 'hidden' }
         }

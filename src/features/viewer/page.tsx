@@ -9,7 +9,7 @@ import {
   ListIcon
 } from '@phosphor-icons/react';
 import type { CSSProperties } from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { onFileDrop, pickDirectory, pickFiles } from '@/bridge/files';
 import { isTauri, platform } from '@/bridge/platform';
@@ -29,7 +29,6 @@ import { IconButton } from '@/components/button/icon';
 import { Popover } from '@/components/popover';
 import { Scroll } from '@/components/scroll';
 import { Stage } from '@/components/stage';
-import { createWheelPager } from '@/components/stage/wheel-paging';
 import { TextField } from '@/components/text-field';
 import { currentLocale } from '@/i18n';
 import { useBackLayer } from '@/layout/mobile/back';
@@ -169,19 +168,6 @@ export function ViewerPage() {
   const fullRef = useRef(false);
   const leaveRef = useRef<() => void>(() => undefined);
   const chooseZoomRef = useRef<(value: string) => void>(() => undefined);
-  const stageWrapRef = useRef<HTMLDivElement>(null);
-  const zoomRef = useRef(zoom);
-  zoomRef.current = zoom;
-  const pager = useMemo(
-    () =>
-      createWheelPager((direction) => {
-        setIndex((current) => {
-          const total = filesRef.current.length;
-          return direction > 0 ? Math.min(total - 1, current + 1) : Math.max(0, current - 1);
-        });
-      }),
-    []
-  );
   const filesRef = useRef(files);
   const indexRef = useRef(index);
   const pathRef = useRef(path);
@@ -354,21 +340,15 @@ export function ViewerPage() {
     };
   }, [viewing]);
 
-  /** 适应窗口模式下，上下滚轮翻上一张/下一张。放大后滚轮仍交给舞台平移。 */
-  useEffect(() => {
-    const node = stageWrapRef.current;
-    if (!viewing || !node) {
-      return;
+  function wheelPage(direction: 1 | -1) {
+    const total = filesRef.current.length;
+    const next = indexRef.current + direction;
+    if (next < 0 || next >= total) {
+      return false;
     }
-    function onWheel(event: WheelEvent) {
-      if (zoomRef.current.kind !== 'fit') {
-        return;
-      }
-      pager(event);
-    }
-    node.addEventListener('wheel', onWheel, { passive: true });
-    return () => node.removeEventListener('wheel', onWheel);
-  }, [pager, viewing]);
+    setIndex(next);
+    return true;
+  }
 
   async function openFile() {
     const picked = await pickFiles({ multiple: false, extensions: [...VIEWER_EXTENSIONS] });
@@ -451,7 +431,7 @@ export function ViewerPage() {
   return (
     <div className={styles.page} data-full={full ? 'true' : undefined}>
       {file ? (
-        <div ref={stageWrapRef} className={styles.stageWrap}>
+        <div className={styles.stageWrap}>
           <div className={`${styles.edge} ${styles.prev}`}>
             <IconButton
               label={t('nav.prev')}
@@ -471,6 +451,7 @@ export function ViewerPage() {
               onUserScale={(scale) => setZoom({ kind: 'fixed', scale })}
               onNatural={setNatural}
               onDoubleClick={() => chooseZoom(zoom.kind === 'fit' ? '100' : 'fit')}
+              onWheelPage={wheelPage}
             />
           ) : (
             <p className={styles.quiet}>
