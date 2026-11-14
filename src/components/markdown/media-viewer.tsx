@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { IconButton } from '@/components/button/icon';
 import { Stage } from '@/components/stage';
 import overlay from '@/components/stage/overlay.module.css';
+import { useBackLayer } from '@/layout/mobile/back';
 import { useAppStore } from '@/store/app';
 
 export type MediaItem = {
@@ -27,6 +28,8 @@ type MediaViewerProps = {
  *  快捷键：Esc/q 关闭，←/→ 切换，0 适应窗口，1 实际大小。 */
 export function MediaViewer({ items, index, onClose }: MediaViewerProps) {
   const { t } = useTranslation('ui');
+  // 全屏预览是一层返回：标题栏/系统返回先关预览，再退路由
+  useBackLayer(true, onClose);
   const mobile = useAppStore((state) => state.isMobile());
   const [shown, setShown] = useState(false);
   const [current, setCurrent] = useState(index);

@@ -19,9 +19,11 @@ export function AppearanceSection({ onNotice }: AppearanceSectionProps) {
   const theme = useAppStore((state) => state.theme);
   const collapsed = useAppStore((state) => state.sidebarCollapsed);
   const reduceMotion = useAppStore((state) => state.reduceMotion);
+  const imageConvert = useAppStore((state) => state.imageConvert);
   const setThemePreference = useAppStore((state) => state.setThemePreference);
   const setSidebarCollapsed = useAppStore((state) => state.setSidebarCollapsed);
   const setReduceMotion = useAppStore((state) => state.setReduceMotion);
+  const setImageConvert = useAppStore((state) => state.setImageConvert);
 
   const THEMES: { value: ThemePreference; label: string; hint: string; shot: 'light' | 'dark' | 'system' }[] = [
     { value: 'light', label: t('appearance.theme.light.label'), hint: t('appearance.theme.light.hint'), shot: 'light' },
@@ -104,6 +106,19 @@ export function AppearanceSection({ onNotice }: AppearanceSectionProps) {
                 onNotice(
                   nextCollapsed ? t('appearance.sidebarNoticeCollapsed') : t('appearance.sidebarNoticeExpanded')
                 );
+              }}
+            />
+          </SettingRow>
+        )}
+        {mobile ? null : (
+          <SettingRow title={t('appearance.imageConvertRow.title')} hint={t('appearance.imageConvertRow.hint')}>
+            <Switch
+              label={t('appearance.imageConvertRow.title')}
+              checked={imageConvert}
+              onClick={() => {
+                const next = !imageConvert;
+                setImageConvert(next);
+                onNotice(next ? t('appearance.imageConvertNoticeOn') : t('appearance.imageConvertNoticeOff'));
               }}
             />
           </SettingRow>

@@ -8,6 +8,8 @@ export type Appearance = {
   theme: ThemePreference;
   sidebarCollapsed: boolean;
   reduceMotion: boolean;
+  /** 导入 md 图片时是否先转成 AVIF。只影响桌面端，移动端始终不转 */
+  imageConvert: boolean;
 };
 
 const THEMES: ThemePreference[] = ['light', 'dark', 'system'];
@@ -24,7 +26,8 @@ export function loadAppearance(): Appearance {
   const fallback: Appearance = {
     theme: 'light',
     sidebarCollapsed: false,
-    reduceMotion: systemReduce()
+    reduceMotion: systemReduce(),
+    imageConvert: true
   };
   const parsed = readPreference<Partial<Appearance>>(PREFERENCE_KEY);
   if (!parsed) {
@@ -34,7 +37,8 @@ export function loadAppearance(): Appearance {
     theme: THEMES.includes(parsed.theme as ThemePreference) ? (parsed.theme as ThemePreference) : fallback.theme,
     sidebarCollapsed:
       typeof parsed.sidebarCollapsed === 'boolean' ? parsed.sidebarCollapsed : fallback.sidebarCollapsed,
-    reduceMotion: typeof parsed.reduceMotion === 'boolean' ? parsed.reduceMotion : fallback.reduceMotion
+    reduceMotion: typeof parsed.reduceMotion === 'boolean' ? parsed.reduceMotion : fallback.reduceMotion,
+    imageConvert: typeof parsed.imageConvert === 'boolean' ? parsed.imageConvert : fallback.imageConvert
   };
 }
 

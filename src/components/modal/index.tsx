@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ScrimButton } from '@/components/button/scrim';
 import { Scroll } from '@/components/scroll';
+import { useBackLayer } from '@/layout/mobile/back';
 import { useAppStore } from '@/store/app';
 import styles from './index.module.css';
 
@@ -68,6 +69,9 @@ export function Modal({ title, onClose, children, wide }: ModalProps) {
   const finishRef = useRef(finish);
   requestCloseRef.current = requestClose;
   finishRef.current = finish;
+
+  // 打开中的弹窗是一层返回：标题栏/系统返回先关弹窗，再退路由
+  useBackLayer(true, () => requestCloseRef.current());
 
   useEffect(() => {
     returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;

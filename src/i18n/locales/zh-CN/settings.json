@@ -48,6 +48,9 @@
     },
     "sidebarNoticeCollapsed": "侧栏已收起",
     "sidebarNoticeExpanded": "侧栏已展开",
+    "imageConvertRow": { "title": "导入图片自动转码", "hint": "插入 md 的图片先转成 AVIF 再保存；关闭后保留原格式。" },
+    "imageConvertNoticeOn": "导入图片将自动转为 AVIF",
+    "imageConvertNoticeOff": "导入图片保留原格式",
     "motionRow": {
       "title": "减少动效",
       "hint": "关闭过渡和渐隐，页面切换更直接。"

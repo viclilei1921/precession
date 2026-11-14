@@ -75,6 +75,15 @@ html[data-platform="mobile"] *::-webkit-scrollbar {
   outline-offset: 2px;
 }
 
+/* WebKit 在祖先带 user-select:none 时，输入框会取不到焦点、无法输入
+   （比如看图页的重命名框）。输入类控件显式恢复文本选择。 */
+input,
+textarea,
+select {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
 /* 要盖过各组件自己的时长，否则开关关不掉已经写死的过渡。 */
 html[data-motion="reduced"] *,
 html[data-motion="reduced"] *::before,

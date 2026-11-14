@@ -153,6 +153,9 @@
 .surface :global(.milkdown img) {
   max-width: 100%;
   height: auto;
+  /* 双击不该选中图片本身 */
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .surface :global(.growth-video) {
@@ -408,7 +411,7 @@
 
 /* 九宫格（微信朋友圈规则）：
    placeImageGrid 按连续图片的总数给每个格子打 data-gallery-cells：
-   2 → 两张各半，3 → 一行三张，4 → 田字格（各半），5+ → 三列流式，末行靠左 */
+   1 → 单张全宽，2 → 两张各半，3 → 一行三张，4 → 田字格（各半），5+ → 三列流式，末行靠左 */
 .surface :global(.milkdown .ProseMirror .milkdown-image-block[data-gallery-cells]) {
   box-sizing: border-box;
   display: inline-block;
@@ -437,6 +440,28 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+/* 单张（cells="1"）：不裁切，宽度 100% 完整显示。放在通用规则后面，同优先级靠后生效 */
+.surface :global(.milkdown .ProseMirror .milkdown-image-block[data-gallery-cells="1"]) {
+  width: 100%;
+}
+
+.surface :global(.milkdown .ProseMirror .milkdown-image-block[data-gallery-cells="1"] .image-wrapper) {
+  aspect-ratio: auto;
+}
+
+.surface :global(.milkdown .ProseMirror .milkdown-image-block[data-gallery-cells="1"] .image-wrapper img) {
+  width: 100%;
+  height: auto;
+}
+
+/* 应用里不展示 Crepe 自带的图片说明按钮和缩放把手，编辑态用项目自带的替换/删除按钮。
+   有文字的图注仍保留显示（空的图注输入框藏起来）。 */
+.surface :global(.milkdown .milkdown-image-block .operation),
+.surface :global(.milkdown .milkdown-image-block .image-resize-handle),
+.surface :global(.milkdown .milkdown-image-block .caption-input:placeholder-shown) {
+  display: none;
 }
 
 .surface :global(.milkdown .ProseMirror .milkdown-image-block[data-gallery-cells].selected > .image-wrapper) {

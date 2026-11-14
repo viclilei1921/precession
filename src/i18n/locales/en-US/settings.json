@@ -48,6 +48,12 @@
     },
     "sidebarNoticeCollapsed": "Sidebar collapsed",
     "sidebarNoticeExpanded": "Sidebar expanded",
+    "imageConvertRow": {
+      "title": "Convert images on import",
+      "hint": "Images inserted into markdown are converted to AVIF first; turn off to keep the original format."
+    },
+    "imageConvertNoticeOn": "Imported images will be converted to AVIF",
+    "imageConvertNoticeOff": "Imported images keep their original format",
     "motionRow": {
       "title": "Reduce motion",
       "hint": "Disable transitions and fades for more direct page switches."

@@ -6,11 +6,10 @@ import {
   FolderOpenIcon,
   ImageIcon,
   InfoIcon,
-  ListIcon,
-  XIcon
+  ListIcon
 } from '@phosphor-icons/react';
 import type { CSSProperties } from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { onFileDrop, pickDirectory, pickFiles } from '@/bridge/files';
 import { isTauri, platform } from '@/bridge/platform';
@@ -30,7 +29,10 @@ import { IconButton } from '@/components/button/icon';
 import { Popover } from '@/components/popover';
 import { Scroll } from '@/components/scroll';
 import { Stage } from '@/components/stage';
+import { createWheelPager } from '@/components/stage/wheel-paging';
+import { TextField } from '@/components/text-field';
 import { currentLocale } from '@/i18n';
+import { useBackLayer } from '@/layout/mobile/back';
 import { useAppStore } from '@/store/app';
 import { errorMessage } from '@/utils/error';
 import { clearViewerPath, peekViewerPath, rememberViewerPath, retargetViewerPath, subscribeViewerPath } from './open';
@@ -96,6 +98,15 @@ function asciiLower(value: string) {
   return value.replace(/[A-Z]/g, (letter) => String.fromCharCode(letter.charCodeAt(0) + 32));
 }
 
+/** 估算文案在输入框里的宽度（ch 单位）。中日韩等全角字符按 2 个算 */
+function visualWidth(value: string) {
+  let width = 0;
+  for (const char of value) {
+    width += (char.codePointAt(0) ?? 0) > 0x2e7f ? 2 : 1;
+  }
+  return width;
+}
+
 function compareText(left: string, right: string) {
   if (left < right) {
     return -1;
@@ -158,6 +169,19 @@ export function ViewerPage() {
   const fullRef = useRef(false);
   const leaveRef = useRef<() => void>(() => undefined);
   const chooseZoomRef = useRef<(value: string) => void>(() => undefined);
+  const stageWrapRef = useRef<HTMLDivElement>(null);
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
+  const pager = useMemo(
+    () =>
+      createWheelPager((direction) => {
+        setIndex((current) => {
+          const total = filesRef.current.length;
+          return direction > 0 ? Math.min(total - 1, current + 1) : Math.max(0, current - 1);
+        });
+      }),
+    []
+  );
   const filesRef = useRef(files);
   const indexRef = useRef(index);
   const pathRef = useRef(path);
@@ -314,6 +338,9 @@ export function ViewerPage() {
     };
   }, []);
 
+  // 浏览图片时注册成一层返回：标题栏/系统返回先退出看图，再退路由
+  useBackLayer(viewing, () => leaveRef.current());
+
   useEffect(() => {
     if (!viewing) {
       return;
@@ -326,6 +353,22 @@ export function ViewerPage() {
       }
     };
   }, [viewing]);
+
+  /** 适应窗口模式下，上下滚轮翻上一张/下一张。放大后滚轮仍交给舞台平移。 */
+  useEffect(() => {
+    const node = stageWrapRef.current;
+    if (!viewing || !node) {
+      return;
+    }
+    function onWheel(event: WheelEvent) {
+      if (zoomRef.current.kind !== 'fit') {
+        return;
+      }
+      pager(event);
+    }
+    node.addEventListener('wheel', onWheel, { passive: true });
+    return () => node.removeEventListener('wheel', onWheel);
+  }, [pager, viewing]);
 
   async function openFile() {
     const picked = await pickFiles({ multiple: false, extensions: [...VIEWER_EXTENSIONS] });
@@ -408,7 +451,7 @@ export function ViewerPage() {
   return (
     <div className={styles.page} data-full={full ? 'true' : undefined}>
       {file ? (
-        <div className={styles.stageWrap}>
+        <div ref={stageWrapRef} className={styles.stageWrap}>
           <div className={`${styles.edge} ${styles.prev}`}>
             <IconButton
               label={t('nav.prev')}
@@ -495,9 +538,6 @@ export function ViewerPage() {
                 <IconButton size="compact" label={full ? t('bar.exitFull') : t('bar.enterFull')} onClick={toggleFull}>
                   {full ? <CornersInIcon weight="regular" /> : <CornersOutIcon weight="regular" />}
                 </IconButton>
-                <IconButton size="compact" label={t('bar.exit')} onClick={leave}>
-                  <XIcon weight="regular" />
-                </IconButton>
                 <Popover
                   open={detailsAnchor != null}
                   anchorEl={detailsAnchor}
@@ -578,7 +618,7 @@ function FileName({ file, onRenamed }: { file: ViewerFile; onRenamed: (from: str
   const [draft, setDraft] = useState(stem);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const nameRef = useRef<HTMLDivElement>(null);
   const editingRef = useRef(false);
   const skipCommit = useRef(false);
   const ticket = useRef(0);
@@ -599,7 +639,7 @@ function FileName({ file, onRenamed }: { file: ViewerFile; onRenamed: (from: str
     if (!editing) {
       return;
     }
-    const node = inputRef.current;
+    const node = nameRef.current?.querySelector<HTMLInputElement>('input');
     node?.focus();
     node?.select();
   }, [editing]);
@@ -624,7 +664,7 @@ function FileName({ file, onRenamed }: { file: ViewerFile; onRenamed: (from: str
     const problem = invalidStem(nextStem);
     if (problem) {
       setError(t(problem === 'empty' ? 'name.empty' : 'name.invalid'));
-      inputRef.current?.focus();
+      nameRef.current?.querySelector<HTMLInputElement>('input')?.focus();
       return;
     }
     const mine = ticket.current;
@@ -645,7 +685,7 @@ function FileName({ file, onRenamed }: { file: ViewerFile; onRenamed: (from: str
       }
       editingRef.current = true;
       setError(errorMessage(caught));
-      inputRef.current?.focus();
+      nameRef.current?.querySelector<HTMLInputElement>('input')?.focus();
     } finally {
       if (mine === ticket.current) {
         setBusy(false);
@@ -661,7 +701,7 @@ function FileName({ file, onRenamed }: { file: ViewerFile; onRenamed: (from: str
   }
 
   return (
-    <div className={styles.name} data-editing={editing ? 'true' : undefined}>
+    <div ref={nameRef} className={styles.name} data-editing={editing ? 'true' : undefined}>
       {editing ? (
         <form
           className={styles.nameForm}
@@ -670,17 +710,16 @@ function FileName({ file, onRenamed }: { file: ViewerFile; onRenamed: (from: str
             void commit();
           }}
         >
-          <input
-            ref={inputRef}
-            className={styles.nameInput}
-            aria-label={t('name.edit')}
-            aria-invalid={error ? true : undefined}
+          <TextField
+            className={styles.nameField}
+            label={t('name.edit')}
+            error={error || undefined}
             value={draft}
             disabled={busy}
             spellCheck={false}
             autoCapitalize="off"
             autoCorrect="off"
-            size={Math.min(Math.max(draft.length, 4), 48)}
+            style={{ width: `${Math.min(Math.max(visualWidth(draft) + 3, 12), 48)}ch` }}
             onChange={(event) => {
               setDraft(event.target.value);
               setError('');
@@ -713,11 +752,6 @@ function FileName({ file, onRenamed }: { file: ViewerFile; onRenamed: (from: str
           {file.name}
         </button>
       )}
-      {error ? (
-        <p className={styles.nameError} role="alert">
-          {error}
-        </p>
-      ) : null}
     </div>
   );
 }

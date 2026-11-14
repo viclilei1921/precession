@@ -310,6 +310,12 @@ export function Stage({ src, alt, scale, panReset, onUserScale, onNatural, onSca
       ref={rootRef}
       className={styles.stage}
       onDoubleClick={onDoubleClick}
+      // 双击的第二下按住时不让浏览器选字，避免看图时出现选中框
+      onMouseDown={(event) => {
+        if (event.detail >= 2) {
+          event.preventDefault();
+        }
+      }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerEnd}

@@ -174,12 +174,17 @@
   padding-inline: var(--space-3);
 }
 
-.name[data-editing="true"] {
-  width: min(24rem, 100%);
+.nameForm {
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  max-width: 100%;
 }
 
-.name-button,
-.name-input {
+.name-button {
+  display: block;
   min-width: 0;
   max-width: 100%;
   height: 2rem;
@@ -198,61 +203,32 @@
   border-radius: var(--radius-sm);
 }
 
-.name-button {
-  display: block;
-}
-
 .name-button:hover,
-.name-button:focus-visible,
-.name-input {
+.name-button:focus-visible {
   background: var(--background);
   border-color: var(--border);
 }
 
-.name-input:focus {
-  outline: 2px solid var(--ring);
-  outline-offset: 1px;
-}
-
-.name-form {
-  display: flex;
-  gap: var(--space-1);
-  align-items: center;
-  justify-content: center;
+/* 用项目统一的 TextField；宽度跟着内容走，不填满浮动条 */
+.nameField {
+  flex: none;
   min-width: 0;
-  max-width: 100%;
 }
 
-.name-input {
-  flex: 1 1 auto;
-  width: auto;
+.nameField input {
+  height: 1.75rem;
+  padding-block: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  line-height: 1.75rem;
+  text-align: center;
 }
 
-.name-suffix {
+.nameSuffix {
   flex: none;
   font-size: var(--text-sm);
   font-weight: 600;
   color: var(--muted-foreground);
-}
-
-.name-error {
-  position: absolute;
-  bottom: calc(100% + var(--space-1));
-  left: 50%;
-  z-index: 2;
-  max-width: 20rem;
-  padding: var(--space-1) var(--space-2);
-  margin: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-size: var(--text-xs);
-  color: var(--destructive);
-  text-align: center;
-  white-space: nowrap;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  transform: translateX(-50%);
 }
 
 .meta {

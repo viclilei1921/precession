@@ -16,7 +16,7 @@ import { journalDate } from '@/features/journal/text';
 import { useBackLayer } from '@/layout/mobile/back';
 import { growthMeasureListQuery } from '@/query/growth/query';
 import { useMembers } from '@/query/member/use-members';
-import { useAppStore } from '@/store/app';
+import { convertImagesOnImport } from '@/store/app';
 import { ageLabel, fromDateInputValue, toDateInputValue } from '@/utils/day';
 import { errorMessage } from '@/utils/error';
 import styles from '../page.module.css';
@@ -255,7 +255,7 @@ function MemberForm({
     setImporting(true);
     setError('');
     try {
-      const id = await importImagePath(path, looseImageOwner, !useAppStore.getState().isMobile());
+      const id = await importImagePath(path, looseImageOwner, convertImagesOnImport());
       session.current.add(id);
       setAvatar(id);
       setAvatarLoose(true);

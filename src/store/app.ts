@@ -11,6 +11,8 @@ type AppState = {
   theme: 'light' | 'dark';
   /** 关闭过渡和渐隐 */
   reduceMotion: boolean;
+  /** 导入 md 图片时是否先转 AVIF（桌面端生效） */
+  imageConvert: boolean;
   /** 设备平台 */
   platform: Platform;
   /** 数据库状态 */
@@ -28,6 +30,8 @@ type AppActions = {
   syncSystemTheme: () => void;
   /** 设置是否减少动效 */
   setReduceMotion: (reduceMotion: boolean) => void;
+  /** 设置导入图片是否自动转码 */
+  setImageConvert: (imageConvert: boolean) => void;
   /** 设置数据库状态 */
   setDbStatus: (dbStatus: DbStatus | null) => void;
   /** 直接设置侧栏收起状态 */
@@ -41,7 +45,8 @@ function persist(get: () => AppState, patch: Partial<Appearance>) {
   const next: Appearance = {
     theme: patch.theme ?? current.themePreference,
     sidebarCollapsed: patch.sidebarCollapsed ?? current.sidebarCollapsed,
-    reduceMotion: patch.reduceMotion ?? current.reduceMotion
+    reduceMotion: patch.reduceMotion ?? current.reduceMotion,
+    imageConvert: patch.imageConvert ?? current.imageConvert
   };
   saveAppearance(next);
   applyAppearance(next);
@@ -55,6 +60,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   themePreference: loaded.theme,
   theme: resolveTheme(loaded.theme),
   reduceMotion: loaded.reduceMotion,
+  imageConvert: loaded.imageConvert,
   platform: platform(),
   dbStatus: null,
   sidebarCollapsed: loaded.sidebarCollapsed,
@@ -73,13 +79,18 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     applyAppearance({
       theme: 'system',
       sidebarCollapsed: get().sidebarCollapsed,
-      reduceMotion: get().reduceMotion
+      reduceMotion: get().reduceMotion,
+      imageConvert: get().imageConvert
     });
     set({ theme: resolveTheme('system') });
   },
   setReduceMotion: (reduceMotion) => {
     persist(get, { reduceMotion });
     set({ reduceMotion });
+  },
+  setImageConvert: (imageConvert) => {
+    persist(get, { imageConvert });
+    set({ imageConvert });
   },
   setDbStatus: (dbStatus) => set({ dbStatus }),
   setSidebarCollapsed: (sidebarCollapsed) => {
@@ -88,6 +99,15 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   },
   toggleSidebar: () => get().setSidebarCollapsed(!get().sidebarCollapsed)
 }));
+
+/**
+ * 导入 md 图片时是否先转成 AVIF。
+ * 桌面端跟随「外观」里的开关，移动端始终不转（转码太慢）。
+ */
+export function convertImagesOnImport() {
+  const state = useAppStore.getState();
+  return state.imageConvert && !state.isMobile();
+}
 
 /**
  * 用 Store 里读到的外观偏好刷新状态。
@@ -102,6 +122,7 @@ export function hydrateAppearance() {
     themePreference: appearance.theme,
     theme: resolveTheme(appearance.theme),
     reduceMotion: appearance.reduceMotion,
+    imageConvert: appearance.imageConvert,
     sidebarCollapsed: appearance.sidebarCollapsed
   });
 }

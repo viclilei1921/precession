@@ -1,7 +1,6 @@
 import { useRouter } from '@tanstack/react-router';
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import { windowClose } from '@/bridge/window';
-import { useAppStore } from '@/store/app';
 
 type BackAction = 'exit' | 'handled' | 'history';
 
@@ -20,6 +19,7 @@ type BackBinding = {
   toLibrary: () => void;
 };
 
+/** 当前打开的一层浮层。后进先出，标题栏返回和移动端系统返回共用 */
 const layers: Layer[] = [];
 let bound: BackBinding | null = null;
 
@@ -29,13 +29,13 @@ declare global {
   }
 }
 
-/** 移动端当前这一层。系统返回和界面返回都先收这一层。 */
+/** 当前这一层返回。系统返回（移动端）和标题栏返回（桌面端）都先收这一层。 */
 export function useBackLayer(active: boolean, onClose: () => void) {
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
 
   useEffect(() => {
-    if (!active || !useAppStore.getState().isMobile()) {
+    if (!active) {
       return;
     }
     const layer: Layer = { close: () => closeRef.current() };
@@ -47,6 +47,16 @@ export function useBackLayer(active: boolean, onClose: () => void) {
       }
     };
   }, [active]);
+}
+
+/** 收掉最上面一层浮层。有层被收掉时返回 true，供标题栏返回判断 */
+export function closeTopLayer(): boolean {
+  const layer = layers[layers.length - 1];
+  if (!layer) {
+    return false;
+  }
+  layer.close();
+  return true;
 }
 
 /** 退一条历史。没有可退的历史时走 fallback。 */

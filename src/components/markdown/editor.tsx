@@ -8,7 +8,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 're
 import { useTranslation } from 'react-i18next';
 import { onFileDrop, pickFiles } from '@/bridge';
 import { Scroll } from '@/components/scroll';
-import { useAppStore } from '@/store/app';
+import { convertImagesOnImport } from '@/store/app';
 import { errorMessage } from '@/utils/error';
 import type { MarkdownImageOwner } from './image';
 import {
@@ -42,7 +42,7 @@ import '@milkdown/crepe/theme/frame.css';
 
 const imageExts = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif'];
 
-/** 微信朋友圈的格子规则：2 张各占一半，3 张一行三张，4 张田字格，5 张起三列流式排 */
+/** 微信朋友圈的格子规则：单张全宽，2 张各占一半，3 张一行三张，4 张田字格，5 张起三列流式排 */
 function placeImageGrid(root: HTMLElement) {
   const parents = new Set<HTMLElement>();
   for (const el of root.querySelectorAll<HTMLElement>('.milkdown-image-block')) {
@@ -53,7 +53,8 @@ function placeImageGrid(root: HTMLElement) {
   for (const parent of parents) {
     let run: HTMLElement[] = [];
     const flush = () => {
-      const size = run.length >= 5 ? '3' : run.length >= 2 ? String(run.length) : '';
+      // 单张也走画廊样式（cells="1"）：全宽、隐藏说明/缩放控件，与多张一致
+      const size = run.length >= 5 ? '3' : String(run.length);
       for (const el of run) {
         if (size) {
           el.dataset.galleryCells = size;
@@ -422,8 +423,22 @@ export const MarkdownEditor = forwardRef(function MarkdownEditor(
         openViewer(target);
       }
     };
+    // 双击图片会先触发两次 mousedown，第二次的默认行为是选中图片。拦掉它，
+    // 让双击只负责打开查看器，不在正文里留下一块蓝色选中。
+    const onImageMouseDown = (event: MouseEvent) => {
+      const target = event.target;
+      if (
+        event.detail >= 2 &&
+        target instanceof HTMLImageElement &&
+        target.closest('.milkdown-image-block, .milkdown-image-inline')
+      ) {
+        event.preventDefault();
+      }
+    };
+    root.addEventListener('mousedown', onImageMouseDown, true);
     root.addEventListener('dblclick', onOpen);
     return () => {
+      root.removeEventListener('mousedown', onImageMouseDown, true);
       root.removeEventListener('dblclick', onOpen);
     };
   }, []);
@@ -529,7 +544,7 @@ export const MarkdownEditor = forwardRef(function MarkdownEditor(
     setNotice('');
     try {
       for (const path of paths) {
-        const id = await importImagePath(path, owner, !useAppStore.getState().isMobile());
+        const id = await importImagePath(path, owner, convertImagesOnImport());
         sessionRef.current.add(id);
         insertSnippet('upload', id);
       }
@@ -550,7 +565,7 @@ export const MarkdownEditor = forwardRef(function MarkdownEditor(
     setNotice('');
     try {
       for (const file of files) {
-        const id = await importImageFile(file, owner, !useAppStore.getState().isMobile());
+        const id = await importImageFile(file, owner, convertImagesOnImport());
         sessionRef.current.add(id);
         insertSnippet('upload', id);
       }
@@ -588,7 +603,7 @@ export const MarkdownEditor = forwardRef(function MarkdownEditor(
     if (!owner) {
       throw new Error(t('errors:media.saveBeforeInsert'));
     }
-    const id = await importImageFile(file, owner, !useAppStore.getState().isMobile());
+    const id = await importImageFile(file, owner, convertImagesOnImport());
     sessionRef.current.add(id);
     return `upload:${id}`;
   }
@@ -621,7 +636,7 @@ export const MarkdownEditor = forwardRef(function MarkdownEditor(
     setBusy(true);
     setNotice('');
     try {
-      const id = await importImagePath(paths[0] ?? '', owner, !useAppStore.getState().isMobile());
+      const id = await importImagePath(paths[0] ?? '', owner, convertImagesOnImport());
       sessionRef.current.add(id);
       const oldId = uploadIdFromUrl(owner, src);
       const target = oldId ? `upload:${oldId}` : src;

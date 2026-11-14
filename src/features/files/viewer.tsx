@@ -11,12 +11,14 @@ import {
   XIcon
 } from '@phosphor-icons/react';
 import clsx from 'clsx';
-import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import type { UploadCatalog } from '@/bridge/upload';
 import { IconButton } from '@/components/button/icon';
 import { Stage } from '@/components/stage';
+import { createWheelPager } from '@/components/stage/wheel-paging';
+import { useBackLayer } from '@/layout/mobile/back';
 import { UnlockForm, useMediaAccess } from './access';
 import { bufferedEnd, clock, cueTime, readPreviewTime, writePreviewTime } from './preview';
 import { Scrub } from './scrub';
@@ -56,6 +58,8 @@ export function MediaViewer({ file, catalog, files, autoPlay, onSelect, onClose 
   const [shown, setShown] = useState(false);
   const [volume, setVolume] = useState(1);
   const [muted, setMuted] = useState(false);
+  // 全屏预览是一层返回：标题栏/系统返回先关预览，再退路由
+  useBackLayer(true, onClose);
 
   useEffect(() => {
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -219,6 +223,23 @@ function ViewerFrame({
     zoomFit
   });
   act.current = { close: onClose, kind: file.kind, ready, toggle, seek, step, zoomBy, zoomActual, zoomFit };
+  const pager = useMemo(() => createWheelPager((direction) => act.current.step(direction)), []);
+
+  /** 适应窗口模式下，上下滚轮翻上一张/下一张。放大后滚轮交给舞台平移。 */
+  useEffect(() => {
+    const node = stageRef.current;
+    if (!node || !ready || file.kind !== 'image') {
+      return;
+    }
+    function onWheel(event: WheelEvent) {
+      if (mode !== 'fit') {
+        return;
+      }
+      pager(event);
+    }
+    node.addEventListener('wheel', onWheel, { passive: true });
+    return () => node.removeEventListener('wheel', onWheel);
+  }, [file.kind, mode, pager, ready]);
 
   useLayoutEffect(() => {
     const node = stageRef.current;
