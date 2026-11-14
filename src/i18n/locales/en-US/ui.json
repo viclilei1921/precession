@@ -67,6 +67,18 @@
     "open": "Open",
     "videoUnavailable": "Playback is unavailable right now",
     "videoCannotOpen": "This video cannot be opened",
-    "videoMissing": "Video not found"
+    "videoMissing": "Video not found",
+    "videoExpand": "Play larger",
+    "mermaidError": "Cannot render this diagram, showing source",
+    "viewerImage": "Image",
+    "viewerVideo": "Video",
+    "viewerZoomOut": "Zoom out",
+    "viewerZoomIn": "Zoom in",
+    "viewerFit": "Fit",
+    "viewerClose": "Close",
+    "viewerPrev": "Previous",
+    "viewerNext": "Next",
+    "imageReplace": "Replace image",
+    "imageDelete": "Delete image"
   }
 }

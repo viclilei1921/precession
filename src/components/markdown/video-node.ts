@@ -120,6 +120,12 @@ function passwordRequiredText(): string {
   return i18n.t('errors:auth.passwordRequired');
 }
 
+const expandIcon = `
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M15 3h6v6" /><path d="M9 21H3v-6" />
+    <path d="M21 3l-7 7" /><path d="M3 21l7-7" />
+  </svg>`;
+
 function mountPlayer(dom: HTMLElement, id: string) {
   const note = document.createElement('p');
   note.className = 'growth-video-note';
@@ -130,6 +136,11 @@ function mountPlayer(dom: HTMLElement, id: string) {
   video.playsInline = true;
   video.preload = 'metadata';
   video.hidden = true;
+  const expand = document.createElement('button');
+  expand.type = 'button';
+  expand.className = 'growth-video-expand';
+  expand.hidden = true;
+  expand.innerHTML = expandIcon;
   const form = document.createElement('form');
   form.className = 'growth-video-form';
   form.hidden = true;
@@ -145,10 +156,21 @@ function mountPlayer(dom: HTMLElement, id: string) {
   form.append(label, input, button, fail);
   dom.append(note, video, form);
 
+  function expandVideo() {
+    const src = video.currentSrc || video.src;
+    if (!src) {
+      return;
+    }
+    video.pause();
+    window.dispatchEvent(new CustomEvent('precession:media-expand', { detail: { src } }));
+  }
+  expand.addEventListener('click', expandVideo);
+
   function applyLabels() {
     label.textContent = i18n.t('ui:markdown.videoPasswordPrompt');
     input.setAttribute('aria-label', i18n.t('ui:markdown.password'));
     button.textContent = i18n.t('ui:markdown.open');
+    expand.setAttribute('aria-label', i18n.t('ui:markdown.videoExpand'));
   }
   applyLabels();
   i18n.on('languageChanged', applyLabels);
@@ -176,6 +198,7 @@ function mountPlayer(dom: HTMLElement, id: string) {
       note.hidden = true;
       video.hidden = false;
       video.src = src;
+      expand.hidden = false;
     } catch (error) {
       if (!alive) {
         return;
@@ -209,6 +232,7 @@ function mountPlayer(dom: HTMLElement, id: string) {
   return () => {
     alive = false;
     i18n.off('languageChanged', applyLabels);
+    expand.removeEventListener('click', expandVideo);
     video.removeAttribute('src');
     video.load();
   };

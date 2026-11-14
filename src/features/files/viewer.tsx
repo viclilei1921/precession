@@ -11,13 +11,12 @@ import {
   XIcon
 } from '@phosphor-icons/react';
 import clsx from 'clsx';
-import type { PointerEvent as ReactPointerEvent } from 'react';
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import type { UploadCatalog } from '@/bridge/upload';
 import { IconButton } from '@/components/button/icon';
-import { ScrimButton } from '@/components/button/scrim';
+import { Stage } from '@/components/stage';
 import { UnlockForm, useMediaAccess } from './access';
 import { bufferedEnd, clock, cueTime, readPreviewTime, writePreviewTime } from './preview';
 import { Scrub } from './scrub';
@@ -120,15 +119,13 @@ function ViewerFrame({
   const access = useMediaAccess(file);
   const stageRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const drag = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
-  const view = useRef({ shown: 0, x: 0, y: 0 });
   const [box, setBox] = useState({ w: 0, h: 0 });
   const [natural, setNatural] = useState<{ w: number; h: number } | null>(null);
   const [videoSize, setVideoSize] = useState<{ w: number; h: number } | null>(null);
   const [mode, setMode] = useState<'fit' | 'free'>('fit');
   const [zoom, setZoom] = useState(1);
-  const [panX, setPanX] = useState(0);
-  const [panY, setPanY] = useState(0);
+  const [effective, setEffective] = useState(1);
+  const [panReset, setPanReset] = useState(0);
   const [paused, setPaused] = useState(true);
   const [armed, setArmed] = useState(autoPlay);
   const [current, setCurrent] = useState(0);
@@ -138,15 +135,7 @@ function ViewerFrame({
   const { playable, phase, message, src, pending } = access;
   const spot = neighbors(file, files);
   const name = displayName(file, catalog);
-  const fit = natural && box.w > 1 && box.h > 1 ? Math.min(box.w / natural.w, box.h / natural.h) : 0;
-  const shown = mode === 'fit' ? fit : zoom;
-  const width = natural ? natural.w * shown : 0;
-  const height = natural ? natural.h * shown : 0;
-  const x = clamp(panX, -Math.max(0, (width - box.w) / 2), Math.max(0, (width - box.w) / 2));
-  const y = clamp(panY, -Math.max(0, (height - box.h) / 2), Math.max(0, (height - box.h) / 2));
-  const canPan = width > box.w + 1 || height > box.h + 1;
   const videoFit = videoSize && box.w > 1 && box.h > 1 ? Math.min(box.w / videoSize.w, box.h / videoSize.h) : 0;
-  view.current = { shown, x, y };
   const ready = playable && phase === 'ready' && src && !playbackError;
   const silent = muted || volume === 0;
   const meta =
@@ -159,12 +148,8 @@ function ViewerFrame({
           .join(' · ');
 
   function zoomBy(factor: number) {
-    const prev = shown || fit;
-    if (!prev) {
-      return;
-    }
     setMode('free');
-    setZoom(clamp(prev * factor, 0.05, 6));
+    setZoom(clamp(effective * factor, 0.1, 8));
   }
 
   function toggleFit() {
@@ -174,8 +159,19 @@ function ViewerFrame({
       return;
     }
     setMode('fit');
-    setPanX(0);
-    setPanY(0);
+    setPanReset((value) => value + 1);
+  }
+
+  // 快捷键用：1 实际大小、0 适应窗口
+  function zoomActual() {
+    setMode('free');
+    setZoom(1);
+    setPanReset((value) => value + 1);
+  }
+
+  function zoomFit() {
+    setMode('fit');
+    setPanReset((value) => value + 1);
   }
 
   function seek(time: number) {
@@ -218,9 +214,11 @@ function ViewerFrame({
     toggle,
     seek,
     step,
-    zoomBy
+    zoomBy,
+    zoomActual,
+    zoomFit
   });
-  act.current = { close: onClose, kind: file.kind, ready, toggle, seek, step, zoomBy };
+  act.current = { close: onClose, kind: file.kind, ready, toggle, seek, step, zoomBy, zoomActual, zoomFit };
 
   useLayoutEffect(() => {
     const node = stageRef.current;
@@ -303,42 +301,8 @@ function ViewerFrame({
   }, [muted, src, volume]);
 
   useEffect(() => {
-    const node = stageRef.current;
-    if (!node || file.kind !== 'image') {
-      return;
-    }
-    const onWheel = (event: WheelEvent) => {
-      if (event.ctrlKey) {
-        return;
-      }
-      const target = event.target;
-      if (target instanceof Element && target.closest(`.${styles.dock}`)) {
-        return;
-      }
-      event.preventDefault();
-      const currentView = view.current;
-      if (!currentView.shown) {
-        return;
-      }
-      const next = clamp(currentView.shown * (event.deltaY < 0 ? 1.1 : 1 / 1.1), 0.05, 6);
-      const rect = node.getBoundingClientRect();
-      const cx = event.clientX - rect.left - rect.width / 2;
-      const cy = event.clientY - rect.top - rect.height / 2;
-      const nextX = cx - ((cx - currentView.x) * next) / currentView.shown;
-      const nextY = cy - ((cy - currentView.y) * next) / currentView.shown;
-      view.current = { shown: next, x: nextX, y: nextY };
-      setPanX(nextX);
-      setPanY(nextY);
-      setMode('free');
-      setZoom(next);
-    };
-    node.addEventListener('wheel', onWheel, { passive: false });
-    return () => node.removeEventListener('wheel', onWheel);
-  }, [file.kind]);
-
-  useEffect(() => {
     function onKey(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
+      if (event.key === 'Escape' || event.key === 'q' || event.key === 'Q') {
         event.preventDefault();
         event.stopPropagation();
         act.current.close();
@@ -392,6 +356,12 @@ function ViewerFrame({
         } else if (event.key === '-' || event.key === '_') {
           event.preventDefault();
           api.zoomBy(1 / 1.25);
+        } else if (event.key === '1') {
+          event.preventDefault();
+          api.zoomActual();
+        } else if (event.key === '0') {
+          event.preventDefault();
+          api.zoomFit();
         }
       }
     }
@@ -399,80 +369,25 @@ function ViewerFrame({
     return () => document.removeEventListener('keydown', onKey);
   }, []);
 
-  function rememberImage(node: HTMLImageElement) {
-    if (node.naturalWidth <= 0 || node.naturalHeight <= 0) {
-      return;
-    }
-    setNatural((currentSize) =>
-      currentSize?.w === node.naturalWidth && currentSize.h === node.naturalHeight
-        ? currentSize
-        : { w: node.naturalWidth, h: node.naturalHeight }
-    );
-  }
-
-  function onPanStart(event: ReactPointerEvent<HTMLImageElement>) {
-    if (!canPan || event.button !== 0) {
-      return;
-    }
-    drag.current = { x: event.clientX, y: event.clientY, panX: x, panY: y };
-    event.currentTarget.setPointerCapture(event.pointerId);
-  }
-
-  function onPanMove(event: ReactPointerEvent<HTMLImageElement>) {
-    const origin = drag.current;
-    if (!origin) {
-      return;
-    }
-    setPanX(origin.panX + event.clientX - origin.x);
-    setPanY(origin.panY + event.clientY - origin.y);
-  }
-
   return (
     <>
-      <header className={styles.head}>
-        <span className={styles.kind}>{file.kind === 'video' ? t('viewer.video') : t('viewer.image')}</span>
-        <div className={styles.name}>
-          <strong id={titleId} className={styles.title}>
-            {name}
-          </strong>
-          <span className={styles.sub}>{meta}</span>
-        </div>
-        {spot.index >= 0 ? (
-          <span className={styles.index}>
-            {spot.index + 1} / {spot.total}
-          </span>
-        ) : null}
-        <div className={styles.tools}>
-          {ready && file.kind === 'image' ? (
-            <div className={styles.zoom}>
-              <IconButton
-                className={styles.tool}
-                label={t('viewer.zoomOut')}
-                size="compact"
-                onClick={() => zoomBy(1 / 1.25)}
-              >
-                <MinusIcon weight="regular" />
-              </IconButton>
-              <button type="button" className={styles.zoomLabel} title={t('viewer.fitToggle')} onClick={toggleFit}>
-                {mode === 'fit' ? t('viewer.fit') : `${Math.round(shown * 100)}%`}
-              </button>
-              <IconButton
-                className={styles.tool}
-                label={t('viewer.zoomIn')}
-                size="compact"
-                onClick={() => zoomBy(1.25)}
-              >
-                <PlusIcon weight="regular" />
-              </IconButton>
-            </div>
-          ) : null}
-          <IconButton className={styles.tool} label={t('viewer.close')} onClick={onClose}>
-            <XIcon weight="regular" />
-          </IconButton>
-        </div>
-      </header>
       <div ref={stageRef} className={styles.stage}>
-        <ScrimButton onClick={onClose} />
+        {ready && file.kind === 'image' ? (
+          <Stage
+            key={file.id}
+            src={src}
+            alt=""
+            scale={mode === 'fit' ? 'fit' : zoom}
+            panReset={panReset}
+            onScale={setEffective}
+            onUserScale={(scale) => {
+              setMode('free');
+              setZoom(scale);
+            }}
+            onNatural={(size) => setNatural({ w: size.width, h: size.height })}
+            onDoubleClick={() => toggleFit()}
+          />
+        ) : null}
         {file.ownerSealed ? (
           <span className={styles.note}>
             <LockIcon className={styles.glyph} weight="regular" />
@@ -492,45 +407,7 @@ function ViewerFrame({
           <span className={styles.note}>{t('viewer.unavailable')}</span>
         ) : null}
         {playbackError ? <span className={styles.note}>{playbackError}</span> : null}
-        {ready && file.kind === 'image' ? (
-          <img
-            className={styles.shot}
-            data-ready={shown > 0 ? 'true' : undefined}
-            data-pan={canPan ? 'true' : undefined}
-            src={src}
-            alt=""
-            aria-hidden="true"
-            draggable={false}
-            style={
-              shown > 0
-                ? {
-                    width,
-                    height,
-                    transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`
-                  }
-                : undefined
-            }
-            onLoad={(event) => rememberImage(event.currentTarget)}
-            ref={(node) => {
-              if (node?.complete) {
-                rememberImage(node);
-              }
-            }}
-            onError={() => setPlaybackError(t('viewer.imageFailed'))}
-            onDoubleClick={(event) => {
-              event.preventDefault();
-              toggleFit();
-            }}
-            onPointerDown={onPanStart}
-            onPointerMove={onPanMove}
-            onPointerUp={() => {
-              drag.current = null;
-            }}
-            onPointerCancel={() => {
-              drag.current = null;
-            }}
-          />
-        ) : null}
+
         {ready && file.kind === 'video' ? (
           // biome-ignore lint/a11y/useMediaCaption: 用户自己的视频没有字幕轨
           <video
@@ -640,6 +517,50 @@ function ViewerFrame({
             />
           </div>
         ) : null}
+
+        <div className={styles.bar}>
+          {spot.index >= 0 ? (
+            <span className={styles.index}>
+              {spot.index + 1} / {spot.total}
+            </span>
+          ) : null}
+          <p className={styles.barMeta} title={name}>
+            <span id={titleId} className={styles.barTitle}>
+              {name}
+            </span>
+            {meta ? <span className={styles.barSub}> · {meta}</span> : null}
+          </p>
+          <div className={styles.tools}>
+            {ready && file.kind === 'image' ? (
+              <div className={styles.zoom}>
+                <IconButton
+                  className={styles.tool}
+                  label={t('viewer.zoomOut')}
+                  size="compact"
+                  shape="square"
+                  onClick={() => zoomBy(1 / 1.25)}
+                >
+                  <MinusIcon weight="regular" />
+                </IconButton>
+                <button type="button" className={styles.zoomLabel} title={t('viewer.fitToggle')} onClick={toggleFit}>
+                  {mode === 'fit' ? t('viewer.fit') : `${Math.round(effective * 100)}%`}
+                </button>
+                <IconButton
+                  className={styles.tool}
+                  label={t('viewer.zoomIn')}
+                  size="compact"
+                  shape="square"
+                  onClick={() => zoomBy(1.25)}
+                >
+                  <PlusIcon weight="regular" />
+                </IconButton>
+              </div>
+            ) : null}
+            <IconButton className={styles.tool} label={t('viewer.close')} onClick={onClose}>
+              <XIcon weight="regular" />
+            </IconButton>
+          </div>
+        </div>
       </div>
     </>
   );

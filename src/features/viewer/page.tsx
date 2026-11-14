@@ -29,12 +29,12 @@ import { Button } from '@/components/button';
 import { IconButton } from '@/components/button/icon';
 import { Popover } from '@/components/popover';
 import { Scroll } from '@/components/scroll';
+import { Stage } from '@/components/stage';
 import { currentLocale } from '@/i18n';
 import { useAppStore } from '@/store/app';
 import { errorMessage } from '@/utils/error';
 import { clearViewerPath, peekViewerPath, rememberViewerPath, retargetViewerPath, subscribeViewerPath } from './open';
 import styles from './page.module.css';
-import { Stage } from './stage';
 
 const ZOOM_PRESETS = [25, 50, 100, 200, 400];
 
@@ -157,6 +157,7 @@ export function ViewerPage() {
   const [view, setView] = useState<{ path: string | null; token: number }>({ path: null, token: 0 });
   const fullRef = useRef(false);
   const leaveRef = useRef<() => void>(() => undefined);
+  const chooseZoomRef = useRef<(value: string) => void>(() => undefined);
   const filesRef = useRef(files);
   const indexRef = useRef(index);
   const pathRef = useRef(path);
@@ -290,6 +291,15 @@ export function ViewerPage() {
       } else if (event.key === 'Escape' && path) {
         event.preventDefault();
         leaveRef.current();
+      } else if (event.key === 'q' || event.key === 'Q') {
+        event.preventDefault();
+        leaveRef.current();
+      } else if (event.key === '1') {
+        event.preventDefault();
+        chooseZoomRef.current('100');
+      } else if (event.key === '0') {
+        event.preventDefault();
+        chooseZoomRef.current('fit');
       }
     };
     window.addEventListener('keydown', onKey);
@@ -363,6 +373,7 @@ export function ViewerPage() {
     setIndex(0);
   }
   leaveRef.current = leave;
+  chooseZoomRef.current = chooseZoom;
 
   function toggleFull() {
     const next = !full;
@@ -416,6 +427,7 @@ export function ViewerPage() {
               panReset={panReset}
               onUserScale={(scale) => setZoom({ kind: 'fixed', scale })}
               onNatural={setNatural}
+              onDoubleClick={() => chooseZoom(zoom.kind === 'fit' ? '100' : 'fit')}
             />
           ) : (
             <p className={styles.quiet}>

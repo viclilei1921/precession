@@ -1,6 +1,6 @@
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
-import styles from './page.module.css';
+import styles from './stage.module.css';
 
 type Point = { x: number; y: number };
 type Size = { width: number; height: number };
@@ -14,6 +14,10 @@ type StageProps = {
   panReset: number;
   onUserScale: (scale: number) => void;
   onNatural: (size: Size) => void;
+  /** 当前生效比例变化时上报（进入 fit、窗口缩放等）。可选 */
+  onScale?: (scale: number) => void;
+  /** 舞台内双击。看图/文件查看用它切换 适应/实际大小。可选 */
+  onDoubleClick?: (event: React.MouseEvent<HTMLDivElement>) => void;
 };
 
 const MIN_SCALE = 0.1;
@@ -59,7 +63,7 @@ function zoomAt(prev: number, next: number, pan: Point, view: Size, pointer: Poi
 }
 
 /** 看图区域。触控板捏合和双指缩放，滚轮和拖移只平移。 */
-export function Stage({ src, alt, scale, panReset, onUserScale, onNatural }: StageProps) {
+export function Stage({ src, alt, scale, panReset, onUserScale, onNatural, onScale, onDoubleClick }: StageProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [natural, setNatural] = useState<Size | null>(null);
   const [view, setView] = useState<Size>({ width: 0, height: 0 });
@@ -71,8 +75,10 @@ export function Stage({ src, alt, scale, panReset, onUserScale, onNatural }: Sta
   const anchor = useRef<Point | null>(null);
   const onUserScaleRef = useRef(onUserScale);
   const onNaturalRef = useRef(onNatural);
+  const onScaleRef = useRef(onScale);
   onUserScaleRef.current = onUserScale;
   onNaturalRef.current = onNatural;
+  onScaleRef.current = onScale;
 
   const fit =
     natural && view.width > 0 && view.height > 0
@@ -81,6 +87,10 @@ export function Stage({ src, alt, scale, panReset, onUserScale, onNatural }: Sta
   const effective = scale === 'fit' ? fit : scale;
   const stateRef = useRef({ pan, effective, natural, view });
   stateRef.current = { pan, effective, natural, view };
+
+  useEffect(() => {
+    onScaleRef.current?.(effective);
+  }, [effective]);
 
   useEffect(() => {
     void panReset;
@@ -295,9 +305,11 @@ export function Stage({ src, alt, scale, panReset, onUserScale, onNatural }: Sta
   }
 
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: 舞台本身承载指针/滚轮/双击交互，内部 img 不可交互
     <div
       ref={rootRef}
       className={styles.stage}
+      onDoubleClick={onDoubleClick}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerEnd}

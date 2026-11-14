@@ -47,6 +47,19 @@ export function imageExtension(path: string): string | null {
   return imageExtensions.has(ext) ? ext : null;
 }
 
+/** 删除或迁移 upload 后释放对应 blob，避免缓存里的对象 URL 一直挂着 */
+export function releaseUploadUrls(owner: MarkdownImageOwner, ids: Iterable<string>) {
+  const prefix = `${owner.owner}:${owner.ownerId}:`;
+  for (const id of ids) {
+    const key = prefix + id;
+    const blob = urls.get(key);
+    if (blob) {
+      urls.delete(key);
+      URL.revokeObjectURL(blob);
+    }
+  }
+}
+
 /** 把正文里仍引用的未挂载图片改挂到这条记录上 */
 export async function mountLooseImages(owner: OwnerKind, ownerId: string, body: string) {
   const ids = imageIds(body);
@@ -54,13 +67,23 @@ export async function mountLooseImages(owner: OwnerKind, ownerId: string, body: 
     return;
   }
   await uploadAttach(ids, owner, ownerId);
+  // 挂到记录后旧 loose 缓存不再使用，释放掉
+  releaseUploadUrls(looseImageOwner, ids);
 }
 
 /** 保存后删掉这条记录上、正文里已经不再引用的图片 */
 export async function retainBodyImages(owner: OwnerKind, ownerId: string, body: string) {
   const keep = new Set(imageIds(body));
   const rows = await uploadList(owner, ownerId);
-  await Promise.all(rows.filter((row) => row.kind === 'image' && !keep.has(row.id)).map((row) => uploadDelete(row.id)));
+  const removed = rows.filter((row) => row.kind === 'image' && !keep.has(row.id));
+  if (removed.length === 0) {
+    return;
+  }
+  await Promise.all(removed.map((row) => uploadDelete(row.id)));
+  releaseUploadUrls(
+    { owner, ownerId },
+    removed.map((row) => row.id)
+  );
 }
 
 /** 放弃编辑时删掉这次新导入的图片。记录已经不在时忽略 */
@@ -208,6 +231,16 @@ function bytesToBase64(bytes: Uint8Array) {
     binary += String.fromCharCode(...bytes.subarray(index, index + size));
   }
   return btoa(binary);
+}
+
+/** 反查 blob 地址对应的 upload 文件 id。找不到时为空 */
+export function uploadIdFromUrl(owner: MarkdownImageOwner, url: string) {
+  for (const [key, value] of urls) {
+    if (value === url && key.startsWith(`${owner.owner}:${owner.ownerId}:`)) {
+      return key.slice(`${owner.owner}:${owner.ownerId}:`.length);
+    }
+  }
+  return '';
 }
 
 function placeholder(label: string) {

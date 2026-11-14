@@ -67,6 +67,18 @@
     "open": "打开",
     "videoUnavailable": "播放暂时不可用",
     "videoCannotOpen": "这个视频打不开",
-    "videoMissing": "视频找不到"
+    "videoMissing": "视频找不到",
+    "videoExpand": "放大播放",
+    "mermaidError": "图表画不出来，先看源码",
+    "viewerImage": "图片",
+    "viewerVideo": "视频",
+    "viewerZoomOut": "缩小",
+    "viewerZoomIn": "放大",
+    "viewerFit": "适合",
+    "viewerClose": "关闭",
+    "viewerPrev": "上一张",
+    "viewerNext": "下一张",
+    "imageReplace": "替换图片",
+    "imageDelete": "删除图片"
   }
 }

@@ -23,29 +23,6 @@
   background: var(--muted);
 }
 
-.stage {
-  display: flex;
-  flex: 1;
-  align-items: center;
-  justify-content: center;
-  min-width: 0;
-  overflow: hidden;
-  touch-action: none;
-  cursor: grab;
-}
-
-.stage:active {
-  cursor: grabbing;
-}
-
-.image {
-  max-width: none;
-  max-height: none;
-  pointer-events: none;
-  user-select: none;
-  transform-origin: center center;
-}
-
 .edge {
   position: absolute;
   top: 50%;

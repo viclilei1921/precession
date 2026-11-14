@@ -405,3 +405,169 @@
 .surface :global(.milkdown .milkdown-image-block .image-wrapper .operation > .operation-item::after) {
   content: var(--markdown-image-caption);
 }
+
+/* 九宫格（微信朋友圈规则）：
+   placeImageGrid 按连续图片的总数给每个格子打 data-gallery-cells：
+   2 → 两张各半，3 → 一行三张，4 → 田字格（各半），5+ → 三列流式，末行靠左 */
+.surface :global(.milkdown .ProseMirror .milkdown-image-block[data-gallery-cells]) {
+  box-sizing: border-box;
+  display: inline-block;
+  width: calc(100% / 3);
+  padding: 1px;
+  margin: 0;
+  vertical-align: top;
+}
+
+.surface :global(.milkdown .ProseMirror .milkdown-image-block[data-gallery-cells="2"]),
+.surface :global(.milkdown .ProseMirror .milkdown-image-block[data-gallery-cells="4"]) {
+  width: calc(100% / 2);
+}
+
+.surface :global(.milkdown .ProseMirror .milkdown-image-block[data-gallery-cells] .image-wrapper) {
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+}
+
+.surface :global(.milkdown .ProseMirror .milkdown-image-block[data-gallery-cells] .image-wrapper::before) {
+  display: none;
+}
+
+.surface :global(.milkdown .ProseMirror .milkdown-image-block[data-gallery-cells] .image-wrapper img) {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.surface :global(.milkdown .ProseMirror .milkdown-image-block[data-gallery-cells].selected > .image-wrapper) {
+  outline: none;
+}
+
+.surface :global(.milkdown .ProseMirror .milkdown-image-block[data-gallery-cells] .operation),
+.surface :global(.milkdown .ProseMirror .milkdown-image-block[data-gallery-cells] .image-resize-handle),
+.surface :global(.milkdown .ProseMirror .milkdown-image-block[data-gallery-cells] .image-edit),
+.surface :global(.milkdown .ProseMirror .milkdown-image-block[data-gallery-cells] .caption-input) {
+  display: none;
+}
+
+/* 编辑态每张图片自带替换/删除按钮，需要定位参照 */
+.surface :global(.milkdown-image-block) {
+  position: relative;
+}
+
+/* 视频内嵌播放器右上角的放大按钮 */
+.surface :global(.growth-video) {
+  position: relative;
+}
+
+.surface :global(.growth-video-expand) {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  color: var(--foreground);
+  cursor: pointer;
+  background: color-mix(in oklch, var(--card) 82%, transparent);
+  border: 0;
+  border-radius: var(--radius-sm);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.surface :global(.growth-video:hover .growth-video-expand),
+.surface :global(.growth-video-expand:focus-visible) {
+  opacity: 1;
+}
+
+.surface :global(.growth-video-expand[hidden]) {
+  display: none;
+}
+
+/* 编辑态整段图片右上角的替换/删除按钮，与视频放大按钮同一套玻璃质感 */
+.surface :global(.growth-image-replace),
+.surface :global(.growth-image-delete) {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  color: var(--foreground);
+  cursor: pointer;
+  background: color-mix(in oklch, var(--card) 82%, transparent);
+  border: 0;
+  border-radius: var(--radius-sm);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.surface :global(.growth-image-delete) {
+  right: 2.3rem;
+}
+
+.surface :global(.growth-image-replace svg),
+.surface :global(.growth-image-delete svg) {
+  width: 1rem;
+  height: 1rem;
+}
+
+.surface :global(.growth-image-replace:hover),
+.surface :global(.growth-image-delete:hover) {
+  background: color-mix(in oklch, var(--card) 94%, transparent);
+}
+
+.surface :global(.milkdown-image-block:hover .growth-image-replace),
+.surface :global(.milkdown-image-block:hover .growth-image-delete),
+.surface :global(.growth-image-replace:focus-visible),
+.surface :global(.growth-image-delete:focus-visible) {
+  opacity: 1;
+}
+
+/* Mermaid 图 */
+.surface :global(.growth-mermaid) {
+  margin: 0.75rem 0;
+  text-align: center;
+}
+
+.surface :global(.growth-mermaid[data-selected="true"]) {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-md);
+}
+
+.surface :global(.growth-mermaid-stage svg) {
+  max-width: 100%;
+  height: auto;
+  padding: 0.75rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.surface :global(.growth-mermaid-note),
+.surface :global(.growth-mermaid-source) {
+  margin: 0.25rem 0;
+  font-size: var(--text-xs);
+  color: var(--muted-foreground);
+  text-align: left;
+}
+
+.surface :global(.growth-mermaid-source) {
+  padding: 0.5rem 0.75rem;
+  overflow: auto;
+  font-family: var(--font-mono);
+  white-space: pre-wrap;
+  background: var(--secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
