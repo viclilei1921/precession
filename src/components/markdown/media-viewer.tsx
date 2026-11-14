@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { IconButton } from '@/components/button/icon';
+import type { StageSlide } from '@/components/stage';
 import { Stage } from '@/components/stage';
 import overlay from '@/components/stage/overlay.module.css';
 import { useBackLayer } from '@/layout/mobile/back';
@@ -95,6 +96,17 @@ export function MediaViewer({ items, index, onClose }: MediaViewerProps) {
 
   const isImage = item.kind === 'image';
   const go = (step: number) => setCurrent((value) => (value + step + items.length) % items.length);
+
+  function slideAt(step: number): StageSlide | null {
+    if (items.length < 2) {
+      return null;
+    }
+    const found = items[(current + step + items.length) % items.length];
+    if (found?.kind !== 'image') {
+      return null;
+    }
+    return { src: found.src, alt: found.caption };
+  }
 
   function toggleFit() {
     if (mode === 'fit') {
@@ -194,12 +206,13 @@ export function MediaViewer({ items, index, onClose }: MediaViewerProps) {
               setZoom(scale);
             }}
             onNatural={(size) => setNatural({ w: size.width, h: size.height })}
+            prev={slideAt(-1)}
+            next={slideAt(1)}
+            canWheelPage={() => items.length > 1}
             onWheelPage={(direction) => {
-              if (items.length < 2) {
-                return false;
+              if (items.length > 1) {
+                go(direction);
               }
-              go(direction);
-              return true;
             }}
           />
         ) : (

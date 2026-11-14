@@ -1,10 +1,15 @@
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import styles from './stage.module.css';
-import { createWheelPull, pullThreshold } from './wheel-paging';
+import { createStripPager } from './wheel-paging';
 
 type Point = { x: number; y: number };
 type Size = { width: number; height: number };
+
+export type StageSlide = {
+  src: string;
+  alt?: string;
+};
 
 type StageProps = {
   src: string;
@@ -19,11 +24,16 @@ type StageProps = {
   onScale?: (scale: number) => void;
   /** 舞台内双击。看图/文件查看用它切换 适应/实际大小。可选 */
   onDoubleClick?: (event: React.MouseEvent<HTMLDivElement>) => void;
-  /**
-   * 缩放不超过适应窗口时，纵向滚动带动整张图，超过阈值翻页。
-   * 返回 false 表示这个方向没有上一张或下一张。
-   */
-  onWheelPage?: (direction: 1 | -1) => boolean;
+  /** 翻页条上的上一张。没有画面时该格留空，能不能翻由 canWheelPage 决定。 */
+  prev?: StageSlide | null;
+  /** 翻页条上的下一张。 */
+  next?: StageSlide | null;
+  /** 这个方向有没有上一张或下一张。不传则视为可以。 */
+  canWheelPage?: (direction: 1 | -1) => boolean;
+  /** 翻页动画把目标图送到正中之后换张。 */
+  onWheelPage?: (direction: 1 | -1) => void;
+  /** 开始拖动翻页条时调用一次，用来准备还没解码的邻图。 */
+  onPagingStart?: () => void;
 };
 
 const MIN_SCALE = 0.1;
@@ -68,7 +78,7 @@ function zoomAt(prev: number, next: number, pan: Point, view: Size, pointer: Poi
   };
 }
 
-/** 看图区域。捏合缩放；放大超过适应窗口时滚轮平移，不超过时滚轮拉动整张图翻页。 */
+/** 看图区域。捏合缩放；放大超过适应窗口时滚轮平移，不超过时滚轮拖动纵向翻页条。 */
 export function Stage({
   src,
   alt,
@@ -78,15 +88,20 @@ export function Stage({
   onNatural,
   onScale,
   onDoubleClick,
-  onWheelPage
+  prev,
+  next,
+  canWheelPage,
+  onWheelPage,
+  onPagingStart
 }: StageProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [natural, setNatural] = useState<Size | null>(null);
   const [view, setView] = useState<Size>({ width: 0, height: 0 });
   const [pan, setPan] = useState<Point>({ x: 0, y: 0 });
-  /** 不超过适应窗口时，整张图跟着滚轮走的纵向偏移。向下为正。 */
+  /** 翻页条的纵向偏移。向下为正，上一张从上方进入。 */
   const [pull, setPull] = useState(0);
-  const pullRef = useRef<ReturnType<typeof createWheelPull> | null>(null);
+  const pullRef = useRef<ReturnType<typeof createStripPager> | null>(null);
+  const stripPointer = useRef(false);
   const pointers = useRef(new Map<number, Point>());
   const drag = useRef<{ id: number; x: number; y: number; pan: Point } | null>(null);
   const pinch = useRef<{ dist: number; scale: number; mid: Point; pan: Point } | null>(null);
@@ -95,11 +110,15 @@ export function Stage({
   const onUserScaleRef = useRef(onUserScale);
   const onNaturalRef = useRef(onNatural);
   const onScaleRef = useRef(onScale);
+  const canWheelPageRef = useRef(canWheelPage);
   const onWheelPageRef = useRef(onWheelPage);
+  const onPagingStartRef = useRef(onPagingStart);
   onUserScaleRef.current = onUserScale;
   onNaturalRef.current = onNatural;
   onScaleRef.current = onScale;
+  canWheelPageRef.current = canWheelPage;
   onWheelPageRef.current = onWheelPage;
+  onPagingStartRef.current = onPagingStart;
 
   const fit =
     natural && view.width > 0 && view.height > 0
@@ -162,9 +181,16 @@ export function Stage({
       return { x: clientX - rect.left, y: clientY - rect.top };
     };
 
-    const pull = createWheelPull({
-      onChange: setPull,
-      step: (direction) => onWheelPageRef.current?.(direction) !== false
+    const pagingNow = () => {
+      const current = stateRef.current;
+      return Boolean(onWheelPageRef.current) && current.effective <= current.fit + 0.001 && current.view.height > 0;
+    };
+
+    const pull = createStripPager({
+      onOffset: setPull,
+      canStep: (direction) => canWheelPageRef.current?.(direction) !== false,
+      onCommit: (direction) => onWheelPageRef.current?.(direction),
+      onArm: () => onPagingStartRef.current?.()
     });
     pullRef.current = pull;
 
@@ -199,12 +225,11 @@ export function Stage({
       }
       event.preventDefault();
       const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? current.view.height : 1;
-      const atMostFit = current.effective <= current.fit + 0.001;
-      if (atMostFit && onWheelPageRef.current && !event.shiftKey && Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
+      if (pagingNow() && !event.shiftKey && Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
         if (current.pan.x !== 0 || current.pan.y !== 0) {
           setPan({ x: 0, y: 0 });
         }
-        pull.move(event.deltaY * unit, pullThreshold(current.view.height));
+        pull.moveWheel(event.deltaY * unit, current.view.height);
         return;
       }
       const dx = (event.shiftKey ? event.deltaY : event.deltaX) * unit;
@@ -284,12 +309,25 @@ export function Stage({
     }
   }
 
+  function pagingNow() {
+    const current = stateRef.current;
+    return Boolean(onWheelPageRef.current) && current.effective <= current.fit + 0.001 && current.view.height > 0;
+  }
+
   function onPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
-    pullRef.current?.reset();
+    const paging = pagingNow();
+    if (paging) {
+      stripPointer.current = pullRef.current?.beginPointer() ?? false;
+    } else {
+      stripPointer.current = false;
+      pullRef.current?.reset();
+    }
     pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
     if (pointers.current.size >= 2) {
       releaseCapture(event.currentTarget);
       drag.current = null;
+      stripPointer.current = false;
+      pullRef.current?.reset();
       pinch.current = beginPinch();
       return;
     }
@@ -327,6 +365,15 @@ export function Stage({
     if (!dragging || dragging.id !== event.pointerId) {
       return;
     }
+    if (pagingNow()) {
+      if (stripPointer.current && pointers.current.size === 1) {
+        const dy = event.clientY - dragging.y;
+        dragging.y = event.clientY;
+        dragging.x = event.clientX;
+        pullRef.current?.movePointer(dy, stateRef.current.view.height);
+      }
+      return;
+    }
     const image = {
       width: current.natural.width * current.effective,
       height: current.natural.height * current.effective
@@ -346,7 +393,12 @@ export function Stage({
       pinch.current = null;
     }
     if (drag.current?.id === event.pointerId) {
+      const pagingDrag = stripPointer.current && pointers.current.size === 0;
       drag.current = null;
+      stripPointer.current = false;
+      if (pagingDrag) {
+        pullRef.current?.release(stateRef.current.view.height);
+      }
     }
     if (pointers.current.size === 1) {
       const entry = [...pointers.current.entries()][0];
@@ -355,6 +407,21 @@ export function Stage({
       }
     }
   }
+
+  const paging = Boolean(onWheelPage) && natural != null && effective <= fit + 0.001 && view.height > 0;
+  const picture = (
+    <Picture
+      src={src}
+      alt={alt}
+      natural={natural}
+      pan={pan}
+      effective={effective}
+      onLoad={(size) => {
+        setNatural(size);
+        onNaturalRef.current(size);
+      }}
+    />
+  );
 
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: 舞台本身承载指针/滚轮/双击交互，内部 img 不可交互
@@ -373,28 +440,59 @@ export function Stage({
       onPointerUp={onPointerEnd}
       onPointerCancel={onPointerEnd}
     >
-      <img
-        className={styles.image}
-        src={src}
-        alt={alt}
-        draggable={false}
-        style={
-          natural
-            ? {
-                width: natural.width,
-                height: natural.height,
-                transform: `translate(${pan.x}px, ${pan.y + pull}px) scale(${effective})`
-              }
-            : { visibility: 'hidden' }
-        }
-        onLoad={(event) => {
-          const size = { width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight };
-          if (size.width > 0 && size.height > 0) {
-            setNatural(size);
-            onNaturalRef.current(size);
-          }
-        }}
-      />
+      {onWheelPage ? (
+        <div className={styles.strip} style={pull !== 0 ? { transform: `translateY(${pull}px)` } : undefined}>
+          <div className={styles.cell} data-slot="prev">
+            {paging && prev?.src ? <img className={styles.neighbor} src={prev.src} alt="" draggable={false} /> : null}
+          </div>
+          <div className={styles.cell}>{picture}</div>
+          <div className={styles.cell} data-slot="next">
+            {paging && next?.src ? <img className={styles.neighbor} src={next.src} alt="" draggable={false} /> : null}
+          </div>
+        </div>
+      ) : (
+        picture
+      )}
     </div>
+  );
+}
+
+function Picture({
+  src,
+  alt,
+  natural,
+  pan,
+  effective,
+  onLoad
+}: {
+  src: string;
+  alt: string;
+  natural: Size | null;
+  pan: Point;
+  effective: number;
+  onLoad: (size: Size) => void;
+}) {
+  return (
+    <img
+      className={styles.image}
+      src={src}
+      alt={alt}
+      draggable={false}
+      style={
+        natural
+          ? {
+              width: natural.width,
+              height: natural.height,
+              transform: `translate(${pan.x}px, ${pan.y}px) scale(${effective})`
+            }
+          : { visibility: 'hidden' }
+      }
+      onLoad={(event) => {
+        const size = { width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight };
+        if (size.width > 0 && size.height > 0) {
+          onLoad(size);
+        }
+      }}
+    />
   );
 }

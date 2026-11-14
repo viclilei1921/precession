@@ -163,6 +163,7 @@ export function ViewerPage() {
   const [full, setFull] = useState(false);
   const [detailsAnchor, setDetailsAnchor] = useState<HTMLButtonElement | null>(null);
   const [registerError, setRegisterError] = useState('');
+  const [beside, setBeside] = useState<{ prev: string | null; next: string | null }>({ prev: null, next: null });
   /** 换图时递增。改名只更换记住的路径，避免画面重载 */
   const [view, setView] = useState<{ path: string | null; token: number }>({ path: null, token: 0 });
   const fullRef = useRef(false);
@@ -340,14 +341,43 @@ export function ViewerPage() {
     };
   }, [viewing]);
 
-  function wheelPage(direction: 1 | -1) {
-    const total = filesRef.current.length;
+  useEffect(() => {
+    const list = files;
+    const at = index;
+    const side = (item: (typeof files)[number] | undefined) =>
+      item && item.extension !== 'jxl' ? viewerDirectSrc(item.path) : null;
+    setBeside({ prev: side(list[at - 1]), next: side(list[at + 1]) });
+  }, [files, index]);
+
+  function armBeside() {
+    const list = filesRef.current;
+    const at = indexRef.current;
+    const load = (item: (typeof list)[number] | undefined, slot: 'prev' | 'next') => {
+      if (item?.extension !== 'jxl') {
+        return;
+      }
+      void viewerSrc(item).then((url) => {
+        if (indexRef.current !== at) {
+          return;
+        }
+        setBeside((current) => (current[slot] === url ? current : { ...current, [slot]: url }));
+      });
+    };
+    load(list[at - 1], 'prev');
+    load(list[at + 1], 'next');
+  }
+
+  function canWheelPage(direction: 1 | -1) {
     const next = indexRef.current + direction;
-    if (next < 0 || next >= total) {
-      return false;
+    const total = filesRef.current.length;
+    return next >= 0 && next < total;
+  }
+
+  function wheelPage(direction: 1 | -1) {
+    if (!canWheelPage(direction)) {
+      return;
     }
-    setIndex(next);
-    return true;
+    setIndex(indexRef.current + direction);
   }
 
   async function openFile() {
@@ -451,7 +481,11 @@ export function ViewerPage() {
               onUserScale={(scale) => setZoom({ kind: 'fixed', scale })}
               onNatural={setNatural}
               onDoubleClick={() => chooseZoom(zoom.kind === 'fit' ? '100' : 'fit')}
+              prev={beside.prev ? { src: beside.prev } : null}
+              next={beside.next ? { src: beside.next } : null}
+              canWheelPage={canWheelPage}
               onWheelPage={wheelPage}
+              onPagingStart={armBeside}
             />
           ) : (
             <p className={styles.quiet}>

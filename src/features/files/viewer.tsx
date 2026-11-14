@@ -10,14 +10,17 @@ import {
   SpeakerSlashIcon,
   XIcon
 } from '@phosphor-icons/react';
+import { useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import type { UploadCatalog } from '@/bridge/upload';
+import { mediaSrc } from '@/bridge/upload';
 import { IconButton } from '@/components/button/icon';
 import { Stage } from '@/components/stage';
 import { useBackLayer } from '@/layout/mobile/back';
+import { mediaInfoQuery } from '@/query/files/query';
 import { UnlockForm, useMediaAccess } from './access';
 import { bufferedEnd, clock, cueTime, readPreviewTime, writePreviewTime } from './preview';
 import { Scrub } from './scrub';
@@ -136,6 +139,7 @@ function ViewerFrame({
   const [buffered, setBuffered] = useState(0);
   const [playbackError, setPlaybackError] = useState('');
   const { playable, phase, message, src, pending } = access;
+  const media = useQuery({ ...mediaInfoQuery, enabled: file.kind === 'image' });
   const spot = neighbors(file, files);
   const name = displayName(file, catalog);
   const videoFit = videoSize && box.w > 1 && box.h > 1 ? Math.min(box.w / videoSize.w, box.h / videoSize.h) : 0;
@@ -223,13 +227,23 @@ function ViewerFrame({
   });
   act.current = { close: onClose, kind: file.kind, ready, toggle, seek, step, zoomBy, zoomActual, zoomFit };
 
+  function slideOf(item: UploadCatalog | undefined) {
+    if (item?.kind !== 'image' || item.ownerSealed || !media.data) {
+      return null;
+    }
+    const address = mediaSrc(media.data, item.id);
+    return address ? { src: address } : null;
+  }
+
+  function canWheelPage(direction: 1 | -1) {
+    return Boolean(direction < 0 ? spot.prev : spot.next);
+  }
+
   function wheelPage(direction: 1 | -1) {
     const next = direction < 0 ? spot.prev : spot.next;
-    if (!next) {
-      return false;
+    if (next) {
+      onSelect(next.id);
     }
-    onSelect(next.id);
-    return true;
   }
 
   useLayoutEffect(() => {
@@ -398,6 +412,9 @@ function ViewerFrame({
             }}
             onNatural={(size) => setNatural({ w: size.width, h: size.height })}
             onDoubleClick={() => toggleFit()}
+            prev={slideOf(spot.prev)}
+            next={slideOf(spot.next)}
+            canWheelPage={canWheelPage}
             onWheelPage={wheelPage}
           />
         ) : null}
