@@ -431,6 +431,103 @@ export function ViewerPage() {
               <CaretRightIcon weight="regular" />
             </IconButton>
           </div>
+          {file ? (
+            <div className={styles.bar}>
+              <div className={styles.cluster}>
+                <IconButton
+                  size="compact"
+                  label={t('bar.list')}
+                  selected={listOpen}
+                  onClick={() => setListOpen((current) => !current)}
+                >
+                  <ListIcon weight="regular" />
+                </IconButton>
+                <p className={styles.meta}>
+                  <span>{formatName(file.extension)}</span>
+                  <span>{sizeText}</span>
+                  <span>{formatBytes(file.bytes)}</span>
+                </p>
+              </div>
+              <FileName file={file} onRenamed={onRenamed} />
+              <div className={`${styles.cluster} ${styles.clusterEnd}`}>
+                <IconButton
+                  size="compact"
+                  label={t('bar.details')}
+                  expanded={detailsAnchor != null}
+                  onClick={(event) => setDetailsAnchor((current) => (current ? null : event.currentTarget))}
+                >
+                  <InfoIcon weight="regular" />
+                </IconButton>
+                <select
+                  className={styles.zoom}
+                  aria-label={t('zoom.label')}
+                  value={zoom.kind === 'fit' ? 'fit' : String(percent)}
+                  onChange={(event) => chooseZoom(event.target.value)}
+                >
+                  <option value="fit">{t('zoom.fit')}</option>
+                  {customPercent != null ? <option value={customPercent}>{customPercent}%</option> : null}
+                  {ZOOM_PRESETS.map((preset) => (
+                    <option key={preset} value={preset}>
+                      {preset}%
+                    </option>
+                  ))}
+                </select>
+                <IconButton
+                  size="compact"
+                  label={t('bar.actual')}
+                  className={styles.actual}
+                  onClick={() => chooseZoom('100')}
+                >
+                  1:1
+                </IconButton>
+                <IconButton size="compact" label={full ? t('bar.exitFull') : t('bar.enterFull')} onClick={toggleFull}>
+                  {full ? <CornersInIcon weight="regular" /> : <CornersOutIcon weight="regular" />}
+                </IconButton>
+                <IconButton size="compact" label={t('bar.exit')} onClick={leave}>
+                  <XIcon weight="regular" />
+                </IconButton>
+                <Popover
+                  open={detailsAnchor != null}
+                  anchorEl={detailsAnchor}
+                  label={t('bar.details')}
+                  className={styles.details}
+                  anchorOrigin={{ horizontal: 'right', vertical: 'top' }}
+                  transformOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+                  gap={8}
+                  onClose={() => setDetailsAnchor(null)}
+                >
+                  <dl>
+                    <div>
+                      <dt>{t('details.path')}</dt>
+                      <dd>{file.path}</dd>
+                    </div>
+                    <div>
+                      <dt>{t('details.modified')}</dt>
+                      <dd>{formatWhen(file.modifiedMs)}</dd>
+                    </div>
+                    <div>
+                      <dt>{t('details.format')}</dt>
+                      <dd>{formatName(file.extension)}</dd>
+                    </div>
+                    <div>
+                      <dt>{t('details.dimensions')}</dt>
+                      <dd>{sizeText}</dd>
+                    </div>
+                    <div>
+                      <dt>{t('details.bytes')}</dt>
+                      <dd>{formatBytes(file.bytes)}</dd>
+                    </div>
+                  </dl>
+                  {windows ? (
+                    <Button variant="outlined" onClick={() => void register()}>
+                      {t('details.register')}
+                    </Button>
+                  ) : null}
+                  {registerError ? <p className={styles.notice}>{registerError}</p> : null}
+                </Popover>
+              </div>
+            </div>
+          ) : null}
         </div>
       ) : (
         <div className={styles.empty}>
@@ -458,93 +555,6 @@ export function ViewerPage() {
       )}
 
       {listOpen && files.length > 0 ? <Filmstrip files={files} index={index} onPick={setIndex} /> : null}
-
-      {file ? (
-        <div className={styles.bar}>
-          <div className={styles.cluster}>
-            <IconButton label={t('bar.list')} selected={listOpen} onClick={() => setListOpen((current) => !current)}>
-              <ListIcon weight="regular" />
-            </IconButton>
-            <p className={styles.meta}>
-              <span>{formatName(file.extension)}</span>
-              <span>{sizeText}</span>
-              <span>{formatBytes(file.bytes)}</span>
-            </p>
-          </div>
-          <FileName file={file} onRenamed={onRenamed} />
-          <div className={`${styles.cluster} ${styles.clusterEnd}`}>
-            <IconButton
-              label={t('bar.details')}
-              expanded={detailsAnchor != null}
-              onClick={(event) => setDetailsAnchor((current) => (current ? null : event.currentTarget))}
-            >
-              <InfoIcon weight="regular" />
-            </IconButton>
-            <select
-              className={styles.zoom}
-              aria-label={t('zoom.label')}
-              value={zoom.kind === 'fit' ? 'fit' : String(percent)}
-              onChange={(event) => chooseZoom(event.target.value)}
-            >
-              <option value="fit">{t('zoom.fit')}</option>
-              {customPercent != null ? <option value={customPercent}>{customPercent}%</option> : null}
-              {ZOOM_PRESETS.map((preset) => (
-                <option key={preset} value={preset}>
-                  {preset}%
-                </option>
-              ))}
-            </select>
-            <IconButton label={t('bar.actual')} className={styles.actual} onClick={() => chooseZoom('100')}>
-              1:1
-            </IconButton>
-            <IconButton label={full ? t('bar.exitFull') : t('bar.enterFull')} onClick={toggleFull}>
-              {full ? <CornersInIcon weight="regular" /> : <CornersOutIcon weight="regular" />}
-            </IconButton>
-            <IconButton label={t('bar.exit')} onClick={leave}>
-              <XIcon weight="regular" />
-            </IconButton>
-            <Popover
-              open={detailsAnchor != null}
-              anchorEl={detailsAnchor}
-              label={t('bar.details')}
-              className={styles.details}
-              anchorOrigin={{ horizontal: 'right', vertical: 'top' }}
-              transformOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-              gap={8}
-              onClose={() => setDetailsAnchor(null)}
-            >
-              <dl>
-                <div>
-                  <dt>{t('details.path')}</dt>
-                  <dd>{file.path}</dd>
-                </div>
-                <div>
-                  <dt>{t('details.modified')}</dt>
-                  <dd>{formatWhen(file.modifiedMs)}</dd>
-                </div>
-                <div>
-                  <dt>{t('details.format')}</dt>
-                  <dd>{formatName(file.extension)}</dd>
-                </div>
-                <div>
-                  <dt>{t('details.dimensions')}</dt>
-                  <dd>{sizeText}</dd>
-                </div>
-                <div>
-                  <dt>{t('details.bytes')}</dt>
-                  <dd>{formatBytes(file.bytes)}</dd>
-                </div>
-              </dl>
-              {windows ? (
-                <Button variant="outlined" onClick={() => void register()}>
-                  {t('details.register')}
-                </Button>
-              ) : null}
-              {registerError ? <p className={styles.notice}>{registerError}</p> : null}
-            </Popover>
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }

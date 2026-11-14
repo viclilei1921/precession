@@ -251,5 +251,17 @@
       "sizeMismatch": "The size does not match the original, so it was not scored.",
       "failed": "Quality comparison did not finish."
     }
+  },
+  "compare": {
+    "aria": "Image compare",
+    "open": "Compare",
+    "original": "Original",
+    "converted": "Converted",
+    "fit": "Fit",
+    "pixel": "1:1",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "close": "Close",
+    "divider": "Compare divider"
   }
 }

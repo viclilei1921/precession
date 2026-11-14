@@ -1,4 +1,4 @@
-import { ArrowSquareOutIcon, PencilSimpleIcon, TrashIcon } from '@phosphor-icons/react';
+import { ArrowSquareOutIcon, ArrowsLeftRightIcon, PencilSimpleIcon, TrashIcon } from '@phosphor-icons/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -14,6 +14,8 @@ import { applyTaskUpdate, refreshTasks, taskListQuery } from '@/query/task/query
 import { errorMessage } from '@/utils/error';
 import { formatRemaining, ProgressETA } from '@/utils/progress-eta';
 import { matchesQuery } from '@/utils/search';
+import type { CompareTarget } from './compare';
+import { CompareView } from './compare';
 import { QualityLine } from './quality-line';
 import styles from './queue.module.css';
 
@@ -62,6 +64,7 @@ export function ImageQueue({ tab, onTab, onEdit }: QueueProps) {
   const eta = useRef(new ProgressETA());
   const processingId = useRef<string | null>(null);
   const [clock, setClock] = useState<Clock | null>(null);
+  const [compare, setCompare] = useState<CompareTarget | null>(null);
   const images = (tasksQuery.data ?? []).filter((task) => kinds.includes(task.kind));
   const visible = images.filter((task) => matches(task, query));
   const running = visible.filter((task) => task.status === 'processing');
@@ -205,11 +208,23 @@ export function ImageQueue({ tab, onTab, onEdit }: QueueProps) {
                     ? () => onEdit(task)
                     : undefined
                 }
+                onCompare={
+                  task.status === 'completed' && task.output && sourcePath(task)
+                    ? () =>
+                        setCompare({
+                          input: sourcePath(task),
+                          output: task.output,
+                          title: task.title || kindText(task),
+                          quality: task.quality
+                        })
+                    : undefined
+                }
               />
             ))
           : null}
         {error ? <p className={styles.error}>{errorMessage(error)}</p> : null}
       </div>
+      {compare ? <CompareView target={compare} onClose={() => setCompare(null)} /> : null}
       <div className={styles.clear}>
         {tab === 'run' ? null : (
           <Button
@@ -245,9 +260,10 @@ type QueueItemProps = {
   removing: boolean;
   onOpen?: () => void;
   onEdit?: () => void;
+  onCompare?: () => void;
 };
 
-function QueueItem({ task, onRemove, removing, onOpen, onEdit }: QueueItemProps) {
+function QueueItem({ task, onRemove, removing, onOpen, onEdit, onCompare }: QueueItemProps) {
   const { t } = useTranslation('task');
   const path = shownPath(task);
   return (
@@ -271,6 +287,11 @@ function QueueItem({ task, onRemove, removing, onOpen, onEdit }: QueueItemProps)
         {onOpen ? (
           <IconButton label={t('aria.open')} size="compact" onClick={onOpen}>
             <ArrowSquareOutIcon weight="regular" />
+          </IconButton>
+        ) : null}
+        {onCompare ? (
+          <IconButton label={i18n.t('image:compare.open')} size="compact" onClick={onCompare}>
+            <ArrowsLeftRightIcon weight="regular" />
           </IconButton>
         ) : null}
         {onEdit ? (

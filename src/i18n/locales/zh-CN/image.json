@@ -251,5 +251,17 @@
       "sizeMismatch": "尺寸和原图不一致，没有打分",
       "failed": "画质比对没有完成"
     }
+  },
+  "compare": {
+    "aria": "图片对比",
+    "open": "对比",
+    "original": "原图",
+    "converted": "转码后",
+    "fit": "适应窗口",
+    "pixel": "1:1",
+    "zoomIn": "放大",
+    "zoomOut": "缩小",
+    "close": "关闭",
+    "divider": "对比分割线"
   }
 }
