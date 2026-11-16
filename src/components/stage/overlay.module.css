@@ -143,12 +143,6 @@
   background: #000;
 }
 
-.overlay[data-chrome="false"] .bar,
-.overlay[data-chrome="false"] .side {
-  pointer-events: none;
-  opacity: 0;
-}
-
 .side {
   position: absolute;
   top: 50%;
@@ -157,6 +151,12 @@
   background: color-mix(in oklch, var(--card) 82%, transparent);
   box-shadow: 0 1px 2px color-mix(in oklch, var(--foreground) 14%, transparent);
   transform: translateY(-50%);
+}
+
+.overlay[data-chrome="false"] .bar,
+.overlay[data-chrome="false"] .side {
+  pointer-events: none;
+  opacity: 0;
 }
 
 .overlay[data-mobile="true"] .side {

@@ -396,202 +396,200 @@ function ViewerFrame({
   }, []);
 
   return (
-    <>
-      <div ref={stageRef} className={styles.stage}>
-        {ready && file.kind === 'image' ? (
-          <Stage
-            key={file.id}
-            src={src}
-            alt=""
-            scale={mode === 'fit' ? 'fit' : zoom}
-            panReset={panReset}
-            onScale={setEffective}
-            onUserScale={(scale) => {
-              setMode('free');
-              setZoom(scale);
-            }}
-            onNatural={(size) => setNatural({ w: size.width, h: size.height })}
-            onDoubleClick={() => toggleFit()}
-            prev={slideOf(spot.prev)}
-            next={slideOf(spot.next)}
-            canWheelPage={canWheelPage}
-            onWheelPage={wheelPage}
+    <div ref={stageRef} className={styles.stage}>
+      {ready && file.kind === 'image' ? (
+        <Stage
+          key={file.id}
+          src={src}
+          alt=""
+          scale={mode === 'fit' ? 'fit' : zoom}
+          panReset={panReset}
+          onScale={setEffective}
+          onUserScale={(scale) => {
+            setMode('free');
+            setZoom(scale);
+          }}
+          onNatural={(size) => setNatural({ w: size.width, h: size.height })}
+          onDoubleClick={() => toggleFit()}
+          prev={slideOf(spot.prev)}
+          next={slideOf(spot.next)}
+          canWheelPage={canWheelPage}
+          onWheelPage={wheelPage}
+        />
+      ) : null}
+      {file.ownerSealed ? (
+        <span className={styles.note}>
+          <LockIcon className={styles.glyph} weight="regular" />
+          {t('viewer.sealed')}
+        </span>
+      ) : null}
+      {playable && (phase === 'check' || (phase === 'ready' && !src && pending)) ? (
+        <span className={styles.note}>{t('viewer.opening')}</span>
+      ) : null}
+      {playable && phase === 'error' ? <span className={styles.note}>{message || t('viewer.failed')}</span> : null}
+      {playable && phase === 'need' ? (
+        <div className={styles.gate}>
+          <UnlockForm access={access} />
+        </div>
+      ) : null}
+      {playable && phase === 'ready' && !src && !pending ? (
+        <span className={styles.note}>{t('viewer.unavailable')}</span>
+      ) : null}
+      {playbackError ? <span className={styles.note}>{playbackError}</span> : null}
+
+      {ready && file.kind === 'video' ? (
+        // biome-ignore lint/a11y/useMediaCaption: 用户自己的视频没有字幕轨
+        <video
+          ref={videoRef}
+          className={styles.video}
+          data-ready={videoFit > 0 ? 'true' : undefined}
+          src={src}
+          playsInline
+          preload="auto"
+          style={
+            videoFit > 0 && videoSize
+              ? {
+                  width: videoSize.w * videoFit,
+                  height: videoSize.h * videoFit,
+                  transform: 'translate(-50%, -50%)'
+                }
+              : undefined
+          }
+          onClick={toggle}
+          onPlay={() => setPaused(false)}
+          onPause={(event) => {
+            setPaused(true);
+            writePreviewTime(file.id, event.currentTarget.currentTime);
+          }}
+          onTimeUpdate={(event) => {
+            const time = event.currentTarget.currentTime;
+            writePreviewTime(file.id, time);
+            setCurrent(time);
+          }}
+          onProgress={(event) => setBuffered(bufferedEnd(event.currentTarget))}
+          onError={() => setPlaybackError(t('viewer.videoFailed'))}
+        />
+      ) : null}
+      {ready && file.kind === 'video' && paused && !armed ? (
+        <IconButton className={clsx(styles.tool, styles.play)} label={t('viewer.play')} onClick={toggle}>
+          <PlayIcon weight="fill" />
+        </IconButton>
+      ) : null}
+      {spot.prev ? (
+        <IconButton
+          className={clsx(styles.tool, styles.side, styles.prev)}
+          label={t('viewer.previous')}
+          onClick={() => step(-1)}
+        >
+          <CaretLeftIcon weight="regular" />
+        </IconButton>
+      ) : null}
+      {spot.next ? (
+        <IconButton
+          className={clsx(styles.tool, styles.side, styles.next)}
+          label={t('viewer.next')}
+          onClick={() => step(1)}
+        >
+          <CaretRightIcon weight="regular" />
+        </IconButton>
+      ) : null}
+      {ready && file.kind === 'video' ? (
+        <div className={styles.dock}>
+          <IconButton
+            className={clsx(styles.tool, styles.dockPlay)}
+            label={paused ? t('viewer.play') : t('viewer.pause')}
+            size="compact"
+            onClick={toggle}
+          >
+            {paused ? <PlayIcon className={styles.nudge} weight="fill" /> : <PauseIcon weight="fill" />}
+          </IconButton>
+          <span className={styles.clock}>{clock(current)}</span>
+          <Scrub
+            className={styles.dockScrub}
+            invert
+            current={current}
+            duration={duration}
+            buffered={buffered}
+            onSeek={seek}
           />
-        ) : null}
-        {file.ownerSealed ? (
-          <span className={styles.note}>
-            <LockIcon className={styles.glyph} weight="regular" />
-            {t('viewer.sealed')}
+          <span className={styles.clock}>{clock(duration)}</span>
+          <IconButton
+            className={styles.tool}
+            label={silent ? t('viewer.unmute') : t('viewer.mute')}
+            size="compact"
+            onClick={() => {
+              if (silent) {
+                onMuted(false);
+                if (volume === 0) {
+                  onVolume(1);
+                }
+                return;
+              }
+              onMuted(true);
+            }}
+          >
+            {silent ? <SpeakerSlashIcon weight="regular" /> : <SpeakerHighIcon weight="regular" />}
+          </IconButton>
+          <input
+            className={styles.volume}
+            type="range"
+            min={0}
+            max={1}
+            step={0.05}
+            value={silent ? 0 : volume}
+            aria-label={t('viewer.volume')}
+            onChange={(event) => {
+              const next = Number(event.target.value);
+              onVolume(next);
+              onMuted(next === 0);
+            }}
+          />
+        </div>
+      ) : null}
+
+      <div className={styles.bar}>
+        {spot.index >= 0 ? (
+          <span className={styles.index}>
+            {spot.index + 1} / {spot.total}
           </span>
         ) : null}
-        {playable && (phase === 'check' || (phase === 'ready' && !src && pending)) ? (
-          <span className={styles.note}>{t('viewer.opening')}</span>
-        ) : null}
-        {playable && phase === 'error' ? <span className={styles.note}>{message || t('viewer.failed')}</span> : null}
-        {playable && phase === 'need' ? (
-          <div className={styles.gate}>
-            <UnlockForm access={access} />
-          </div>
-        ) : null}
-        {playable && phase === 'ready' && !src && !pending ? (
-          <span className={styles.note}>{t('viewer.unavailable')}</span>
-        ) : null}
-        {playbackError ? <span className={styles.note}>{playbackError}</span> : null}
-
-        {ready && file.kind === 'video' ? (
-          // biome-ignore lint/a11y/useMediaCaption: 用户自己的视频没有字幕轨
-          <video
-            ref={videoRef}
-            className={styles.video}
-            data-ready={videoFit > 0 ? 'true' : undefined}
-            src={src}
-            playsInline
-            preload="auto"
-            style={
-              videoFit > 0 && videoSize
-                ? {
-                    width: videoSize.w * videoFit,
-                    height: videoSize.h * videoFit,
-                    transform: 'translate(-50%, -50%)'
-                  }
-                : undefined
-            }
-            onClick={toggle}
-            onPlay={() => setPaused(false)}
-            onPause={(event) => {
-              setPaused(true);
-              writePreviewTime(file.id, event.currentTarget.currentTime);
-            }}
-            onTimeUpdate={(event) => {
-              const time = event.currentTarget.currentTime;
-              writePreviewTime(file.id, time);
-              setCurrent(time);
-            }}
-            onProgress={(event) => setBuffered(bufferedEnd(event.currentTarget))}
-            onError={() => setPlaybackError(t('viewer.videoFailed'))}
-          />
-        ) : null}
-        {ready && file.kind === 'video' && paused && !armed ? (
-          <IconButton className={clsx(styles.tool, styles.play)} label={t('viewer.play')} onClick={toggle}>
-            <PlayIcon weight="fill" />
-          </IconButton>
-        ) : null}
-        {spot.prev ? (
-          <IconButton
-            className={clsx(styles.tool, styles.side, styles.prev)}
-            label={t('viewer.previous')}
-            onClick={() => step(-1)}
-          >
-            <CaretLeftIcon weight="regular" />
-          </IconButton>
-        ) : null}
-        {spot.next ? (
-          <IconButton
-            className={clsx(styles.tool, styles.side, styles.next)}
-            label={t('viewer.next')}
-            onClick={() => step(1)}
-          >
-            <CaretRightIcon weight="regular" />
-          </IconButton>
-        ) : null}
-        {ready && file.kind === 'video' ? (
-          <div className={styles.dock}>
-            <IconButton
-              className={clsx(styles.tool, styles.dockPlay)}
-              label={paused ? t('viewer.play') : t('viewer.pause')}
-              size="compact"
-              onClick={toggle}
-            >
-              {paused ? <PlayIcon className={styles.nudge} weight="fill" /> : <PauseIcon weight="fill" />}
-            </IconButton>
-            <span className={styles.clock}>{clock(current)}</span>
-            <Scrub
-              className={styles.dockScrub}
-              invert
-              current={current}
-              duration={duration}
-              buffered={buffered}
-              onSeek={seek}
-            />
-            <span className={styles.clock}>{clock(duration)}</span>
-            <IconButton
-              className={styles.tool}
-              label={silent ? t('viewer.unmute') : t('viewer.mute')}
-              size="compact"
-              onClick={() => {
-                if (silent) {
-                  onMuted(false);
-                  if (volume === 0) {
-                    onVolume(1);
-                  }
-                  return;
-                }
-                onMuted(true);
-              }}
-            >
-              {silent ? <SpeakerSlashIcon weight="regular" /> : <SpeakerHighIcon weight="regular" />}
-            </IconButton>
-            <input
-              className={styles.volume}
-              type="range"
-              min={0}
-              max={1}
-              step={0.05}
-              value={silent ? 0 : volume}
-              aria-label={t('viewer.volume')}
-              onChange={(event) => {
-                const next = Number(event.target.value);
-                onVolume(next);
-                onMuted(next === 0);
-              }}
-            />
-          </div>
-        ) : null}
-
-        <div className={styles.bar}>
-          {spot.index >= 0 ? (
-            <span className={styles.index}>
-              {spot.index + 1} / {spot.total}
-            </span>
+        <p className={styles.barMeta} title={name}>
+          <span id={titleId} className={styles.barTitle}>
+            {name}
+          </span>
+          {meta ? <span className={styles.barSub}> · {meta}</span> : null}
+        </p>
+        <div className={styles.tools}>
+          {ready && file.kind === 'image' ? (
+            <div className={styles.zoom}>
+              <IconButton
+                className={styles.tool}
+                label={t('viewer.zoomOut')}
+                size="compact"
+                shape="square"
+                onClick={() => zoomBy(1 / 1.25)}
+              >
+                <MinusIcon weight="regular" />
+              </IconButton>
+              <button type="button" className={styles.zoomLabel} title={t('viewer.fitToggle')} onClick={toggleFit}>
+                {mode === 'fit' ? t('viewer.fit') : `${Math.round(effective * 100)}%`}
+              </button>
+              <IconButton
+                className={styles.tool}
+                label={t('viewer.zoomIn')}
+                size="compact"
+                shape="square"
+                onClick={() => zoomBy(1.25)}
+              >
+                <PlusIcon weight="regular" />
+              </IconButton>
+            </div>
           ) : null}
-          <p className={styles.barMeta} title={name}>
-            <span id={titleId} className={styles.barTitle}>
-              {name}
-            </span>
-            {meta ? <span className={styles.barSub}> · {meta}</span> : null}
-          </p>
-          <div className={styles.tools}>
-            {ready && file.kind === 'image' ? (
-              <div className={styles.zoom}>
-                <IconButton
-                  className={styles.tool}
-                  label={t('viewer.zoomOut')}
-                  size="compact"
-                  shape="square"
-                  onClick={() => zoomBy(1 / 1.25)}
-                >
-                  <MinusIcon weight="regular" />
-                </IconButton>
-                <button type="button" className={styles.zoomLabel} title={t('viewer.fitToggle')} onClick={toggleFit}>
-                  {mode === 'fit' ? t('viewer.fit') : `${Math.round(effective * 100)}%`}
-                </button>
-                <IconButton
-                  className={styles.tool}
-                  label={t('viewer.zoomIn')}
-                  size="compact"
-                  shape="square"
-                  onClick={() => zoomBy(1.25)}
-                >
-                  <PlusIcon weight="regular" />
-                </IconButton>
-              </div>
-            ) : null}
-            <IconButton className={styles.tool} label={t('viewer.close')} onClick={onClose}>
-              <XIcon weight="regular" />
-            </IconButton>
-          </div>
+          <IconButton className={styles.tool} label={t('viewer.close')} onClick={onClose}>
+            <XIcon weight="regular" />
+          </IconButton>
         </div>
       </div>
-    </>
+    </div>
   );
 }

@@ -1,17 +1,30 @@
 /**
  * 缩放不超过适应窗口时的纵向翻页条。
- * 滚轮和拖动先带动上一张、当前张、下一张。滚动停下再决定：
- * 走过四分之一屏，或者甩得够快，就播完动画翻一页；否则弹回。
- * 翻页动画把目标图送到正中。这段动画和随后的惯性不再计入下一张。
+ * 手感对齐 docs/图片查看器手势实验台：
+ * - 带 `WheelEvent.momentum` 标记的惯性事件全部丢弃，画面不动；惯性到来即结算手势。
+ *   内核不支持 momentum 时退化为静默判定：120ms 没有新滚轮事件视为手势结束。
+ * - 位移跟手推进：触摸板 1:1，鼠标滚轮 100ms 平滑；超过 50% 页高后阻尼递增，
+ *   一次手势最多推到 70% 页高，推不动。
+ * - 手势结束时结算：位移达到 50% 页高翻一页（500ms 动画把邻图送到正中），
+ *   否则回弹（320ms）。翻页/回弹期间滚动全部拒绝，一段手势最多翻一页。
+ * - 已经在首尾、推不出去的方向用小阻尼橡皮筋兜住，抬手弹回。
+ * 翻页会换掉舞台。惯性尾巴留在这里，新舞台才不会接着被带着走。
  */
-const IDLE_MS = 80;
-const SETTLE_MS = 280;
-const COMMIT_RATIO = 0.25;
-const VELOCITY = 0.9;
-const RUBBER_RATIO = 0.25;
-const EDGE_RATIO = 1.4;
 
-/** 翻页会换掉舞台。惯性尾巴留在这里，新舞台才不会接着被带着走。 */
+const TRIGGER_RATIO = 0.5;
+const DAMP_RATIO = 0.5;
+const MAX_RATIO = 0.7;
+const FLIP_MS = 500;
+const SNAP_MS = 320;
+const SMOOTH_MS = 100;
+const SILENCE_MS = 120;
+const TAIL_MS = 100;
+const RUBBER_RATIO = 0.2;
+const RUBBER_GAIN = 0.3;
+
+export const PAGING_EASE = 'cubic-bezier(.32,.72,.24,1)';
+
+/** 翻页动画结束后短暂丢弃滚动输入，兜住没有 momentum 标记的惯性尾巴。 */
 const tail = {
   spent: false,
   timer: 0
@@ -22,245 +35,231 @@ function swallowTail() {
   window.clearTimeout(tail.timer);
   tail.timer = window.setTimeout(() => {
     tail.spent = false;
-  }, IDLE_MS);
+  }, TAIL_MS);
 }
 
-function releaseTail() {
-  tail.spent = false;
-  window.clearTimeout(tail.timer);
+function prefersReducedMotion() {
+  return typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
 export type StripPager = {
-  /** 滚轮。deltaY 向下为正，画面往上走，朝下一张。 */
-  moveWheel(deltaY: number, height: number): void;
-  /** 指针下移为正，画面跟着下移，朝上一张。 */
+  /**
+   * 滚轮。delta 是换算成容器位移的增量：向下为负（朝下一张），向上为正。
+   * momentum 为 true 的事件不进位移，只负责结算未完的手势。
+   */
+  moveWheel(delta: number, height: number, input: { momentum: boolean; smooth: boolean }): void;
+  /**
+   * 真实手势推进容器（指针拖动、放大时图片吃剩的残余位移）。
+   * 指针还按着时不结算，松手走 release；纯滚轮残余则走静默判定。
+   */
+  push(delta: number, height: number, smooth: boolean): void;
+  /** 指针开始带动翻页条。翻页/回弹动画中返回 false。 */
   beginPointer(): boolean;
-  movePointer(deltaY: number, height: number): void;
+  /** 手指松开，立刻结算这一次手势。 */
   release(height: number): void;
   reset(): void;
   dispose(): void;
 };
 
 export function createStripPager(options: {
-  onOffset: (offset: number) => void;
+  onOffset: (offset: number, animateMs: number) => void;
   canStep: (direction: 1 | -1) => boolean;
   onCommit: (direction: 1 | -1) => void;
   onArm?: () => void;
 }): StripPager {
+  /** 当前渲染位移：>0 展示上一张，<0 展示下一张 */
   let offset = 0;
-  let raf = 0;
-  let idle = 0;
+  /** 手势意图位移：滚动/拖动累加出的目标 */
+  let target = 0;
+  let height = 0;
   let pointers = 0;
   let disposed = false;
-  let phase: 'idle' | 'track' | 'settle' = 'idle';
-  let settlingCommit = false;
-  const samples: { t: number; offset: number }[] = [];
+  let phase: 'idle' | 'animating' = 'idle';
+  let gestureOpen = false;
+  let silence = 0;
+  let settle = 0;
 
-  const publish = (value: number) => {
-    if (value === offset) {
-      return;
-    }
+  const publish = (value: number, animateMs = 0) => {
     offset = value;
     if (!disposed) {
-      options.onOffset(value);
+      options.onOffset(value, animateMs);
     }
   };
 
-  const cancelAnimation = () => {
-    if (raf !== 0) {
-      cancelAnimationFrame(raf);
-      raf = 0;
-    }
+  const clearSilence = () => {
+    window.clearTimeout(silence);
+    silence = 0;
   };
 
-  const clearIdle = () => {
-    window.clearTimeout(idle);
-    idle = 0;
+  const clearSettle = () => {
+    window.clearTimeout(settle);
+    settle = 0;
   };
 
-  const noteSample = () => {
-    const now = performance.now();
-    samples.push({ t: now, offset });
-    const cutoff = now - IDLE_MS;
-    while (samples.length > 1 && samples[0].t < cutoff) {
-      samples.shift();
-    }
+  const armSilence = () => {
+    clearSilence();
+    silence = window.setTimeout(() => {
+      silence = 0;
+      endGesture();
+    }, SILENCE_MS);
   };
 
-  const readVelocity = () => {
-    if (samples.length < 2) {
-      return 0;
-    }
-    const first = samples[0];
-    const last = samples[samples.length - 1];
-    const dt = last.t - first.t;
-    if (dt < 8) {
-      return 0;
-    }
-    return (last.offset - first.offset) / dt;
-  };
-
-  const arm = () => {
-    if (phase === 'idle') {
-      phase = 'track';
-      samples.length = 0;
-      options.onArm?.();
-    }
-  };
-
-  const push = (delta: number, height: number) => {
-    const proposed = offset + delta;
-    const toward: 1 | -1 = proposed < 0 ? 1 : -1;
-    const crossingBack = offset !== 0 && Math.sign(proposed) !== Math.sign(offset);
-    if (proposed === 0 || crossingBack || Math.abs(proposed) < Math.abs(offset)) {
-      return proposed;
-    }
-    if (!options.canStep(toward)) {
-      const cap = height * RUBBER_RATIO;
-      const next = offset + delta * 0.35;
-      return Math.max(-cap, Math.min(cap, next));
-    }
-    const magnitude = Math.abs(proposed);
-    if (magnitude <= height) {
-      return proposed;
-    }
-    const limited = height + (magnitude - height) * 0.28;
-    return Math.sign(proposed) * Math.min(height * EDGE_RATIO, limited);
-  };
-
-  const animateTo = (target: number, commit: 1 | -1 | 0) => {
-    clearIdle();
-    cancelAnimation();
-    phase = 'settle';
-    settlingCommit = commit !== 0;
-    if (settlingCommit) {
-      swallowTail();
-    }
-    const start = offset;
-    const reduce =
-      typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const finish = () => {
-      raf = 0;
-      phase = 'idle';
-      settlingCommit = false;
-      if (commit !== 0 && !disposed) {
-        publish(0);
-        options.onCommit(commit);
-        return;
-      }
+  function snapBack() {
+    clearSilence();
+    clearSettle();
+    if (Math.abs(offset) < 1 && Math.abs(target) < 1) {
+      target = 0;
       publish(0);
-    };
-    if (reduce || start === target) {
-      publish(target);
-      finish();
       return;
     }
-    const began = performance.now();
-    const tick = (now: number) => {
+    const ms = prefersReducedMotion() ? 0 : SNAP_MS;
+    target = 0;
+    phase = 'animating';
+    settle = window.setTimeout(() => {
+      settle = 0;
+      phase = 'idle';
+      publish(0, 0);
+    }, ms);
+    publish(0, ms);
+  }
+
+  function goAnimated(direction: 1 | -1) {
+    clearSilence();
+    clearSettle();
+    if (!options.canStep(direction)) {
+      snapBack();
+      return;
+    }
+    const ms = prefersReducedMotion() ? 0 : FLIP_MS;
+    phase = 'animating';
+    swallowTail();
+    settle = window.setTimeout(() => {
+      settle = 0;
+      phase = 'idle';
+      target = 0;
+      publish(0, 0);
+      swallowTail();
+      if (!disposed) {
+        options.onCommit(direction);
+      }
+    }, ms);
+    target = direction > 0 ? -height : height;
+    publish(target, ms);
+  }
+
+  /** 手势结束：按意图位移结算，一段手势最多翻一页。 */
+  function endGesture() {
+    clearSilence();
+    gestureOpen = false;
+    if (phase === 'animating') {
+      return;
+    }
+    const abs = Math.abs(target);
+    if (height > 0 && abs >= height * TRIGGER_RATIO) {
+      goAnimated(target > 0 ? -1 : 1);
+      return;
+    }
+    if (abs > 2) {
+      snapBack();
+      return;
+    }
+    target = 0;
+    publish(0);
+  }
+
+  function advance(step: number, smooth: boolean) {
+    if (!gestureOpen) {
+      gestureOpen = true;
+      options.onArm?.();
+    }
+    const before = target;
+    const proposed = before + step;
+    const toward: 1 | -1 = proposed < 0 ? 1 : -1;
+    let next = proposed;
+    if (Math.abs(proposed) > Math.abs(before)) {
+      if (!options.canStep(toward)) {
+        // 推不出去的方向：小阻尼橡皮筋，抬手必定弹回
+        const cap = height * RUBBER_RATIO;
+        next = Math.max(-cap, Math.min(cap, before + step * RUBBER_GAIN));
+      } else {
+        // 50% 页高起阻尼递增，最多推到 70%
+        let gain = 1;
+        const start = Math.abs(before);
+        if (start >= height * DAMP_RATIO) {
+          const t = Math.min(1, (start - height * DAMP_RATIO) / (height * (MAX_RATIO - DAMP_RATIO)));
+          gain = (1 - t) ** 1.6;
+        }
+        const limit = height * MAX_RATIO;
+        next = Math.max(-limit, Math.min(limit, before + step * gain));
+      }
+    }
+    target = next;
+    publish(next, smooth ? SMOOTH_MS : 0);
+  }
+
+  return {
+    moveWheel(delta, moveHeight, input) {
       if (disposed) {
         return;
       }
-      const t = Math.min(1, (now - began) / SETTLE_MS);
-      const eased = 1 - (1 - t) ** 3;
-      publish(start + (target - start) * eased);
-      if (t < 1) {
-        raf = requestAnimationFrame(tick);
-        return;
-      }
-      finish();
-    };
-    raf = requestAnimationFrame(tick);
-  };
-
-  const decide = (height: number) => {
-    if (phase === 'settle' || height <= 0) {
-      return;
-    }
-    const velocity = readVelocity();
-    const flicked: 1 | -1 | 0 = Math.abs(velocity) >= VELOCITY ? (velocity < 0 ? 1 : -1) : 0;
-    const positional: 1 | -1 | 0 = Math.abs(offset) > height * COMMIT_RATIO ? (offset < 0 ? 1 : -1) : 0;
-    const direction = flicked !== 0 ? flicked : positional;
-    samples.length = 0;
-    if (direction !== 0 && options.canStep(direction)) {
-      animateTo(direction > 0 ? -height : height, direction);
-      return;
-    }
-    animateTo(0, 0);
-  };
-
-  const scheduleIdle = (height: number) => {
-    if (pointers > 0) {
-      return;
-    }
-    clearIdle();
-    idle = window.setTimeout(() => {
-      idle = 0;
-      decide(height);
-    }, IDLE_MS);
-  };
-
-  return {
-    moveWheel(deltaY: number, height: number) {
-      if (disposed || deltaY === 0 || height <= 0) {
-        return;
-      }
-      if (phase === 'settle') {
-        if (settlingCommit) {
-          swallowTail();
+      height = moveHeight;
+      if (input.momentum) {
+        // 惯性事件：画面不动；手指已离开，立刻结算这次手势
+        if (gestureOpen) {
+          endGesture();
         }
         return;
       }
-      if (tail.spent) {
+      if (tail.spent || phase === 'animating') {
         swallowTail();
         return;
       }
-      arm();
-      noteSample();
-      publish(push(-deltaY, height));
-      noteSample();
-      scheduleIdle(height);
-    },
-    beginPointer() {
-      if (disposed || phase === 'settle') {
-        return false;
+      if (moveHeight > 0 && delta !== 0) {
+        advance(delta, input.smooth);
       }
-      releaseTail();
-      pointers += 1;
-      clearIdle();
-      return true;
+      armSilence();
     },
-    movePointer(deltaY: number, height: number) {
-      if (disposed || pointers === 0 || phase === 'settle' || height <= 0 || deltaY === 0) {
+    push(delta, pushHeight, smooth) {
+      if (disposed || phase === 'animating' || pushHeight <= 0 || delta === 0) {
         return;
       }
-      arm();
-      clearIdle();
-      noteSample();
-      publish(push(deltaY, height));
-      noteSample();
+      height = pushHeight;
+      advance(delta, smooth);
+      if (pointers === 0) {
+        armSilence();
+      }
     },
-    release(height: number) {
+    beginPointer() {
+      if (disposed || phase === 'animating') {
+        return false;
+      }
+      clearSilence();
+      pointers += 1;
+      return true;
+    },
+    release(releaseHeight) {
       if (pointers > 0) {
         pointers -= 1;
       }
-      if (disposed || pointers > 0 || phase !== 'track') {
+      if (disposed || pointers > 0) {
         return;
       }
-      decide(height);
+      height = releaseHeight;
+      endGesture();
     },
     reset() {
-      cancelAnimation();
-      clearIdle();
+      clearSilence();
+      clearSettle();
       pointers = 0;
       phase = 'idle';
-      settlingCommit = false;
-      samples.length = 0;
+      gestureOpen = false;
+      target = 0;
       publish(0);
     },
     dispose() {
       disposed = true;
-      cancelAnimation();
-      clearIdle();
+      clearSilence();
+      clearSettle();
     }
   };
 }

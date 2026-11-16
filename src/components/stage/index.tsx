@@ -1,7 +1,7 @@
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import styles from './stage.module.css';
-import { createStripPager } from './wheel-paging';
+import { createStripPager, PAGING_EASE } from './wheel-paging';
 
 type Point = { x: number; y: number };
 type Size = { width: number; height: number };
@@ -46,6 +46,15 @@ function onMac() {
 /** 触摸板捏合在 Windows 上是 Ctrl+滚轮，在 macOS 上是 Command+滚轮 */
 function wheelZooms(event: WheelEvent) {
   return onMac() ? event.metaKey : event.ctrlKey;
+}
+
+/** 带惯性标记的滚轮事件（手指离开触摸板后的尾巴，Chromium/WebView2 新内核） */
+function wheelMomentum(event: WheelEvent) {
+  return 'momentum' in event && (event as WheelEvent & { momentum?: boolean }).momentum === true;
+}
+
+function reducedMotion() {
+  return typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
 /**
@@ -98,9 +107,11 @@ export function Stage({
   const [natural, setNatural] = useState<Size | null>(null);
   const [view, setView] = useState<Size>({ width: 0, height: 0 });
   const [pan, setPan] = useState<Point>({ x: 0, y: 0 });
-  /** 翻页条的纵向偏移。向下为正，上一张从上方进入。 */
-  const [pull, setPull] = useState(0);
+  /** 翻页条的纵向偏移。向下为正，上一张从上方进入。ms 是平滑/动画时长，0 表示直接跳到。 */
+  const [pull, setPull] = useState<{ y: number; ms: number }>({ y: 0, ms: 0 });
   const pullRef = useRef<ReturnType<typeof createStripPager> | null>(null);
+  /** 上一次真实滚轮事件的时刻，用来区分鼠标滚轮（稀疏、一格很大）和触摸板（密集、碎步） */
+  const lastWheel = useRef(0);
   const stripPointer = useRef(false);
   const pointers = useRef(new Map<number, Point>());
   const drag = useRef<{ id: number; x: number; y: number; pan: Point } | null>(null);
@@ -187,7 +198,7 @@ export function Stage({
     };
 
     const pull = createStripPager({
-      onOffset: setPull,
+      onOffset: (offset, ms) => setPull({ y: offset, ms }),
       canStep: (direction) => canWheelPageRef.current?.(direction) !== false,
       onCommit: (direction) => onWheelPageRef.current?.(direction),
       onArm: () => onPagingStartRef.current?.()
@@ -225,11 +236,23 @@ export function Stage({
       }
       event.preventDefault();
       const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? current.view.height : 1;
+      const momentum = wheelMomentum(event);
+      // 设备区分：鼠标滚轮一格 delta 很大、事件稀疏，用 100ms 平滑；触摸板 1:1 跟手
+      const now = performance.now();
+      const gap = now - lastWheel.current;
+      lastWheel.current = now;
+      const smooth =
+        !reducedMotion() && (gap > 60 || Math.abs(event.deltaY) * unit >= 80 || Math.abs(event.deltaX) * unit >= 80);
       if (pagingNow() && !event.shiftKey && Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
         if (current.pan.x !== 0 || current.pan.y !== 0) {
           setPan({ x: 0, y: 0 });
         }
-        pull.moveWheel(event.deltaY * unit, current.view.height);
+        pull.moveWheel(-event.deltaY * unit, current.view.height, { momentum, smooth });
+        return;
+      }
+      // 惯性事件不参与任何位移，包括放大后的图片平移
+      if (momentum) {
+        pull.moveWheel(0, current.view.height, { momentum: true, smooth: false });
         return;
       }
       const dx = (event.shiftKey ? event.deltaY : event.deltaX) * unit;
@@ -238,7 +261,16 @@ export function Stage({
         width: current.natural.width * current.effective,
         height: current.natural.height * current.effective
       };
-      setPan(clampPan({ x: current.pan.x - dx, y: current.pan.y - dy }, current.view, image));
+      const want = { x: current.pan.x - dx, y: current.pan.y - dy };
+      const got = clampPan(want, current.view, image);
+      setPan(got);
+      // 放大后：图片先吃位移，图片到边后纵向残余才推容器翻页
+      if (current.effective > current.fit + 0.001) {
+        const restY = want.y - got.y;
+        if (Math.abs(restY) > 0.5) {
+          pull.push(restY, current.view.height, smooth);
+        }
+      }
     };
 
     const onGestureStart = (event: Event) => {
@@ -271,12 +303,6 @@ export function Stage({
       node.removeEventListener('gesturechange', onGestureChange);
     };
   }, []);
-
-  useEffect(() => {
-    if (effective > fit + 0.001) {
-      pullRef.current?.reset();
-    }
-  }, [effective, fit]);
 
   function localPoint(clientX: number, clientY: number) {
     const rect = rootRef.current?.getBoundingClientRect();
@@ -370,7 +396,7 @@ export function Stage({
         const dy = event.clientY - dragging.y;
         dragging.y = event.clientY;
         dragging.x = event.clientX;
-        pullRef.current?.movePointer(dy, stateRef.current.view.height);
+        pullRef.current?.push(dy, stateRef.current.view.height, false);
       }
       return;
     }
@@ -378,6 +404,7 @@ export function Stage({
       width: current.natural.width * current.effective,
       height: current.natural.height * current.effective
     };
+    // 放大后拖动只平移图片，不带动翻页条
     setPan(
       clampPan(
         { x: dragging.pan.x + (event.clientX - dragging.x), y: dragging.pan.y + (event.clientY - dragging.y) },
@@ -409,6 +436,8 @@ export function Stage({
   }
 
   const paging = Boolean(onWheelPage) && natural != null && effective <= fit + 0.001 && view.height > 0;
+  /** 翻页条带动中。放大后的残余位移也能推容器，这时邻图也要亮出来。 */
+  const stripActive = paging || pull.y !== 0;
   const picture = (
     <Picture
       src={src}
@@ -441,13 +470,23 @@ export function Stage({
       onPointerCancel={onPointerEnd}
     >
       {onWheelPage ? (
-        <div className={styles.strip} style={pull !== 0 ? { transform: `translateY(${pull}px)` } : undefined}>
+        <div
+          className={styles.strip}
+          style={{
+            transform: `translateY(${pull.y}px)`,
+            transition: pull.ms > 0 ? `transform ${pull.ms}ms ${PAGING_EASE}` : 'none'
+          }}
+        >
           <div className={styles.cell} data-slot="prev">
-            {paging && prev?.src ? <img className={styles.neighbor} src={prev.src} alt="" draggable={false} /> : null}
+            {stripActive && prev?.src ? (
+              <img className={styles.neighbor} src={prev.src} alt="" draggable={false} />
+            ) : null}
           </div>
           <div className={styles.cell}>{picture}</div>
           <div className={styles.cell} data-slot="next">
-            {paging && next?.src ? <img className={styles.neighbor} src={next.src} alt="" draggable={false} /> : null}
+            {stripActive && next?.src ? (
+              <img className={styles.neighbor} src={next.src} alt="" draggable={false} />
+            ) : null}
           </div>
         </div>
       ) : (

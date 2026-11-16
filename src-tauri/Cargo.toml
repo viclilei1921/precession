@@ -1,6 +1,6 @@
 [package]
 name = "precession"
-version = "0.1.3"
+version = "0.1.4"
 description = "Precession App"
 authors = ["viclilei1921"]
 edition = "2024"
