@@ -61,6 +61,8 @@ windows = { version = "0.62", features = [
   "Win32_System_WinRT",
   "Win32_UI_Shell",
   "Win32_UI_WindowsAndMessaging",
+  "Win32_Devices_HumanInterfaceDevice",
+  "Win32_Storage_FileSystem",
   "Security_Credentials_UI",
 ] }
 # windows 0.62版本对应的只能是0.3版本

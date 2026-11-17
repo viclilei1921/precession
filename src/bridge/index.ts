@@ -13,6 +13,7 @@ export * from './place';
 export * from './plan';
 export * from './platform';
 export * from './preferences';
+export * from './ptp';
 export * from './tag';
 export * from './task';
 export * from './timeline';

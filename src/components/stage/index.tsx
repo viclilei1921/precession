@@ -1,5 +1,7 @@
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
+import { isTauri, onPtpFingers } from '@/bridge';
+import { createPanMomentum } from './pan-momentum';
 import styles from './stage.module.css';
 import { createStripPager, PAGING_EASE } from './wheel-paging';
 
@@ -110,8 +112,11 @@ export function Stage({
   /** 翻页条的纵向偏移。向下为正，上一张从上方进入。ms 是平滑/动画时长，0 表示直接跳到。 */
   const [pull, setPull] = useState<{ y: number; ms: number }>({ y: 0, ms: 0 });
   const pullRef = useRef<ReturnType<typeof createStripPager> | null>(null);
+  const panDriftRef = useRef<ReturnType<typeof createPanMomentum> | null>(null);
   /** 上一次真实滚轮事件的时刻，用来区分鼠标滚轮（稀疏、一格很大）和触摸板（密集、碎步） */
   const lastWheel = useRef(0);
+  /** 上一次 momentum 滚轮事件的 timeStamp，用来差分惯性速度 */
+  const lastWheelMomentum = useRef(0);
   const stripPointer = useRef(false);
   const pointers = useRef(new Map<number, Point>());
   const drag = useRef<{ id: number; x: number; y: number; pan: Point } | null>(null);
@@ -146,6 +151,7 @@ export function Stage({
   useEffect(() => {
     void panReset;
     setPan({ x: 0, y: 0 });
+    panDriftRef.current?.stop();
     pullRef.current?.reset();
   }, [panReset]);
 
@@ -205,6 +211,39 @@ export function Stage({
     });
     pullRef.current = pull;
 
+    // 放大后双指平移的惯性滑行：位移吃 clampPan 收边，撞边硬停
+    const panDrift = createPanMomentum((dx, dy) => {
+      const current = stateRef.current;
+      if (!current.natural || current.view.width === 0) {
+        panDrift.halt();
+        return;
+      }
+      const image = {
+        width: current.natural.width * current.effective,
+        height: current.natural.height * current.effective
+      };
+      const before = current.pan;
+      const got = clampPan({ x: before.x + dx, y: before.y + dy }, current.view, image);
+      setPan(got);
+      if (Math.abs(got.x - before.x) < Math.abs(dx) - 0.5 || Math.abs(got.y - before.y) < Math.abs(dy) - 0.5) {
+        // 撞到图片边界：惯性速度清零，残余不溢出成翻页
+        panDrift.halt();
+      }
+    });
+    panDriftRef.current = panDrift;
+
+    // 触摸板手指接触信号（Windows PTP，Rust Raw Input）：
+    // 手指在板上时翻页永不静默结算；离板立即结算。非 Tauri / 非 PTP
+    // 触摸板收不到事件，StripPager 自动落回静默计时兜底。
+    let stopFingers: (() => void) | undefined;
+    if (isTauri()) {
+      void onPtpFingers((fingers) => {
+        pull.setTouchContact(fingers > 0);
+      }).then((unlisten) => {
+        stopFingers = unlisten;
+      });
+    }
+
     const onPinchWheel = (event: WheelEvent) => {
       if (!wheelZooms(event)) {
         return;
@@ -215,6 +254,7 @@ export function Stage({
         return;
       }
       pull.reset();
+      panDrift.stop();
       const next = clamp(current.effective - wheelZoomDelta(event.deltaY), MIN_SCALE, MAX_SCALE);
       const pointer = covers(event)
         ? pointerInView(event.clientX, event.clientY)
@@ -237,6 +277,21 @@ export function Stage({
       event.preventDefault();
       const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? current.view.height : 1;
       const momentum = wheelMomentum(event);
+      if (momentum) {
+        // 手指已离开触摸板：翻页不吃惯性，立刻结算；图片平移吃惯性滑行
+        if (pagingNow()) {
+          pull.moveWheel(0, current.view.height, { momentum: true, smooth: false });
+          return;
+        }
+        const dx = event.shiftKey ? -event.deltaY * unit : -event.deltaX * unit;
+        const dy = event.shiftKey ? 0 : -event.deltaY * unit;
+        panDrift.feed(dx, dy, event.timeStamp - lastWheelMomentum.current);
+        lastWheelMomentum.current = event.timeStamp;
+        return;
+      }
+      // 真实滚轮事件掐灭惯性，1:1 跟手
+      panDrift.stop();
+      lastWheelMomentum.current = 0;
       // 设备区分：鼠标滚轮一格 delta 很大、事件稀疏，用 100ms 平滑；触摸板 1:1 跟手
       const now = performance.now();
       const gap = now - lastWheel.current;
@@ -248,11 +303,6 @@ export function Stage({
           setPan({ x: 0, y: 0 });
         }
         pull.moveWheel(-event.deltaY * unit, current.view.height, { momentum, smooth });
-        return;
-      }
-      // 惯性事件不参与任何位移，包括放大后的图片平移
-      if (momentum) {
-        pull.moveWheel(0, current.view.height, { momentum: true, smooth: false });
         return;
       }
       const dx = (event.shiftKey ? event.deltaY : event.deltaX) * unit;
@@ -276,6 +326,7 @@ export function Stage({
     const onGestureStart = (event: Event) => {
       event.preventDefault();
       pull.reset();
+      panDrift.stop();
       gestureBase.current = stateRef.current.effective;
     };
     const onGestureChange = (event: Event) => {
@@ -297,6 +348,9 @@ export function Stage({
     return () => {
       pull.dispose();
       pullRef.current = null;
+      panDrift.dispose();
+      panDriftRef.current = null;
+      stopFingers?.();
       window.removeEventListener('wheel', onPinchWheel, { capture: true });
       scope.removeEventListener('wheel', onWheel);
       node.removeEventListener('gesturestart', onGestureStart);
@@ -341,6 +395,8 @@ export function Stage({
   }
 
   function onPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    // 手一放上去，惯性滑行立刻停
+    panDriftRef.current?.stop();
     const paging = pagingNow();
     if (paging) {
       stripPointer.current = pullRef.current?.beginPointer() ?? false;

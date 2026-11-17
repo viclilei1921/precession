@@ -9,6 +9,10 @@ mod macos;
 // 始终挂上模块，文件才属于 crate。Windows 的侧车和托盘放在文件内部的 cfg 里。
 #[cfg_attr(not(target_os = "windows"), allow(dead_code))]
 mod windows;
+// Windows 精准触摸板 Raw Input 监听，只在 Windows 编译。
+#[cfg(target_os = "windows")]
+#[path = "windows-raw.rs"]
+pub(crate) mod windows_raw;
 // 空实现没有平台依赖，各目标都编进来，避免 rust-analyzer 把该文件当成未归属源文件。
 #[cfg_attr(any(desktop, target_os = "android"), allow(dead_code))]
 mod unsupported;

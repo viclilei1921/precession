@@ -3,6 +3,11 @@
  * 手感对齐 docs/图片查看器手势实验台：
  * - 带 `WheelEvent.momentum` 标记的惯性事件全部丢弃，画面不动；惯性到来即结算手势。
  *   内核不支持 momentum 时退化为静默判定：120ms 没有新滚轮事件视为手势结束。
+ * - 静默结算时长区分内核：有 momentum 标记的内核放宽到 600ms——抬手带惯性会立刻
+ *   收到 momentum 事件即时结算，慢路径只兜轻抬无惯性的情形，手指停在触摸板上
+ *   不动不会被误判成松手。不支持 momentum 的内核维持 120ms，静默即松手。
+ * - 亚像素抖动攒满 1px 才推进：手指停在触摸板上时 PTP 驱动仍会送出正负相抵的
+ *   小数 delta，直接累加会慢慢爬过翻页阈值，进位过滤后永远凑不满 1px。
  * - 位移跟手推进：触摸板 1:1，鼠标滚轮 100ms 平滑；超过 50% 页高后阻尼递增，
  *   一次手势最多推到 70% 页高，推不动。
  * - 手势结束时结算：位移达到 50% 页高翻一页（500ms 动画把邻图送到正中），
@@ -18,6 +23,8 @@ const FLIP_MS = 500;
 const SNAP_MS = 320;
 const SMOOTH_MS = 100;
 const SILENCE_MS = 120;
+/** 支持 momentum 标记的内核上的静默结算时长：慢路径只兜轻抬无惯性 */
+const SILENCE_MS_SLOW = 600;
 const TAIL_MS = 100;
 const RUBBER_RATIO = 0.2;
 const RUBBER_GAIN = 0.3;
@@ -57,6 +64,12 @@ export type StripPager = {
   beginPointer(): boolean;
   /** 手指松开，立刻结算这一次手势。 */
   release(height: number): void;
+  /**
+   * 触摸板手指接触状态（Rust 侧 Raw Input 的确定性信号）。
+   * onBoard=true：手指在板上，撤掉静默计时，永不误结算；
+   * onBoard=false：手指已离开，立即结算手势（0ms，替代静默猜测）。
+   */
+  setTouchContact(onBoard: boolean): void;
   reset(): void;
   dispose(): void;
 };
@@ -78,6 +91,12 @@ export function createStripPager(options: {
   let gestureOpen = false;
   let silence = 0;
   let settle = 0;
+  /** 是否见过 momentum 标记（新内核）。决定静默结算走 600ms 慢路径还是 120ms 快路径 */
+  let seenMomentum = false;
+  /** 亚像素抖动进位过滤：小数 delta 在这里攒，攒满 1px 才吐给推进逻辑 */
+  let subpixel = 0;
+  /** 触摸板手指在板上（Rust Raw Input 确定性信号）。true 时静默计时撤掉 */
+  let touchOnBoard = false;
 
   const publish = (value: number, animateMs = 0) => {
     offset = value;
@@ -98,10 +117,17 @@ export function createStripPager(options: {
 
   const armSilence = () => {
     clearSilence();
-    silence = window.setTimeout(() => {
-      silence = 0;
-      endGesture();
-    }, SILENCE_MS);
+    // 手指还在板上（Raw Input 信号）时不武装静默计时，等离板信号结算
+    if (touchOnBoard) {
+      return;
+    }
+    silence = window.setTimeout(
+      () => {
+        silence = 0;
+        endGesture();
+      },
+      seenMomentum ? SILENCE_MS_SLOW : SILENCE_MS
+    );
   };
 
   function snapBack() {
@@ -172,15 +198,23 @@ export function createStripPager(options: {
       gestureOpen = true;
       options.onArm?.();
     }
+    // 亚像素抖动进位：小数 delta 攒满 1px 才推进。手指停在触摸板上时
+    // 驱动送来的正负相抵抖动永远凑不满 1px，不会爬过翻页阈值。
+    const whole = Math.trunc(subpixel + step);
+    subpixel = subpixel + step - whole;
+    if (whole === 0) {
+      return;
+    }
+    const signed = whole;
     const before = target;
-    const proposed = before + step;
+    const proposed = before + signed;
     const toward: 1 | -1 = proposed < 0 ? 1 : -1;
     let next = proposed;
     if (Math.abs(proposed) > Math.abs(before)) {
       if (!options.canStep(toward)) {
         // 推不出去的方向：小阻尼橡皮筋，抬手必定弹回
         const cap = height * RUBBER_RATIO;
-        next = Math.max(-cap, Math.min(cap, before + step * RUBBER_GAIN));
+        next = Math.max(-cap, Math.min(cap, before + signed * RUBBER_GAIN));
       } else {
         // 50% 页高起阻尼递增，最多推到 70%
         let gain = 1;
@@ -190,7 +224,7 @@ export function createStripPager(options: {
           gain = (1 - t) ** 1.6;
         }
         const limit = height * MAX_RATIO;
-        next = Math.max(-limit, Math.min(limit, before + step * gain));
+        next = Math.max(-limit, Math.min(limit, before + signed * gain));
       }
     }
     target = next;
@@ -205,6 +239,8 @@ export function createStripPager(options: {
       height = moveHeight;
       if (input.momentum) {
         // 惯性事件：画面不动；手指已离开，立刻结算这次手势
+        seenMomentum = true;
+        subpixel = 0;
         if (gestureOpen) {
           endGesture();
         }
@@ -247,6 +283,21 @@ export function createStripPager(options: {
       height = releaseHeight;
       endGesture();
     },
+    setTouchContact(onBoard) {
+      if (onBoard) {
+        touchOnBoard = true;
+        clearSilence();
+        return;
+      }
+      // 手指离板：撤销暂停状态并立刻结算（没有手势时是无操作）
+      touchOnBoard = false;
+      if (disposed || phase === 'animating') {
+        return;
+      }
+      if (gestureOpen && pointers === 0) {
+        endGesture();
+      }
+    },
     reset() {
       clearSilence();
       clearSettle();
@@ -254,6 +305,8 @@ export function createStripPager(options: {
       phase = 'idle';
       gestureOpen = false;
       target = 0;
+      subpixel = 0;
+      touchOnBoard = false;
       publish(0);
     },
     dispose() {

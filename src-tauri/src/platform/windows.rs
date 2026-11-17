@@ -53,6 +53,8 @@ impl super::Platform for Windows {
     if let Err(e) = crate::tray::register_tray_menu(app) {
       tauri_plugin_log::log::error!("tray menu registration failed: {e}");
     }
+    // 触摸板手指接触监听：失败只记日志，前端走静默结算兜底
+    super::windows_raw::attach(app.handle());
   }
 
   /// 把关闭请求改成隐藏窗口
@@ -76,6 +78,10 @@ impl super::Platform for Windows {
     if let tauri::WindowEvent::CloseRequested { api, .. } = event {
       api.prevent_close();
       let _ = window.hide();
+    }
+    // 窗口真正销毁前摘掉触摸板子类过程
+    if matches!(event, tauri::WindowEvent::Destroyed) {
+      super::windows_raw::detach();
     }
   }
 
@@ -106,35 +112,33 @@ impl super::Platform for Windows {
   }
 }
 
-/// 打开 WebView2 的手势缩放，让触摸板捏合能到达页面
+/// 放行 WebView2 的捏合手势，让触摸板/触摸屏捏合能作为带 Ctrl 的滚轮事件到达页面
+///
+/// wry 在创建 WebView 时把 `IsZoomControlEnabled` 和 `IsPinchZoomEnabled` 都绑在
+/// `zoomHotkeysEnabled` 上（两个都是导航级设置，中途改动要等下次导航），所以
+/// tauri.conf.json 里必须保持 true——否则捏合在首次加载就被关死，运行时救不回来。
+/// 页面 wheel 捕获阶段 preventDefault，浏览器级缩放实际到不了页面。
+/// 这里每次页面加载幂等重申 IsPinchZoomEnabled，兜住配置缺失的情形。
 #[cfg(target_os = "windows")]
 fn allow_pinch_gesture(webview: &tauri::Webview) {
-  use std::sync::atomic::{AtomicBool, Ordering};
-
   use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Settings5;
   use windows::core::Interface;
-
-  static STARTED: AtomicBool = AtomicBool::new(false);
-  if STARTED.swap(true, Ordering::Relaxed) {
-    return;
-  }
 
   let scheduled = webview.with_webview(|inner| {
     let enabled = (|| {
       let core = unsafe { inner.controller().CoreWebView2() }?;
       let settings = unsafe { core.Settings() }?;
-      unsafe { settings.SetIsZoomControlEnabled(true) }?;
       let settings5 = settings.cast::<ICoreWebView2Settings5>()?;
+      // 捏合手势（触摸板双指 / 触摸屏双指）：放行给页面处理。
+      // 浏览器级整页缩放由页面 preventDefault 拦截，不会触发。
       unsafe { settings5.SetIsPinchZoomEnabled(true) }?;
       Ok::<(), windows::core::Error>(())
     })();
     if let Err(error) = enabled {
-      STARTED.store(false, Ordering::Relaxed);
       tauri_plugin_log::log::error!("allow pinch gesture failed: {error}");
     }
   });
   if let Err(error) = scheduled {
-    STARTED.store(false, Ordering::Relaxed);
     tauri_plugin_log::log::error!("allow pinch gesture failed: {error}");
   }
 }
